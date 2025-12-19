@@ -95,21 +95,5 @@ public static class AppDbContextSeed
             if ((await userManager.CreateAsync(admin, "Admin@123")).Succeeded)
                 await userManager.AddToRoleAsync(admin, "Admin");
         }
-
-        var customerEmail = "customer@shop.com";
-        var customer = await userManager.FindByEmailAsync(customerEmail);
-        if (customer is null)
-        {
-            customer = new ApplicationUser
-            {
-                UserName = customerEmail,
-                Email = customerEmail,
-                EmailConfirmed = true,
-                FullName = "Demo Customer",
-                IsActive = true
-            };
-            if ((await userManager.CreateAsync(customer, "Customer@123")).Succeeded)
-                await userManager.AddToRoleAsync(customer, "Customer");
-        }
     }
 }
