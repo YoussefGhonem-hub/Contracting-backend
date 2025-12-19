@@ -1,0 +1,67 @@
+using Contracting.Domain.Common;
+using Contracting.Domain.Entities;
+using Contracting.Infrustructure.Extensions;
+using Contracting.Shared.CurrentUser;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+using System.Reflection;
+
+namespace Contracting.Infrustructure.Persistence;
+
+public class ApplicationDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, Guid>
+{
+    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
+
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+        modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+
+        modelBuilder.GetOnlyNotDeletedEntities();
+    }
+
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        ApplyAuditing();
+        return await base.SaveChangesAsync(cancellationToken);
+    }
+
+    private void ApplyAuditing()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var userId = CurrentUser.Id;
+
+        foreach (var entry in ChangeTracker.Entries())
+        {
+            if (entry.Entity is not BaseAuditableEntity auditable) continue;
+
+            switch (entry.State)
+            {
+                case EntityState.Added:
+                    if (auditable.CreatedDate == default) auditable.CreatedDate = now;
+                    if (auditable.CreatedBy == Guid.Empty && userId.HasValue) auditable.CreatedBy = userId.Value;
+                    auditable.IsDeleted = false;
+                    break;
+
+                case EntityState.Modified:
+                    auditable.ModifiedDate = now;
+                    if (userId.HasValue) auditable.ModifiedBy = userId.Value;
+                    entry.Property(nameof(BaseAuditableEntity.CreatedDate)).IsModified = false;
+                    entry.Property(nameof(BaseAuditableEntity.CreatedBy)).IsModified = false;
+                    break;
+
+                case EntityState.Deleted:
+                    entry.State = EntityState.Modified;
+                    auditable.IsDeleted = true;
+                    auditable.DeletedDate = now;
+                    if (userId.HasValue) auditable.DeletedBy = userId.Value;
+                    break;
+            }
+        }
+    }
+
+
+}

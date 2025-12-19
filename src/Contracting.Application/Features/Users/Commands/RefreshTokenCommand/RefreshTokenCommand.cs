@@ -1,0 +1,52 @@
+using Contracting.Application.Common;
+using Contracting.Application.Features.Users.Commands.LoginUserCommand;
+using Contracting.Domain.Entities;
+using Contracting.Infrustructure.Identity;
+using MediatR;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
+
+namespace Contracting.Application.Features.Users.Commands.RefreshTokenCommand;
+
+public sealed record RefreshTokenCommand(string RefreshToken) : IRequest<Result<TokenPairResponse>>;
+
+public sealed class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, Result<TokenPairResponse>>
+{
+    private readonly IRefreshTokenService _refreshTokens;
+    private readonly ITokenService _tokens;
+    private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IHttpContextAccessor _http;
+
+    public RefreshTokenCommandHandler(
+        IRefreshTokenService refreshTokens,
+        ITokenService tokens,
+        UserManager<ApplicationUser> userManager,
+        IHttpContextAccessor http)
+    {
+        _refreshTokens = refreshTokens;
+        _tokens = tokens;
+        _userManager = userManager;
+        _http = http;
+    }
+
+    public async Task<Result<TokenPairResponse>> Handle(RefreshTokenCommand request, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.RefreshToken))
+            return Result<TokenPairResponse>.Failure("Refresh token is required.");
+
+        var (user, currentToken) = await _refreshTokens.GetActiveAsync(request.RefreshToken, ct);
+        if (user is null || currentToken is null)
+            return Result<TokenPairResponse>.Failure("Invalid or expired refresh token.");
+
+        var ip = _http.HttpContext?.Connection.RemoteIpAddress?.ToString();
+
+        // Atomic rotate (no duplicate insert)
+        var (newRefreshPlain, newRefreshExp) = await _refreshTokens.RotateAsync(currentToken, user, ip, ct);
+
+        var roles = await _userManager.GetRolesAsync(user);
+        var (access, accessExp) = _tokens.GenerateAccessToken(user, roles);
+
+        var pair = new TokenPairResponse(access, accessExp, newRefreshPlain, newRefreshExp);
+        return Result<TokenPairResponse>.Success(pair);
+    }
+}
