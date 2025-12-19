@@ -3,7 +3,7 @@ using Contracting.Domain.Entities;
 using Contracting.Infrustructure.Identity;
 using Contracting.Shared.CurrentUser;
 using MediatR;
-using Microsoft.AspNet.Identity;
+using Microsoft.AspNetCore.Identity;
 
 namespace Contracting.Application.Features.Users.Commands.RegisterUserCommand;
 
@@ -37,9 +37,9 @@ public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, R
         if (!result.Succeeded)
             return Result<AuthResponse>.Failure(result.Errors.Select(e => e.Description).ToArray());
 
-        await _userManager.AddToRoleAsync(user, "Customer");
+        await _userManager.AddToRoleAsync(user, "User");
 
-        var token = _tokenService.GenerateToken(user, new List<string> { "Customer" });
+        var token = _tokenService.GenerateToken(user, new List<string> { "User" });
         return Result<AuthResponse>.Success(new AuthResponse(token, DateTime.UtcNow.AddHours(1), CurrentUser.UserId, user.Email!));
     }
 }

@@ -2,11 +2,9 @@ using Contracting.Application.Common;
 using Contracting.Domain.Entities;
 using Contracting.Infrustructure.Identity;
 using Contracting.Infrustructure.Persistence;
-using Contracting.Shared.CurrentUser;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace Contracting.Application.Features.Users.Commands.LoginUserCommand;
@@ -55,11 +53,6 @@ public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, Result<
         if (!signInResult.Succeeded)
             return Result<TokenPairResponse>.Failure("Invalid credentials");
 
-        // Migrate guest data (cart + wishlist) to this user
-        var guestId = CurrentUser.GuestId;
-        await AttachGuestCartToUserAsync(user.Id, guestId, cancellationToken);
-        await AttachGuestWishlistToUserAsync(user.Id, guestId, cancellationToken);
-
         var roles = await _userManager.GetRolesAsync(user);
         var accessToken = _tokenService.GenerateToken(user, roles);
         var accessExp = DateTime.UtcNow.AddMinutes(_jwt.DurationInMinutes);
@@ -77,40 +70,5 @@ public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, Result<
         return Result<TokenPairResponse>.Success(pair);
     }
 
-    // Attach guest cart (UserId == null) to authenticated user, then clear GuestId
-    private async Task AttachGuestCartToUserAsync(Guid userId, string? guestId, CancellationToken ct)
-    {
-        if (userId == Guid.Empty || string.IsNullOrWhiteSpace(guestId)) return;
 
-        var cart = await _db.Carts
-            .FirstOrDefaultAsync(c => c.UserId == null && c.GuestId == guestId, ct);
-
-        if (cart is null) return;
-
-        cart.UserId = userId;
-        cart.GuestId = null;
-
-        await _db.SaveChangesAsync(ct);
-    }
-
-    // Attach guest wishlist entries to authenticated user, then clear GuestId
-    private async Task AttachGuestWishlistToUserAsync(Guid userId, string? guestId, CancellationToken ct)
-    {
-        if (userId == Guid.Empty || string.IsNullOrWhiteSpace(guestId)) return;
-
-        // Load guest favorites that are not yet tied to a user
-        var favorites = await _db.FavoriteProducts
-            .Where(f => f.UserId == null && f.GuestId == guestId)
-            .ToListAsync(ct);
-
-        if (favorites.Count == 0) return;
-
-        foreach (var f in favorites)
-        {
-            f.UserId = userId;
-            f.GuestId = null;
-        }
-
-        await _db.SaveChangesAsync(ct);
-    }
 }

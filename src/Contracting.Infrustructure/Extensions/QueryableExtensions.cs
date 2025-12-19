@@ -1,5 +1,5 @@
-﻿using Contracting.Infrustructure.Extensions.Helpers;
-using ECommerce.Domain.Common;
+﻿using Contracting.Domain.Common;
+using Contracting.Infrustructure.Extensions.Helpers;
 using Mapster;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;

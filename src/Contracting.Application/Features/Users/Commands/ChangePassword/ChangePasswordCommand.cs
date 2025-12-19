@@ -1,6 +1,6 @@
-using ECommerce.Application.Common;
-using ECommerce.Domain.Entities;
-using ECommerce.Shared.CurrentUser;
+using Contracting.Application.Common;
+using Contracting.Domain.Entities;
+using Contracting.Shared.CurrentUser;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
 

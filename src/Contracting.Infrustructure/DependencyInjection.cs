@@ -1,8 +1,8 @@
+using Contracting.Domain.Entities;
+using Contracting.Infrustructure.Files;
 using Contracting.Infrustructure.Identity;
 using Contracting.Infrustructure.Persistence;
-using ECommerce.Domain.Entities;
-using ECommerce.Infrastructure.Files;
-using ECommerce.Shared.Storage;
+using Contracting.Shared.Storage;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;

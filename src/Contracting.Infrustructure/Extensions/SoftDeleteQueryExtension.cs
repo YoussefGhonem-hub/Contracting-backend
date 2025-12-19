@@ -1,4 +1,4 @@
-﻿using ECommerce.Domain.Common;
+﻿using Contracting.Domain.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using System.Linq.Expressions;

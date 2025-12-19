@@ -1,3 +1,8 @@
+using Contracting.Application.Common;
+using Contracting.Application.Features.Users.Commands.LoginUserCommand;
+using Contracting.Application.Features.Users.Commands.RefreshTokenCommand;
+using Contracting.Application.Features.Users.Commands.RegisterUserCommand;
+using Contracting.Application.Features.Users.Commands.RevokeRefreshTokenCommand;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -24,9 +29,9 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
-    public async Task<ActionResult<Result<TokenPairResponse>>> Login(LoginRequest request)
+    public async Task<ActionResult<Result<TokenPairResponse>>> Login(LoginUserCommand request)
     {
-        var result = await _mediator.Send(new LoginUserCommand(request));
+        var result = await _mediator.Send(request);
         if (!result.Succeeded) return Unauthorized(result);
         return Ok(result);
     }
