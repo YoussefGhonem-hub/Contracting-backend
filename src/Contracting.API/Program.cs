@@ -45,7 +45,7 @@ builder.Services.AddAuthentication(options =>
 });
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "ECommerce API", Version = "v1" });
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Contracting API", Version = "v1" });
 
     // Security scheme (Authorization button)
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -91,7 +91,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseSwagger();
-app.UseSwaggerUI(c => { c.SwaggerEndpoint("/swagger/v1/swagger.json", "ECommerce API v1"); c.RoutePrefix = string.Empty; });
+app.UseSwaggerUI(c => { c.SwaggerEndpoint("/swagger/v1/swagger.json", "Contracting API v1"); c.RoutePrefix = string.Empty; });
 
 app.UseStaticFiles();
 
