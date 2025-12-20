@@ -168,4 +168,7 @@
   <data name="ResonseLength" xml:space="preserve">
     <value>لا يمكن أن يتجاوز السبب 512 حرفًا.</value>
   </data>
+  <data name="GlobalException" xml:space="preserve">
+    <value>حدث خطا اثناء معالجة طلبك.</value>
+  </data>
 </root>

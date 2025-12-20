@@ -18,6 +18,7 @@
         public const string RefreshTokenLength = "RefreshTokenLength";
         public const string RefreshTokenExpire = "RefreshTokenExpire";
         public const string ResonseLength = "ResonseLength";
+        public const string GlobalException = "GlobalException";
 
     }
 }

@@ -168,4 +168,7 @@
   <data name="ResonseLength" xml:space="preserve">
     <value>Reason cannot exceed 512 characters.</value>
   </data>
+  <data name="GlobalException" xml:space="preserve">
+    <value>An error occurred while processing your request.</value>
+  </data>
 </root>
