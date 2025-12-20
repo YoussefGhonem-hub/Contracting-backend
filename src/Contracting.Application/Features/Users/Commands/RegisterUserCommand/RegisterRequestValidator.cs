@@ -1,27 +1,29 @@
+using Contracting.Application.Resources;
 using FluentValidation;
+using Microsoft.Extensions.Localization;
 
 namespace Contracting.Application.Features.Users.Commands.RegisterUserCommand;
 
 public sealed class RegisterRequestValidator : AbstractValidator<RegisterRequest>
 {
-    public RegisterRequestValidator()
+    public RegisterRequestValidator(IStringLocalizer<SharedResources> localizer)
     {
         RuleFor(x => x.FullName)
-            .NotEmpty().WithMessage("Full name is required.")
-            .MaximumLength(200).WithMessage("Full name cannot exceed 200 characters.");
+            .NotEmpty().WithMessage(localizer[SharedResourcesKeys.Required])
+            .MaximumLength(200).WithMessage(localizer[SharedResourcesKeys.FullNameLength]);
 
         RuleFor(x => x.Email)
-            .NotEmpty().WithMessage("Email is required.")
-            .EmailAddress().WithMessage("Email is invalid.")
-            .MaximumLength(256).WithMessage("Email cannot exceed 256 characters.");
+            .NotEmpty().WithMessage(localizer[SharedResourcesKeys.Required])
+            .EmailAddress().WithMessage(localizer[SharedResourcesKeys.EmailInvalid])
+            .MaximumLength(256).WithMessage(localizer[SharedResourcesKeys.EmailLength]);
 
         RuleFor(x => x.PhoneNumber)
-            .NotEmpty().WithMessage("Phone number is required.")
-            .MaximumLength(32).WithMessage("Phone number cannot exceed 32 characters.");
+            .NotEmpty().WithMessage(localizer[SharedResourcesKeys.Required])
+            .MaximumLength(32).WithMessage(localizer[SharedResourcesKeys.PhoneNumberLength]);
 
         RuleFor(x => x.Password)
-            .NotEmpty().WithMessage("Password is required.")
-            .MinimumLength(6).WithMessage("Password must be at least 6 characters.")
-            .MaximumLength(128).WithMessage("Password cannot exceed 128 characters.");
+            .NotEmpty().WithMessage(localizer[SharedResourcesKeys.Required])
+            .MinimumLength(6).WithMessage(localizer[SharedResourcesKeys.PasswordRange])
+            .MaximumLength(128).WithMessage(localizer[SharedResourcesKeys.PasswordRange]);
     }
 }

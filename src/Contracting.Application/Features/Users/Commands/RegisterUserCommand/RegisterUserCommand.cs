@@ -1,30 +1,37 @@
 using Contracting.Application.Common;
+using Contracting.Application.Resources;
 using Contracting.Domain.Entities;
 using Contracting.Infrustructure.Identity;
 using Contracting.Shared.CurrentUser;
+using ErrorOr;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Localization;
 
 namespace Contracting.Application.Features.Users.Commands.RegisterUserCommand;
 
-public record RegisterUserCommand(RegisterRequest Request) : IRequest<Result<AuthResponse>>;
-public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, Result<AuthResponse>>
+public record RegisterUserCommand(RegisterRequest Request) : IRequest<ErrorOr<AuthResponse>>;
+public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, ErrorOr<AuthResponse>>
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ITokenService _tokenService;
+    private readonly IStringLocalizer<SharedResources> _localizer;
 
-    public RegisterUserCommandHandler(UserManager<ApplicationUser> userManager, ITokenService tokenService)
+
+    public RegisterUserCommandHandler(UserManager<ApplicationUser> userManager, ITokenService tokenService, IStringLocalizer<SharedResources> localizer)
     {
         _userManager = userManager;
         _tokenService = tokenService;
+        _localizer = localizer;
     }
 
-    public async Task<Result<AuthResponse>> Handle(RegisterUserCommand request, CancellationToken cancellationToken)
+    public async Task<ErrorOr<AuthResponse>> Handle(RegisterUserCommand request, CancellationToken cancellationToken)
     {
         var existingByEmail = await _userManager.FindByEmailAsync(request.Request.Email);
         if (existingByEmail is not null)
-            return Result<AuthResponse>.Failure("Email already exists");
-
+            return Error.Conflict("General.Conflict",_localizer[SharedResourcesKeys.DublicateEmail]);
+        
+        
         var user = new ApplicationUser
         {
             FullName = request.Request.FullName,
@@ -35,11 +42,13 @@ public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, R
 
         var result = await _userManager.CreateAsync(user, request.Request.Password);
         if (!result.Succeeded)
-            return Result<AuthResponse>.Failure(result.Errors.Select(e => e.Description).ToArray());
+            return Error.Validation("General.Validation", result.Errors.Select(e => e.Description).FirstOrDefault()?? _localizer[SharedResourcesKeys.InvalidCredentials]);
 
-        await _userManager.AddToRoleAsync(user, "User");
+        await _userManager.AddToRoleAsync(user, "Admin");
 
-        var token = _tokenService.GenerateToken(user, new List<string> { "User" });
-        return Result<AuthResponse>.Success(new AuthResponse(token, DateTime.UtcNow.AddHours(1), CurrentUser.UserId, user.Email!));
+        var token = _tokenService.GenerateToken(user, new List<string> { "Admin" });
+        var response = new AuthResponse(token, DateTime.UtcNow.AddHours(1), CurrentUser.UserId, user.Email!);
+
+        return response;
     }
 }

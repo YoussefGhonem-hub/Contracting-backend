@@ -1,17 +1,22 @@
+using Contracting.API.Controllers.Shared;
 using Contracting.Application.Common;
 using Contracting.Application.Features.Users.Commands.LoginUserCommand;
 using Contracting.Application.Features.Users.Commands.RefreshTokenCommand;
 using Contracting.Application.Features.Users.Commands.RegisterUserCommand;
 using Contracting.Application.Features.Users.Commands.RevokeRefreshTokenCommand;
+using ErrorOr;
+using MapsterMapper;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Identity.Client;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 
 namespace Contracting.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AuthController : ControllerBase
+public class AuthController : APIBaseController
 {
     private readonly IMediator _mediator;
 
@@ -21,19 +26,24 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
-    public async Task<ActionResult<Result<AuthResponse>>> Register(RegisterRequest request)
+    public async Task<IActionResult> Register(RegisterRequest request)
     {
         var result = await _mediator.Send(new RegisterUserCommand(request));
-        if (!result.Succeeded) return BadRequest(result);
-        return Ok(result);
+
+        return result.Match(
+            authResult => Ok(authResult),
+            errors => Problem(errors)
+        );       
     }
 
     [HttpPost("login")]
-    public async Task<ActionResult<Result<TokenPairResponse>>> Login(LoginUserCommand request)
+    public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
-        var result = await _mediator.Send(request);
-        if (!result.Succeeded) return Unauthorized(result);
-        return Ok(result);
+        var result = await _mediator.Send(new LoginUserCommand(request));
+        return result.Match(
+            value => Ok(value),
+            errors => Problem(errors)
+        );
     }
 
     // POST: api/auth/refresh
@@ -42,7 +52,10 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Refresh([FromBody] RefreshTokenCommand command)
     {
         var result = await _mediator.Send(command);
-        return result.Succeeded ? Ok(result) : BadRequest(result);
+        return result.Match(
+                    value => Ok(value),
+                    errors => Problem(errors)
+        );
     }
 
     // POST: api/auth/revoke
@@ -51,6 +64,10 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Revoke([FromBody] RevokeRefreshTokenCommand command)
     {
         var result = await _mediator.Send(command);
-        return result.Succeeded ? Ok(result) : BadRequest(result);
+
+        return result.Match(
+            value => Ok(value),
+            errors => Problem(errors)
+       );
     }
 }

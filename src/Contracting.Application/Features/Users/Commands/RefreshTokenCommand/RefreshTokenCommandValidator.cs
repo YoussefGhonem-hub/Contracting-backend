@@ -1,13 +1,15 @@
+using Contracting.Application.Resources;
 using FluentValidation;
+using Microsoft.Extensions.Localization;
 
 namespace Contracting.Application.Features.Users.Commands.RefreshTokenCommand;
 
 public sealed class RefreshTokenCommandValidator : AbstractValidator<RefreshTokenCommand>
 {
-    public RefreshTokenCommandValidator()
+    public RefreshTokenCommandValidator(IStringLocalizer<SharedResources> localizer)
     {
         RuleFor(x => x.RefreshToken)
-            .NotEmpty().WithMessage("Refresh token is required.")
-            .MaximumLength(1024).WithMessage("Refresh token length is too long.");
+            .NotEmpty().WithMessage(localizer[SharedResourcesKeys.Required])
+            .MaximumLength(1024).WithMessage(localizer[SharedResourcesKeys.RefreshTokenLength]);
     }
 }

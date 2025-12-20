@@ -1,42 +1,49 @@
 using Contracting.Application.Common;
 using Contracting.Application.Features.Users.Commands.LoginUserCommand;
+using Contracting.Application.Resources;
 using Contracting.Domain.Entities;
 using Contracting.Infrustructure.Identity;
+using ErrorOr;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Localization;
 
 namespace Contracting.Application.Features.Users.Commands.RefreshTokenCommand;
 
-public sealed record RefreshTokenCommand(string RefreshToken) : IRequest<Result<TokenPairResponse>>;
+public sealed record RefreshTokenCommand(string RefreshToken) : IRequest<ErrorOr<TokenPairResponse>>;
 
-public sealed class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, Result<TokenPairResponse>>
+public sealed class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, ErrorOr<TokenPairResponse>>
 {
     private readonly IRefreshTokenService _refreshTokens;
     private readonly ITokenService _tokens;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IHttpContextAccessor _http;
+    private readonly IStringLocalizer<SharedResources> _localizer;
+
 
     public RefreshTokenCommandHandler(
         IRefreshTokenService refreshTokens,
         ITokenService tokens,
         UserManager<ApplicationUser> userManager,
-        IHttpContextAccessor http)
+        IHttpContextAccessor http,
+        IStringLocalizer<SharedResources> localizer)
     {
         _refreshTokens = refreshTokens;
         _tokens = tokens;
         _userManager = userManager;
         _http = http;
+        _localizer = localizer;
     }
 
-    public async Task<Result<TokenPairResponse>> Handle(RefreshTokenCommand request, CancellationToken ct)
+    public async Task<ErrorOr<TokenPairResponse>> Handle(RefreshTokenCommand request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.RefreshToken))
-            return Result<TokenPairResponse>.Failure("Refresh token is required.");
+            return Error.Validation("General.Validation", $"Refresh Token {_localizer[SharedResourcesKeys.Required]}");
 
         var (user, currentToken) = await _refreshTokens.GetActiveAsync(request.RefreshToken, ct);
         if (user is null || currentToken is null)
-            return Result<TokenPairResponse>.Failure("Invalid or expired refresh token.");
+            return Error.Validation("General.Validation", _localizer[SharedResourcesKeys.RefreshTokenExpire]);
 
         var ip = _http.HttpContext?.Connection.RemoteIpAddress?.ToString();
 
@@ -47,6 +54,6 @@ public sealed class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCom
         var (access, accessExp) = _tokens.GenerateAccessToken(user, roles);
 
         var pair = new TokenPairResponse(access, accessExp, newRefreshPlain, newRefreshExp);
-        return Result<TokenPairResponse>.Success(pair);
+        return pair;
     }
 }

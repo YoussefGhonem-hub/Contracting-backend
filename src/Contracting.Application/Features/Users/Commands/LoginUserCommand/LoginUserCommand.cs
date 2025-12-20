@@ -1,17 +1,19 @@
-using Contracting.Application.Common;
+using Contracting.Application.Resources;
 using Contracting.Domain.Entities;
 using Contracting.Infrustructure.Identity;
 using Contracting.Infrustructure.Persistence;
+using ErrorOr;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Options;
 
 namespace Contracting.Application.Features.Users.Commands.LoginUserCommand;
 
-public record LoginUserCommand(LoginRequest Request) : IRequest<Result<TokenPairResponse>>;
+public record LoginUserCommand(LoginRequest Request) : IRequest<ErrorOr<TokenPairResponse>>;
 
-public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, Result<TokenPairResponse>>
+public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, ErrorOr<TokenPairResponse>>
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly SignInManager<ApplicationUser> _signInManager;
@@ -20,6 +22,8 @@ public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, Result<
     private readonly IHttpContextAccessor _http;
     private readonly JwtSettings _jwt;
     private readonly ApplicationDbContext _db;
+    private readonly IStringLocalizer<SharedResources> _localizer;
+
 
     public LoginUserCommandHandler(
         UserManager<ApplicationUser> userManager,
@@ -28,7 +32,8 @@ public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, Result<
         IRefreshTokenService refreshTokens,
         IHttpContextAccessor http,
         IOptions<JwtSettings> jwtOptions,
-        ApplicationDbContext db)
+        ApplicationDbContext db,
+        IStringLocalizer<SharedResources> localizer = null)
     {
         _userManager = userManager;
         _signInManager = signInManager;
@@ -37,9 +42,10 @@ public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, Result<
         _http = http;
         _jwt = jwtOptions.Value;
         _db = db;
+        _localizer = localizer;
     }
 
-    public async Task<Result<TokenPairResponse>> Handle(LoginUserCommand request, CancellationToken cancellationToken)
+    public async Task<ErrorOr<TokenPairResponse>> Handle(LoginUserCommand request, CancellationToken cancellationToken)
     {
         var req = request.Request;
         ApplicationUser? user = req.UserNameOrEmail.Contains("@")
@@ -47,11 +53,11 @@ public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, Result<
             : await _userManager.FindByNameAsync(req.UserNameOrEmail);
 
         if (user is null)
-            return Result<TokenPairResponse>.Failure("Invalid credentials");
+            return Error.NotFound("Auth.InvalidCredentials", _localizer[SharedResourcesKeys.InvalidCredentials]);
 
         var signInResult = await _signInManager.CheckPasswordSignInAsync(user, req.Password, false);
         if (!signInResult.Succeeded)
-            return Result<TokenPairResponse>.Failure("Invalid credentials");
+            return Error.Unauthorized("Auth.Unauthorized", _localizer[SharedResourcesKeys.InvalidCredentials]);
 
         var roles = await _userManager.GetRolesAsync(user);
         var accessToken = _tokenService.GenerateToken(user, roles);
@@ -67,8 +73,6 @@ public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, Result<
             refreshExp
         );
 
-        return Result<TokenPairResponse>.Success(pair);
+        return pair;
     }
-
-
 }

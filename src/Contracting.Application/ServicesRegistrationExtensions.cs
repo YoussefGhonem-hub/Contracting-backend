@@ -3,7 +3,10 @@ using Contracting.Application.Common.Behaviors;
 using Contracting.Application.Common.Mappings;
 using FluentValidation;
 using MediatR;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.Extensions.DependencyInjection;
+using System.Globalization;
 using System.Reflection;
 
 namespace Contracting.Application;
