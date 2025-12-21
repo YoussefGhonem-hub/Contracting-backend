@@ -1,5 +1,6 @@
 using Contracting.Domain.Common;
 using Contracting.Domain.Entities;
+using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Extensions;
 using Contracting.Shared.CurrentUser;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -13,6 +14,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
 
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<Branch> Branches => Set<Branch>();
+    public DbSet<Department> Departmentes => Set<Department>();
+
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

@@ -2,6 +2,8 @@
 using Contracting.Application.Common.Behaviors;
 using Contracting.Application.Common.Mappings;
 using FluentValidation;
+using Mapster;
+using MapsterMapper;
 using MediatR;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Localization;
@@ -18,7 +20,9 @@ public static class ServicesRegistrationExtensions
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(Assembly.GetExecutingAssembly()));
         services.AddValidatorsFromAssembly(typeof(Result<>).Assembly);
-        MappingConfig.Register();
+        MappingConfig.Register(TypeAdapterConfig.GlobalSettings);
+        services.AddSingleton(TypeAdapterConfig.GlobalSettings);
+        services.AddScoped<IMapper, ServiceMapper>();
 
         return services;
     }

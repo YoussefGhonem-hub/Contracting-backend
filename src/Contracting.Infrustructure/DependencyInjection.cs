@@ -1,6 +1,8 @@
 using Contracting.Domain.Entities;
+using Contracting.Infrustructure.Features;
 using Contracting.Infrustructure.Files;
 using Contracting.Infrustructure.Identity;
+using Contracting.Infrustructure.Inteface;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.Storage;
 using Microsoft.AspNetCore.Identity;
@@ -36,6 +38,8 @@ public static class DependencyInjection
         services.Configure<JwtSettings>(configuration.GetSection("JwtSettings"));
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IRefreshTokenService, RefreshTokenService>();
+        services.AddScoped<IBranchService, BranchService>();
+
 
         services.AddHttpContextAccessor();
 
