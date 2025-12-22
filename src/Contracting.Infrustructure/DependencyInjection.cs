@@ -40,6 +40,7 @@ public static class DependencyInjection
         services.AddScoped<IRefreshTokenService, RefreshTokenService>();
         services.AddScoped<IBranchService, BranchService>();
         services.AddScoped<IDepartmentService, DepartmentService>();
+        services.AddScoped<IEngineerService, EngineerService>();
 
         services.AddHttpContextAccessor();
 

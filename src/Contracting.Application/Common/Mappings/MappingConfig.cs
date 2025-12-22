@@ -1,6 +1,7 @@
 using Contracting.Domain.Entities.master;
 using Contracting.Shared.MasterDtos.BranchDto;
 using Contracting.Shared.MasterDtos.DepartmentDtos;
+using Contracting.Shared.MasterDtos.EngineerDto;
 using Mapster;
 
 namespace Contracting.Application.Common.Mappings;
@@ -26,5 +27,12 @@ public static class MappingConfig
         config.NewConfig<Department, CreateDepartmentDto>();
         config.NewConfig<CreateDepartmentDto, Department>();
         config.NewConfig<UpdateDepartmentDto, Department>();
+
+        config.NewConfig<CreateEngineerDto, Engineer>();
+        config.NewConfig<UpdateEngineerDto, Engineer>();
+        config.NewConfig<Engineer, GetEngineerDto>()
+        .Map(dest => dest.Department, src => src.Department);
+        config.NewConfig<Engineer, GetEngineerDropDownDto>()
+        .Map(dest => dest.Department, src => src.Department);
     }
 }
