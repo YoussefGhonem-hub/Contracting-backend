@@ -39,7 +39,7 @@ public static class DependencyInjection
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IRefreshTokenService, RefreshTokenService>();
         services.AddScoped<IBranchService, BranchService>();
-
+        services.AddScoped<IDepartmentService, DepartmentService>();
 
         services.AddHttpContextAccessor();
 

@@ -17,13 +17,14 @@ public static class MappingConfig
         config.NewConfig<CreateBranchDto, Branch>();
         config.NewConfig<UpdateBranchDto, Branch>()
            .Ignore(dest => dest.Departments);
+        config.NewConfig<UpdateBranchDto, Branch>()
+           .Ignore(dest => dest.Departments);
+
+
+        config.NewConfig<Department, GetDepartmentDto>();
+        config.NewConfig<Department, UpdateDepartmentDto>();
         config.NewConfig<Department, CreateDepartmentDto>();
         config.NewConfig<CreateDepartmentDto, Department>();
         config.NewConfig<UpdateDepartmentDto, Department>();
-        config.NewConfig<Department, UpdateDepartmentDto>();
-
-        config.NewConfig<UpdateBranchDto, Branch>()
-    .Ignore(dest => dest.Departments);
-
     }
 }
