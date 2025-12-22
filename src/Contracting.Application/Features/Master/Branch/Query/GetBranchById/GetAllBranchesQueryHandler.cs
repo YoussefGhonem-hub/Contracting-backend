@@ -1,5 +1,4 @@
-﻿using Contracting.Application.Features.Master.Branch.Query.GetAllBranches;
-using Contracting.Infrustructure.Extensions.Helpers;
+﻿using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Infrustructure.Inteface;
 using Contracting.Shared.MasterDtos.BranchDto;
 using ErrorOr;

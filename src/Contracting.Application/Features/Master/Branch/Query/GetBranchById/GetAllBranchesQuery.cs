@@ -4,7 +4,7 @@ using Contracting.Shared.MasterDtos.BranchDto;
 using ErrorOr;
 using MediatR;
 
-namespace Contracting.Application.Features.Master.Branch.Query.GetAllBranches
+namespace Contracting.Application.Features.Master.Branch.Query.GetBranchById
 {
     public record GetAllBranchesQuery(BaseFilterDto Filter) : IRequest<ErrorOr<PaginatedList<GetBranchDto>>>;
 

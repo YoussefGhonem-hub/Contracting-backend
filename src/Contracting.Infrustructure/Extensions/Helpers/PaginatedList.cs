@@ -4,7 +4,7 @@ public class PaginatedList<T> where T : class
 {
     public PaginatedList(List<T> items, int count, int pageNumber, int pageSize)
     {
-        PageNumber = pageNumber + 1;
+        PageNumber = pageNumber ;
         PageSize = pageSize;
         TotalPages = (int)Math.Ceiling(count / (double)pageSize);
         TotalCount = count;

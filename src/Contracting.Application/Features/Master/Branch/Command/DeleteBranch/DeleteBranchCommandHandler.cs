@@ -1,16 +1,11 @@
 ﻿using Contracting.Infrustructure.Inteface;
 using ErrorOr;
 using MediatR;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Contracting.Application.Features.Master.Branch.Command.DeleteBranch
 {
     public sealed class DeleteBranchCommandHandler
-    : IRequestHandler<DeleteBranchCommand, ErrorOr<bool>>
+        : IRequestHandler<DeleteBranchCommand, ErrorOr<bool>>
     {
         private readonly IBranchService _service;
 
@@ -19,12 +14,21 @@ namespace Contracting.Application.Features.Master.Branch.Command.DeleteBranch
             _service = service;
         }
 
-        public async Task<ErrorOr<bool>> Handle(
-            DeleteBranchCommand request,
-            CancellationToken cancellationToken)
+        public async Task<ErrorOr<bool>> Handle(DeleteBranchCommand request, CancellationToken cancellationToken)
         {
-            await _service.DeleteAsync(request.Id);
-            return true;
+            var branch = await _service.GetByIdAsync(request.Id);
+            if (branch is null)
+                return Error.NotFound(description: "Branch not found.");
+
+            try
+            {
+                await _service.DeleteAsync(request.Id);
+                return true;
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Error.Failure(description: ex.Message); // Localize if needed
+            }
         }
     }
 }

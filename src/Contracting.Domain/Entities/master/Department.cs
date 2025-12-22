@@ -6,6 +6,7 @@ namespace Contracting.Domain.Entities.master
     {
         public string? nameEn { get; set; }
         public string? nameAr { get; set; }
+        public Guid BranchId { get; set; }
         public Branch Branch { get; set; }
     }
 }

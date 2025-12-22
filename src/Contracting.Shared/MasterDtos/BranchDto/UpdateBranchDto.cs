@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Contracting.Shared.MasterDtos.DepartmentDtos;
 
 namespace Contracting.Shared.MasterDtos.BranchDto
 {
@@ -13,5 +9,6 @@ namespace Contracting.Shared.MasterDtos.BranchDto
         public string? nameAr { get; set; }
         public string? address { get; set; }
         public string? location { get; set; }
+        public List<UpdateDepartmentDto> Departments { get; set; } = new();
     }
 }

@@ -33,4 +33,8 @@
 		<ProjectReference Include="..\Contracting.Domain\Contracting.Domain.csproj" />
 		<ProjectReference Include="..\Contracting.Shared\Contracting.Shared.csproj" />
 	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="Migrations\" />
+	</ItemGroup>
 </Project>

@@ -1,5 +1,6 @@
 using Contracting.Domain.Entities.master;
 using Contracting.Shared.MasterDtos.BranchDto;
+using Contracting.Shared.MasterDtos.DepartmentDtos;
 using Mapster;
 
 namespace Contracting.Application.Common.Mappings;
@@ -13,7 +14,16 @@ public static class MappingConfig
     {
         // Add global mapping configurations here if needed in the future
         config.NewConfig<Branch, GetBranchDto>();
+        config.NewConfig<CreateBranchDto, Branch>();
+        config.NewConfig<UpdateBranchDto, Branch>()
+           .Ignore(dest => dest.Departments);
+        config.NewConfig<Department, CreateDepartmentDto>();
+        config.NewConfig<CreateDepartmentDto, Department>();
+        config.NewConfig<UpdateDepartmentDto, Department>();
+        config.NewConfig<Department, UpdateDepartmentDto>();
 
+        config.NewConfig<UpdateBranchDto, Branch>()
+    .Ignore(dest => dest.Departments);
 
     }
 }

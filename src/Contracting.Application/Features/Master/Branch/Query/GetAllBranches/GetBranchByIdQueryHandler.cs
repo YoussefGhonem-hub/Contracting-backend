@@ -1,5 +1,4 @@
-﻿using Contracting.Application.Features.Master.Branch.Query.GetBranchById;
-using Contracting.Infrustructure.Inteface;
+﻿using Contracting.Infrustructure.Inteface;
 using Contracting.Shared.MasterDtos.BranchDto;
 using ErrorOr;
 using MediatR;
