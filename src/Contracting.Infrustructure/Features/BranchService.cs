@@ -30,7 +30,7 @@ namespace Contracting.Infrustructure.Features
             // Set the BranchId for each department (if not set by the mapper)
             foreach (var department in branch.Departments)
             {
-                department.BranchId = branch.Id;
+                department.BranchId = branch.Id;              
             }
 
             await _db.Branches.AddAsync(branch);
@@ -58,16 +58,37 @@ namespace Contracting.Infrustructure.Features
             BaseFilterDto filter,
             CancellationToken cancellationToken = default)
         {
-            var query = _db.Branches.Include(b => b.Departments)
-                .AsNoTracking()
-                .AsQueryable();
+            var query = _db.Branches
+               .Include(b => b.Departments)
+               .AsNoTracking();
 
-            query = query.OrderByDynamic(filter.Sort, filter.Descending);
+            if (string.IsNullOrWhiteSpace(filter.Sort))
+            {
+                query = query.OrderBy(b => b.CreatedDate);
+            }
+            else
+            {
+                query = query.OrderByDynamic(filter.Sort, filter.Descending);
+            }
 
-            return await query.PaginateAsync<Branch, GetBranchDto>(
+            // Get total count before pagination
+            var totalCount = await query.CountAsync(cancellationToken);
+
+            // Apply pagination and materialize the data
+            var branches = await query
+                .Skip((filter.PageIndex -1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .ToListAsync(cancellationToken);
+
+            // Map to DTOs after materialization (not in LINQ projection)
+            var branchDtos = _mapper.Map<List<GetBranchDto>>(branches);
+
+            // Return paginated result
+            return new PaginatedList<GetBranchDto>(
+                branchDtos,
+                totalCount,
                 filter.PageIndex,
-                filter.PageSize,
-                cancellationToken);
+                filter.PageSize);
         }
 
         // ---------------- GET BY ID ----------------
@@ -116,7 +137,7 @@ namespace Contracting.Infrustructure.Features
                 {
                     // New department
                     var newDept = _mapper.Map<Department>(deptDto);
-                    newDept.BranchId = branch.Id;
+                    newDept.BranchId = branch.Id;  
                     await _db.Departmentes.AddAsync(newDept);
                     branch.Departments.Add(newDept); // Add to navigation property
                 }
@@ -127,8 +148,7 @@ namespace Contracting.Infrustructure.Features
                     if (existingDept != null)
                     {
                         existingDept.nameEn = deptDto.nameEn;
-                        existingDept.nameAr = deptDto.nameAr;
-                        // Map other fields as needed
+                        existingDept.nameAr = deptDto.nameAr;                        
                     }
                 }
             }

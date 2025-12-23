@@ -6,7 +6,7 @@ using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.MasterDtos.DepartmentDtos;
 using MapsterMapper;
-using System.Data.Entity;
+using Microsoft.EntityFrameworkCore;
 
 namespace Contracting.Infrustructure.Features
 {
@@ -29,6 +29,7 @@ namespace Contracting.Infrustructure.Features
 
             var department = _mapper.Map<Department>(departmentDto);
             department.BranchId = branchId;
+            
 
             await _db.Departmentes.AddAsync(department);
             await _db.SaveChangesAsync();
@@ -38,35 +39,61 @@ namespace Contracting.Infrustructure.Features
 
         public async Task<GetDepartmentDto> UpdateDepartmentAsync(UpdateDepartmentDto departmentDto)
         {
-            var department =  _db.Departmentes
-                .FirstOrDefault(d => d.Id == departmentDto.Id);
+            var department = await _db.Departmentes  // ✅ FIXED: Make async
+                .FirstOrDefaultAsync(d => d.Id == departmentDto.Id);
 
             if (department is null)
                 return null!;
 
             department.nameEn = departmentDto.nameEn;
-            department.nameAr = departmentDto.nameAr;
-            // Map other fields as needed
+            department.nameAr = departmentDto.nameAr;           
 
             await _db.SaveChangesAsync();
 
             return _mapper.Map<GetDepartmentDto>(department);
         }
 
-        public async Task<PaginatedList<GetDepartmentDto>> GetDepartmentsByBranchIdAsync(Guid branchId, BaseFilterDto filter)
+        public async Task<PaginatedList<GetDepartmentDto>> GetDepartmentsByBranchIdAsync(
+            Guid branchId,
+            BaseFilterDto filter,
+            CancellationToken cancellationToken)
         {
             var query = _db.Departmentes
                 .Where(d => d.BranchId == branchId)
                 .AsNoTracking();
 
-            // Example pagination: pageIndex = 1, pageSize = 20
-            return await query.PaginateAsync<Department, GetDepartmentDto>(filter.PageIndex, filter.PageSize);
+            if (string.IsNullOrWhiteSpace(filter.Sort))
+            {
+                query = query.OrderBy(d => d.CreatedDate);
+            }
+            else
+            {
+                query = query.OrderByDynamic(filter.Sort, filter.Descending);
+            }
+
+            var totalCount = await query.CountAsync(cancellationToken);
+
+            // Apply pagination and materialize the data
+            var departments = await query
+                .Skip((filter.PageIndex - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .ToListAsync(cancellationToken);
+
+            // Map to DTOs after materialization (not in LINQ projection)
+            var departmentDtos = _mapper.Map<List<GetDepartmentDto>>(departments);
+
+            // Return paginated result
+            return new PaginatedList<GetDepartmentDto>(
+                departmentDtos,
+                totalCount,
+                filter.PageIndex,
+                filter.PageSize);
         }
 
         public async Task<bool> RemoveDepartmentAsync(Guid branchId, Guid departmentId)
         {
-            var department =  _db.Departmentes
-                .FirstOrDefault(d => d.Id == departmentId && d.BranchId == branchId);
+            var department = await _db.Departmentes  // ✅ FIXED: Make async
+                .FirstOrDefaultAsync(d => d.Id == departmentId && d.BranchId == branchId);
 
             if (department is null)
                 return false;

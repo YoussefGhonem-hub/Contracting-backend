@@ -7,7 +7,7 @@ namespace Contracting.Infrustructure.Inteface
     public interface IEngineerService
     {
         // Create a new engineer
-        Task<GetEngineerDto> CreateEngineerAsync(CreateEngineerDto dto);
+        Task<GetEngineerDto> CreateEngineerAsync(CreateEngineerDto dto, Guid UserId);
 
         // Update an existing engineer
         Task<GetEngineerDto> UpdateEngineerAsync(UpdateEngineerDto dto);
@@ -23,5 +23,6 @@ namespace Contracting.Infrustructure.Inteface
 
         // Get a dropdown list of engineers (id and name only)
         Task<List<GetEngineerDropDownDto>> GetEngineerDropdownAsync();
+        Task<bool> CheckDepartmentHaveManagerAsync(Guid departmentId);
     }
 }

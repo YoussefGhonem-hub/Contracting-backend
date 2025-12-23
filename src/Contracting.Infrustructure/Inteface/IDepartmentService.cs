@@ -12,7 +12,7 @@ namespace Contracting.Infrustructure.Inteface
         Task<GetDepartmentDto> UpdateDepartmentAsync(UpdateDepartmentDto department);
 
         // Get all departments for a branch
-        Task<PaginatedList<GetDepartmentDto>> GetDepartmentsByBranchIdAsync(Guid branchId, BaseFilterDto filter);
+        Task<PaginatedList<GetDepartmentDto>> GetDepartmentsByBranchIdAsync(Guid branchId, BaseFilterDto filter, CancellationToken cancellationToken);
 
         // Remove a department from a branch
         Task<bool> RemoveDepartmentAsync(Guid branchId, Guid departmentId);

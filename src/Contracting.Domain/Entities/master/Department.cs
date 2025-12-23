@@ -8,5 +8,7 @@ namespace Contracting.Domain.Entities.master
         public string? nameAr { get; set; }
         public Guid BranchId { get; set; }
         public Branch Branch { get; set; }
+        public ICollection<Engineer> Engineers { get; set; }
+
     }
 }

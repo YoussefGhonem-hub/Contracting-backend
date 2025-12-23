@@ -23,6 +23,13 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<Engineer>()
+        .HasOne(e => e.ApplicationUser)
+        .WithMany()
+        .HasForeignKey(e => e.ApplicationUserId)
+        .OnDelete(DeleteBehavior.Restrict);
+
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
 
         modelBuilder.GetOnlyNotDeletedEntities();

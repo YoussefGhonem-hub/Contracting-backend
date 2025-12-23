@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Contracting.Infrustructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251222204627_Engineer")]
-    partial class Engineer
+    [Migration("20251223102448_re-update-user")]
+    partial class reupdateuser
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -262,6 +262,9 @@ namespace Contracting.Infrustructure.Migrations
                     b.Property<DateTimeOffset?>("DeletedDate")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<Guid?>("DepartmentManagerId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -281,6 +284,8 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.HasIndex("BranchId");
 
+                    b.HasIndex("DepartmentManagerId");
+
                     b.HasIndex("IsDeleted");
 
                     b.ToTable("Departmentes");
@@ -290,6 +295,9 @@ namespace Contracting.Infrustructure.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ApplicationUserId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("CreatedBy")
@@ -306,6 +314,9 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.Property<Guid?>("DepartmentId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Email")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
@@ -331,10 +342,18 @@ namespace Contracting.Infrustructure.Migrations
                     b.Property<string>("passportNumber")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("phoneNumber")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("position")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("yearExperience")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("ApplicationUserId");
 
                     b.HasIndex("DepartmentId");
 
@@ -465,14 +484,30 @@ namespace Contracting.Infrustructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Contracting.Domain.Entities.master.Engineer", "DepartmentManager")
+                        .WithMany()
+                        .HasForeignKey("DepartmentManagerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Branch");
+
+                    b.Navigation("DepartmentManager");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.master.Engineer", b =>
                 {
-                    b.HasOne("Contracting.Domain.Entities.master.Department", "Department")
+                    b.HasOne("Contracting.Domain.Entities.ApplicationUser", "ApplicationUser")
                         .WithMany()
-                        .HasForeignKey("DepartmentId");
+                        .HasForeignKey("ApplicationUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Contracting.Domain.Entities.master.Department", "Department")
+                        .WithMany("Engineers")
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ApplicationUser");
 
                     b.Navigation("Department");
                 });
@@ -531,6 +566,11 @@ namespace Contracting.Infrustructure.Migrations
             modelBuilder.Entity("Contracting.Domain.Entities.master.Branch", b =>
                 {
                     b.Navigation("Departments");
+                });
+
+            modelBuilder.Entity("Contracting.Domain.Entities.master.Department", b =>
+                {
+                    b.Navigation("Engineers");
                 });
 #pragma warning restore 612, 618
         }

@@ -4,6 +4,7 @@ using Contracting.Infrustructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Contracting.Infrustructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251223102110_re-update")]
+    partial class reupdate
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -259,6 +262,9 @@ namespace Contracting.Infrustructure.Migrations
                     b.Property<DateTimeOffset?>("DeletedDate")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<Guid?>("DepartmentManagerId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -277,6 +283,8 @@ namespace Contracting.Infrustructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BranchId");
+
+                    b.HasIndex("DepartmentManagerId");
 
                     b.HasIndex("IsDeleted");
 
@@ -321,9 +329,6 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.Property<string>("address")
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("isManager")
-                        .HasColumnType("bit");
 
                     b.Property<string>("nameAr")
                         .HasColumnType("nvarchar(max)");
@@ -479,7 +484,14 @@ namespace Contracting.Infrustructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Contracting.Domain.Entities.master.Engineer", "DepartmentManager")
+                        .WithMany()
+                        .HasForeignKey("DepartmentManagerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Branch");
+
+                    b.Navigation("DepartmentManager");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.master.Engineer", b =>
@@ -487,12 +499,13 @@ namespace Contracting.Infrustructure.Migrations
                     b.HasOne("Contracting.Domain.Entities.ApplicationUser", "ApplicationUser")
                         .WithMany()
                         .HasForeignKey("ApplicationUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("Contracting.Domain.Entities.master.Department", "Department")
                         .WithMany("Engineers")
-                        .HasForeignKey("DepartmentId");
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("ApplicationUser");
 

@@ -15,15 +15,22 @@ namespace Contracting.Infrustructure.Features
         private readonly ApplicationDbContext _db;
         private readonly IMapper _mapper;
 
+
         public EngineerService(ApplicationDbContext db, IMapper mapper)
         {
             _db = db;
             _mapper = mapper;
         }
 
-        public async Task<GetEngineerDto> CreateEngineerAsync(CreateEngineerDto dto)
+        public async Task<GetEngineerDto> CreateEngineerAsync(CreateEngineerDto dto, Guid UserId)
         {
             var engineer = _mapper.Map<Engineer>(dto);
+            engineer.ApplicationUserId = UserId;
+            if (engineer.DepartmentId == Guid.Empty || engineer.DepartmentId == null)
+            {
+                engineer.DepartmentId = null;
+            }
+
             await _db.Engineers.AddAsync(engineer);
             await _db.SaveChangesAsync();
             return _mapper.Map<GetEngineerDto>(engineer);
@@ -42,6 +49,10 @@ namespace Contracting.Infrustructure.Features
             engineer.passportNumber = dto.passportNumber;
             engineer.nationalId = dto.nationalId;
             engineer.position = dto.position;
+            engineer.phoneNumber = dto.phoneNumber;
+            engineer.isManager = dto.isManager;
+            engineer.yearExperience = dto.yearExperience;
+            engineer.Email = dto.Email;
 
             // Change department if provided
             if (dto.ChangeDepartmentId.HasValue)
@@ -96,6 +107,12 @@ namespace Contracting.Infrustructure.Features
                .ToListAsync();
 
             return _mapper.Map<List<GetEngineerDropDownDto>>(engineers);
+        }
+
+        public async Task<bool> CheckDepartmentHaveManagerAsync(Guid departmentId)
+        {
+            var hasManager = await _db.Engineers.AnyAsync(e => e.DepartmentId == departmentId && e.isManager == true);
+            return hasManager;
         }
     }
 }

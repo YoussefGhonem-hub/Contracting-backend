@@ -17,7 +17,7 @@ namespace Contracting.Application.Features.Master.Department.Query.GetDepartment
 
         public async Task<ErrorOr<PaginatedList<GetDepartmentDto>>> Handle(GetDepartmentsByBranchIdQuery request, CancellationToken cancellationToken)
         {
-            var result = await _service.GetDepartmentsByBranchIdAsync(request.BranchId, request.Filter);
+            var result = await _service.GetDepartmentsByBranchIdAsync(request.BranchId, request.Filter, cancellationToken);
             return result;
         }
     }

@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Contracting.Infrustructure.Migrations
 {
     /// <inheritdoc />
-    public partial class init : Migration
+    public partial class InitDatabase : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -52,6 +52,28 @@ namespace Contracting.Infrustructure.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_AspNetUsers", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Branches",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    nameEn = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    nameAr = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    address = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    location = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    CreatedDate = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
+                    ModifiedDate = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    CreatedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ModifiedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false),
+                    DeletedDate = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    DeletedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Branches", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -193,6 +215,75 @@ namespace Contracting.Infrustructure.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
+            migrationBuilder.CreateTable(
+                name: "Departmentes",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    nameEn = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    nameAr = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    DepartmentManagerId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    BranchId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    CreatedDate = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
+                    ModifiedDate = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    CreatedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ModifiedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false),
+                    DeletedDate = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    DeletedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Departmentes", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Departmentes_Branches_BranchId",
+                        column: x => x.BranchId,
+                        principalTable: "Branches",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Engineers",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    nameEn = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    nameAr = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    address = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    passportNumber = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    nationalId = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    position = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    yearExperience = table.Column<int>(type: "int", nullable: true),
+                    phoneNumber = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Email = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ApplicationUserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    DepartmentId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    CreatedDate = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
+                    ModifiedDate = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    CreatedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ModifiedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false),
+                    DeletedDate = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    DeletedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Engineers", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Engineers_AspNetUsers_ApplicationUserId",
+                        column: x => x.ApplicationUserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Engineers_Departmentes_DepartmentId",
+                        column: x => x.DepartmentId,
+                        principalTable: "Departmentes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
             migrationBuilder.CreateIndex(
                 name: "IX_AspNetRoleClaims_RoleId",
                 table: "AspNetRoleClaims",
@@ -233,6 +324,41 @@ namespace Contracting.Infrustructure.Migrations
                 filter: "[NormalizedUserName] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Branches_IsDeleted",
+                table: "Branches",
+                column: "IsDeleted");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Departmentes_BranchId",
+                table: "Departmentes",
+                column: "BranchId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Departmentes_DepartmentManagerId",
+                table: "Departmentes",
+                column: "DepartmentManagerId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Departmentes_IsDeleted",
+                table: "Departmentes",
+                column: "IsDeleted");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Engineers_ApplicationUserId",
+                table: "Engineers",
+                column: "ApplicationUserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Engineers_DepartmentId",
+                table: "Engineers",
+                column: "DepartmentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Engineers_IsDeleted",
+                table: "Engineers",
+                column: "IsDeleted");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_RefreshTokens_IsDeleted",
                 table: "RefreshTokens",
                 column: "IsDeleted");
@@ -241,11 +367,31 @@ namespace Contracting.Infrustructure.Migrations
                 name: "IX_RefreshTokens_UserId",
                 table: "RefreshTokens",
                 column: "UserId");
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_Departmentes_Engineers_DepartmentManagerId",
+                table: "Departmentes",
+                column: "DepartmentManagerId",
+                principalTable: "Engineers",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.Restrict);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropForeignKey(
+                name: "FK_Engineers_AspNetUsers_ApplicationUserId",
+                table: "Engineers");
+
+            migrationBuilder.DropForeignKey(
+                name: "FK_Departmentes_Branches_BranchId",
+                table: "Departmentes");
+
+            migrationBuilder.DropForeignKey(
+                name: "FK_Departmentes_Engineers_DepartmentManagerId",
+                table: "Departmentes");
+
             migrationBuilder.DropTable(
                 name: "AspNetRoleClaims");
 
@@ -269,6 +415,15 @@ namespace Contracting.Infrustructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "AspNetUsers");
+
+            migrationBuilder.DropTable(
+                name: "Branches");
+
+            migrationBuilder.DropTable(
+                name: "Engineers");
+
+            migrationBuilder.DropTable(
+                name: "Departmentes");
         }
     }
 }

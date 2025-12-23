@@ -16,20 +16,22 @@ public static class MappingConfig
         // Add global mapping configurations here if needed in the future
         config.NewConfig<Branch, GetBranchDto>();
         config.NewConfig<CreateBranchDto, Branch>();
-        config.NewConfig<UpdateBranchDto, Branch>()
-           .Ignore(dest => dest.Departments);
+
         config.NewConfig<UpdateBranchDto, Branch>()
            .Ignore(dest => dest.Departments);
 
-
+        // Department mappings
         config.NewConfig<Department, GetDepartmentDto>();
+
         config.NewConfig<Department, UpdateDepartmentDto>();
         config.NewConfig<Department, CreateDepartmentDto>();
         config.NewConfig<CreateDepartmentDto, Department>();
         config.NewConfig<UpdateDepartmentDto, Department>();
 
+        // Engineer mappings
         config.NewConfig<CreateEngineerDto, Engineer>();
         config.NewConfig<UpdateEngineerDto, Engineer>();
+
         config.NewConfig<Engineer, GetEngineerDto>()
         .Map(dest => dest.Department, src => src.Department);
         config.NewConfig<Engineer, GetEngineerDropDownDto>()

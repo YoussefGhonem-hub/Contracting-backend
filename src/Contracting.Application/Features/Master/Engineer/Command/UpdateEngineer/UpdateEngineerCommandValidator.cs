@@ -9,6 +9,7 @@ namespace Contracting.Application.Features.Master.Engineer.Command.UpdateEnginee
             RuleFor(x => x.Engineer.Id).NotEmpty();
             RuleFor(x => x.Engineer.nameEn).NotEmpty().MaximumLength(100);
             RuleFor(x => x.Engineer.nameAr).NotEmpty().MaximumLength(100);
+            RuleFor(x => x.Engineer.ApplicationUserId).NotEmpty();
             // Add more rules as needed
         }
     }
