@@ -1,8 +1,10 @@
 using Contracting.Domain.Entities;
 using Contracting.Infrustructure.Features;
+using Contracting.Infrustructure.Features.business;
 using Contracting.Infrustructure.Files;
 using Contracting.Infrustructure.Identity;
 using Contracting.Infrustructure.Inteface;
+using Contracting.Infrustructure.Inteface.business;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.Storage;
 using Microsoft.AspNetCore.Identity;
@@ -43,6 +45,7 @@ public static class DependencyInjection
         services.AddScoped<IEngineerService, EngineerService>();
         services.AddScoped<IProjectService, ProjectService>();
         services.AddScoped<IPriorityService, PriorityService>();
+        services.AddScoped<IEngineerRequestService, EngineerRequestService>();
 
         services.AddHttpContextAccessor();
 

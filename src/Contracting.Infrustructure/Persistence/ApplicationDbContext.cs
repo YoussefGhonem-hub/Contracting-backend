@@ -1,5 +1,6 @@
 using Contracting.Domain.Common;
 using Contracting.Domain.Entities;
+using Contracting.Domain.Entities.business;
 using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Extensions;
 using Contracting.Shared.CurrentUser;
@@ -19,7 +20,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<Engineer> Engineers => Set<Engineer>();
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<Priority> Priorities => Set<Priority>();
-
+    public DbSet<EngineerRequest> EngineerRequests => Set<EngineerRequest>();
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

@@ -1,4 +1,6 @@
+using Contracting.Domain.Entities.business;
 using Contracting.Domain.Entities.master;
+using Contracting.Shared.BusinessDtos.EngineerRequestDto;
 using Contracting.Shared.MasterDtos.BranchDto;
 using Contracting.Shared.MasterDtos.DepartmentDtos;
 using Contracting.Shared.MasterDtos.EngineerDto;
@@ -47,5 +49,10 @@ public static class MappingConfig
         config.NewConfig<CreatePriorityDto, Priority>();
         config.NewConfig<UpdatePriorityDto, Priority>();
         config.NewConfig<Priority, GetDropDownPriorityDto>();
+
+        // EngineerRequest mappings
+        config.NewConfig<EngineerRequest, GetAllEngineerRequestDto>();
+        config.NewConfig<CreateEngineerRequestDto, EngineerRequest>();
+        config.NewConfig<UpdateEngineerRequestDto, EngineerRequest>();
     }
 }
