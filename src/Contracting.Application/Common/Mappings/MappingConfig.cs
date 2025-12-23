@@ -2,6 +2,7 @@ using Contracting.Domain.Entities.master;
 using Contracting.Shared.MasterDtos.BranchDto;
 using Contracting.Shared.MasterDtos.DepartmentDtos;
 using Contracting.Shared.MasterDtos.EngineerDto;
+using Contracting.Shared.MasterDtos.PriorityDto;
 using Contracting.Shared.MasterDtos.ProjectDtos;
 using Mapster;
 
@@ -42,5 +43,9 @@ public static class MappingConfig
         config.NewConfig<Project, CreateProjectDto>();
         config.NewConfig<CreateProjectDto, Project>();
         config.NewConfig<UpdateProjectDto, Project>();
+
+        config.NewConfig<CreatePriorityDto, Priority>();
+        config.NewConfig<UpdatePriorityDto, Priority>();
+        config.NewConfig<Priority, GetDropDownPriorityDto>();
     }
 }

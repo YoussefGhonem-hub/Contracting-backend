@@ -42,6 +42,7 @@ public static class DependencyInjection
         services.AddScoped<IDepartmentService, DepartmentService>();
         services.AddScoped<IEngineerService, EngineerService>();
         services.AddScoped<IProjectService, ProjectService>();
+        services.AddScoped<IPriorityService, PriorityService>();
 
         services.AddHttpContextAccessor();
 

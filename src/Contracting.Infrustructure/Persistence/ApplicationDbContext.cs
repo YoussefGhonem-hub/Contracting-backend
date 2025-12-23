@@ -18,6 +18,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<Department> Departmentes => Set<Department>();
     public DbSet<Engineer> Engineers => Set<Engineer>();
     public DbSet<Project> Projects => Set<Project>();
+    public DbSet<Priority> Priorities => Set<Priority>();
 
 
 

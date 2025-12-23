@@ -47,6 +47,7 @@ namespace Contracting.Infrustructure.Features
             project.nameEn = dto.nameEn;
             project.nameAr = dto.nameAr;
             project.location = dto.location;
+            project.Code = dto.Code;
 
             if (dto.BranchId == Guid.Empty || dto.BranchId == null)
             {
