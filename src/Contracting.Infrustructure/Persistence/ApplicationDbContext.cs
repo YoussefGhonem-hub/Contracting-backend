@@ -17,6 +17,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<Branch> Branches => Set<Branch>();
     public DbSet<Department> Departmentes => Set<Department>();
     public DbSet<Engineer> Engineers => Set<Engineer>();
+    public DbSet<Project> Projects => Set<Project>();
 
 
 
