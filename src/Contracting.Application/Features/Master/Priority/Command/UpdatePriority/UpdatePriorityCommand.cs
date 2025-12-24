@@ -1,4 +1,5 @@
 using Contracting.Shared.MasterDtos.PriorityDto;
+using Contracting.Shared.MasterDtos.StatusDtos;
 using ErrorOr;
 using MediatR;
 

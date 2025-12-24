@@ -2,6 +2,7 @@ using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Inteface;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.MasterDtos.PriorityDto;
+using Contracting.Shared.MasterDtos.StatusDtos;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
 

@@ -2,6 +2,7 @@
 using Contracting.Shared.MasterDtos.EngineerDto;
 using Contracting.Shared.MasterDtos.PriorityDto;
 using Contracting.Shared.MasterDtos.ProjectDtos;
+using Contracting.Shared.MasterDtos.StatusDtos;
 
 namespace Contracting.Shared.BusinessDtos.EngineerRequestDto
 {

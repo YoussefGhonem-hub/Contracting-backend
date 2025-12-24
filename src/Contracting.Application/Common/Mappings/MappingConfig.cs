@@ -6,6 +6,7 @@ using Contracting.Shared.MasterDtos.DepartmentDtos;
 using Contracting.Shared.MasterDtos.EngineerDto;
 using Contracting.Shared.MasterDtos.PriorityDto;
 using Contracting.Shared.MasterDtos.ProjectDtos;
+using Contracting.Shared.MasterDtos.StatusDtos;
 using Mapster;
 
 namespace Contracting.Application.Common.Mappings;
@@ -49,6 +50,11 @@ public static class MappingConfig
         config.NewConfig<CreatePriorityDto, Priority>();
         config.NewConfig<UpdatePriorityDto, Priority>();
         config.NewConfig<Priority, GetDropDownPriorityDto>();
+
+        config.NewConfig<CreateStatusDto, Status>();
+        config.NewConfig<UpdateStatusDto, Status>();
+        config.NewConfig<Status, GetDropDownStatusDto>();
+
 
         // EngineerRequest mappings
         config.NewConfig<EngineerRequest, GetAllEngineerRequestDto>();

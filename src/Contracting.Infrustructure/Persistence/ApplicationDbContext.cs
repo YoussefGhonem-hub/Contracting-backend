@@ -20,6 +20,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<Engineer> Engineers => Set<Engineer>();
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<Priority> Priorities => Set<Priority>();
+    public DbSet<Status> Statuses => Set<Status>();
     public DbSet<EngineerRequest> EngineerRequests => Set<EngineerRequest>();
 
 
