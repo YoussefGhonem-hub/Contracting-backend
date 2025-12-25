@@ -1,29 +1,30 @@
 using Contracting.Infrustructure.Inteface.business;
+using Contracting.Shared.CurrentUser;
 using ErrorOr;
 using MediatR;
 
 namespace Contracting.Application.Features.Business.EngineerRequest.Command.TakeActionOnRequest
 {
-    public class TakeActionOnRequestCommandHandler : IRequestHandler<TakeActionOnRequestCommand, ErrorOr<bool>>
+    public class TakeActionRequestCommandHandler : IRequestHandler<TakeActionRequestCommand, ErrorOr<bool>>
     {
         private readonly IEngineerRequestService _service;
 
-        public TakeActionOnRequestCommandHandler(IEngineerRequestService service)
+        public TakeActionRequestCommandHandler(IEngineerRequestService service)
         {
             _service = service;
         }
 
-        public async Task<ErrorOr<bool>> Handle(TakeActionOnRequestCommand request, CancellationToken cancellationToken)
+        public async Task<ErrorOr<bool>> Handle(TakeActionRequestCommand request, CancellationToken cancellationToken)
         {
             var result = await _service.TakeActionOnRequestAsync(
-                request.RequestId, 
-                request.EngineerId, 
-                request.IsApproved, 
-                request.ActionNote);
-            
+                request.RequestId,
+                Guid.Parse(CurrentUser.UserId),
+                request.ActionDto
+            );
+
             return result
-                ? result
-                : Error.Validation("Could not take action. Request may have been actioned already or engineer is not authorized.");
+                ? true
+                : Error.Failure("You are not authorized or the request cannot be actioned.");
         }
     }
 }

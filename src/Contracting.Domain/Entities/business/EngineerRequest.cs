@@ -14,6 +14,10 @@ namespace Contracting.Domain.Entities.business
         public Guid? EngineerId { get; set; }
         public Engineer? Engineer { get; set; }
         public string? Descreption { get; set; }
+        public Guid StatusId { get; set; }
+        public Status Status { get; set; }
+        public Guid? assignToId { get; set; }
+        public Engineer? assignTo { get; set; }
         public string? Note { get; set; }
         public DateTime? NoteDate { get; set; }
     }

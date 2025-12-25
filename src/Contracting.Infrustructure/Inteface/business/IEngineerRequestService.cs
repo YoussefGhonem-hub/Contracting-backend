@@ -20,6 +20,9 @@ namespace Contracting.Infrustructure.Inteface.business
             Guid departmentId,
             BaseFilterDto filter,
             CancellationToken cancellationToken = default);
+        Task<PaginatedList<GetAllEngineerRequestDto>> GetCreatedRequestOrapplaied(
+            BaseFilterDto filter,
+            CancellationToken cancellationToken = default);
 
         // Get request by ID
         Task<GetAllEngineerRequestDto> GetEngineerRequestByIdAsync(Guid requestId);
@@ -28,6 +31,6 @@ namespace Contracting.Infrustructure.Inteface.business
         Task<bool> IsEngineerManagerOfDepartmentAsync(Guid engineerId, Guid departmentId);
 
         // Action on request (approve/reject) - creates entry in action table
-        Task<bool> TakeActionOnRequestAsync(Guid requestId, Guid engineerId, bool isApproved, string? actionNote);
+        Task<bool> TakeActionOnRequestAsync(Guid requestId, Guid currentUserId, TakeActionRequestDto actionDto);
     }
 }

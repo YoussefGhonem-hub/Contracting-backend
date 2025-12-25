@@ -5,15 +5,18 @@ using Contracting.Application.Features.Business.EngineerRequest.Command.TakeActi
 using Contracting.Application.Features.Business.EngineerRequest.Command.UpdateEngineerRequest;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetAllRequestsByDepartment;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequestById;
+using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequestCreatedOrApplyToEngineer;
 using Contracting.Shared.BusinessDtos.EngineerRequestDto;
 using Contracting.Shared.Dtos;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Contracting.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class EngineerRequestController : APIBaseController
     {
         private readonly IMediator _mediator;
@@ -74,6 +77,17 @@ namespace Contracting.API.Controllers
                 errors => Problem(errors)
             );
         }
+        [HttpGet("appliedOrCreatedReqeust")]
+        public async Task<IActionResult> GetAllRequestAppliedOrCreated([FromQuery] BaseFilterDto filter)
+        {
+            var query = new GetRequestCreatedOrApplyToEngineerQuery( filter);
+            var result = await _mediator.Send(query);
+
+            return result.Match(
+                requests => Ok(requests),
+                errors => Problem(errors)
+            );
+        }
 
         // Get Request by ID
         [HttpGet("{requestId:guid}")]
@@ -88,19 +102,17 @@ namespace Contracting.API.Controllers
             );
         }
 
-        // Take Action on Request (Approve/Reject)
         [HttpPost("{requestId:guid}/action")]
         public async Task<IActionResult> TakeAction(
-            Guid requestId, 
-            [FromQuery] Guid engineerId, 
-            [FromQuery] bool isApproved, 
-            [FromBody] string? actionNote = null)
+            Guid requestId,
+            [FromBody] TakeActionRequestDto dto)
         {
-            var command = new TakeActionOnRequestCommand(requestId, engineerId, isApproved, actionNote);
+
+            var command = new TakeActionRequestCommand(requestId, dto);
             var result = await _mediator.Send(command);
 
             return result.Match(
-                success => Ok(new { Message = isApproved ? "Request approved successfully" : "Request rejected successfully" }),
+                success => Ok(new { Message = dto.isAprroved ? "Request approved successfully" : "Request rejected successfully" }),
                 errors => Problem(errors)
             );
         }

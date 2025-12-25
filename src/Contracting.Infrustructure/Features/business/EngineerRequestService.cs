@@ -4,6 +4,7 @@ using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Infrustructure.Inteface.business;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.BusinessDtos.EngineerRequestDto;
+using Contracting.Shared.CurrentUser;
 using Contracting.Shared.Dtos;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
@@ -26,6 +27,12 @@ namespace Contracting.Infrustructure.Features.business
         {
             var request = _mapper.Map<EngineerRequest>(dto);
 
+            var firstStatus = await _db.Statuses
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.orderNumber == 1);
+
+            request.StatusId = firstStatus?.Id ?? Guid.Empty;
+
             // Handle empty GUIDs
             if (request.ProjectId == Guid.Empty) request.ProjectId = null;
             if (request.DepartmentId == Guid.Empty) request.DepartmentId = null;
@@ -40,6 +47,7 @@ namespace Contracting.Infrustructure.Features.business
                 .Include(r => r.Project)
                 .Include(r => r.Department)
                 .Include(r => r.Priority)
+                .Include(r=>r.Status)
                 .Include(r => r.Engineer)
                     .ThenInclude(e => e.Department)
                 .AsNoTracking()
@@ -56,7 +64,7 @@ namespace Contracting.Infrustructure.Features.business
                 return null!;
 
             // Check if action has been taken (by checking if Note is set with NoteDate)
-            if (request.NoteDate.HasValue)
+            if (request.NoteDate.HasValue || request.assignToId != Guid.Empty)
             {
                 // Request has been actioned, cannot update
                 return null!;
@@ -92,7 +100,7 @@ namespace Contracting.Infrustructure.Features.business
                 return false;
 
             // Check if action has been taken
-            if (request.NoteDate.HasValue)
+            if (request.NoteDate.HasValue || request.assignToId != Guid.Empty)
             {
                 // Request has been actioned, cannot delete
                 return false;
@@ -113,6 +121,7 @@ namespace Contracting.Infrustructure.Features.business
                 .Include(r => r.Project)
                 .Include(r => r.Department)
                 .Include(r => r.Priority)
+                .Include(r=>r.Status)
                 .Include(r => r.Engineer)
                     .ThenInclude(e => e.Department)
                 .Where(r => r.DepartmentId == departmentId)
@@ -169,38 +178,93 @@ namespace Contracting.Infrustructure.Features.business
         }
 
         // ---------------- TAKE ACTION ON REQUEST ----------------
-        public async Task<bool> TakeActionOnRequestAsync(Guid requestId, Guid engineerId, bool isApproved, string? actionNote)
+        public async Task<bool> TakeActionOnRequestAsync(Guid requestId, Guid currentUserId, TakeActionRequestDto actionDto)
         {
+
             var request = await _db.EngineerRequests.FindAsync(requestId);
             if (request is null)
                 return false;
-
-            // Check if action already taken
-            if (request.NoteDate.HasValue)
+          
+            // Get department manager
+            var departmentId = request.DepartmentId;
+            if (!departmentId.HasValue)
                 return false;
 
-            // Verify engineer is manager of the department
-            if (request.DepartmentId.HasValue)
+            var manager = await _db.Engineers
+                .AsNoTracking()
+                .FirstOrDefaultAsync(e => e.DepartmentId == departmentId.Value && e.isManager);
+
+            var isManager = manager != null && manager.ApplicationUserId == currentUserId;
+            var isAssigned = request.assignToId.HasValue && request.assignToId.Value == currentUserId;
+
+            // Only manager or assigned engineer can take action
+            if (!isManager && !isAssigned)
+                return false;
+
+            // If manager, allow assignment
+            if (isManager && actionDto.assignToId.HasValue)
             {
-                var isManager = await IsEngineerManagerOfDepartmentAsync(engineerId, request.DepartmentId.Value);
-                if (!isManager)
-                    return false;
+                request.assignToId = actionDto.assignToId.Value;
+            }
+            // If assigned engineer, do not allow assignment change
+            else if (isAssigned && actionDto.assignToId.HasValue && actionDto.assignToId.Value != currentUserId)
+            {
+                // Assigned engineer cannot reassign
+                return false;
+            }
+
+            // Update status, note, and note date
+            if (actionDto.statusId.HasValue)
+                request.StatusId = actionDto.statusId.Value;
+
+            if (!request.NoteDate.HasValue)
+            {            
+               request.Note = actionDto.note ?? (actionDto.isAprroved ? "Approved" : "Rejected");
+               request.NoteDate = DateTime.UtcNow;
+            }
+            await _db.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<PaginatedList<GetAllEngineerRequestDto>> GetCreatedRequestOrapplaied(BaseFilterDto filter, CancellationToken cancellationToken = default)
+        {
+            var engineer = _db.Engineers.Include(x => x.ApplicationUser).AsNoTracking().FirstOrDefault(x => x.ApplicationUserId == Guid.Parse(CurrentUser.UserId));
+
+            var query = _db.EngineerRequests
+                .Include(r => r.Project)
+                .Include(r => r.Department)
+                .Include(r => r.Priority)
+                .Include(r => r.Status)
+                .Include(r => r.Engineer)
+                    .ThenInclude(e => e.Department)
+                .Include(r => r.Engineer)
+                    .ThenInclude(e => e.ApplicationUser)
+                .Where(r => r.Engineer.ApplicationUser.Id == Guid.Parse(CurrentUser.UserId) || r.assignToId == engineer.Id)
+                .AsNoTracking();
+
+            if (string.IsNullOrWhiteSpace(filter.Sort))
+            {
+                query = query.OrderByDescending(r => r.CreatedDate);
             }
             else
             {
-                return false; // No department assigned
+                query = query.OrderByDynamic(filter.Sort, filter.Descending);
             }
 
-            // Update request with action
-            request.Note = actionNote ?? (isApproved ? "Approved" : "Rejected");
-            request.NoteDate = DateTime.UtcNow;
+            var totalCount = await query.CountAsync(cancellationToken);
 
-            await _db.SaveChangesAsync();
+            var requests = await query
+                .Skip((filter.PageIndex - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .ToListAsync(cancellationToken);
 
-            // TODO: Create entry in action/history table if needed
-            // await _db.RequestActions.AddAsync(new RequestAction { ... });
+            var requestDtos = _mapper.Map<List<GetAllEngineerRequestDto>>(requests);
 
-            return true;
+            return new PaginatedList<GetAllEngineerRequestDto>(
+                requestDtos,
+                totalCount,
+                filter.PageIndex,
+                filter.PageSize);
         }
     }
 }

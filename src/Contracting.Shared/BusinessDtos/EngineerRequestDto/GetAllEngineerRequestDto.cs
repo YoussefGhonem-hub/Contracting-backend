@@ -8,6 +8,7 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestDto
 {
     public class GetAllEngineerRequestDto
     {
+        public Guid? Id { get; set; }
         public Guid? ProjectId { get; set; }
         public GetProjectDto? Project { get; set; }
         public Guid? DepartmentId { get; set; }
@@ -16,6 +17,10 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestDto
         public GetDropDownPriorityDto? Priority { get; set; }
         public Guid? EngineerId { get; set; }
         public GetEngineerDto? Engineer { get; set; }
+        public Guid StatusId { get; set; }
+        public GetDropDownStatusDto? Status { get; set; }
+        public Guid? assignToId { get; set; }
+        public GetEngineerDto? assignTo { get; set; }
         public string? Descreption { get; set; }
         public string? Note { get; set; }
         public DateTime? NoteDate { get; set; }

@@ -24,7 +24,7 @@ namespace Contracting.Application.Features.Business.EngineerRequest.Command.Crea
 
             RuleFor(x => x.Request.Descreption)
                 .NotEmpty().WithMessage("Description is required.")
-                .MaximumLength(1000).WithMessage("Description cannot exceed 1000 characters.");
+                .MaximumLength(10000).WithMessage("Description cannot exceed 1000 characters.");
         }
     }
 }

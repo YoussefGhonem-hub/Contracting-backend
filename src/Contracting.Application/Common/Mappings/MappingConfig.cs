@@ -46,6 +46,8 @@ public static class MappingConfig
         config.NewConfig<Project, CreateProjectDto>();
         config.NewConfig<CreateProjectDto, Project>();
         config.NewConfig<UpdateProjectDto, Project>();
+        config.NewConfig<Project, GetProjectDto>();
+
 
         config.NewConfig<CreatePriorityDto, Priority>();
         config.NewConfig<UpdatePriorityDto, Priority>();
@@ -57,8 +59,16 @@ public static class MappingConfig
 
 
         // EngineerRequest mappings
-        config.NewConfig<EngineerRequest, GetAllEngineerRequestDto>();
+        config.NewConfig<EngineerRequest, GetAllEngineerRequestDto>()
+            .Map(dest => dest.Project, src => src.Project)
+            .Map(dest => dest.Department, src => src.Department)
+            .Map(dest => dest.Priority, src => src.Priority)
+            .Map(dest => dest.Engineer, src => src.Engineer)
+            .Map(dest => dest.assignTo, src => src.assignTo)
+            .Map(dest => dest.Status, src => src.Status);
         config.NewConfig<CreateEngineerRequestDto, EngineerRequest>();
         config.NewConfig<UpdateEngineerRequestDto, EngineerRequest>();
+
+
     }
 }
