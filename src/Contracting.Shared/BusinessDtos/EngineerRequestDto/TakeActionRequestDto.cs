@@ -6,7 +6,6 @@
         public Guid? statusId { get; set; }
         public Guid? assignToId { get; set; }
         public bool isAprroved { get; set; }
-        public string? note { get; set; }
 
     }
 }

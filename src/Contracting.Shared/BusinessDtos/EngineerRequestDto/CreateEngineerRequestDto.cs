@@ -7,6 +7,5 @@
         public Guid? PriorityId { get; set; }
         public Guid? EngineerId { get; set; }
         public string? Descreption { get; set; }
-        public string? Note { get; set; }
     }
 }

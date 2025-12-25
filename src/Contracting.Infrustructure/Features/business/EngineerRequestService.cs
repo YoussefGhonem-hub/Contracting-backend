@@ -219,7 +219,7 @@ namespace Contracting.Infrustructure.Features.business
 
             if (!request.NoteDate.HasValue)
             {            
-               request.Note = actionDto.note ?? (actionDto.isAprroved ? "Approved" : "Rejected");
+               request.Note = (actionDto.isAprroved ? "Approved" : "Rejected");
                request.NoteDate = DateTime.UtcNow;
             }
             await _db.SaveChangesAsync();
