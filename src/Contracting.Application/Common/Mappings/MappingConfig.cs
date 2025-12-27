@@ -1,6 +1,7 @@
 using Contracting.Domain.Entities.business;
 using Contracting.Domain.Entities.master;
 using Contracting.Shared.BusinessDtos.EngineerRequestDto;
+using Contracting.Shared.BusinessDtos.EngineerRequestNotesDtos;
 using Contracting.Shared.MasterDtos.BranchDto;
 using Contracting.Shared.MasterDtos.DepartmentDtos;
 using Contracting.Shared.MasterDtos.EngineerDto;
@@ -57,17 +58,29 @@ public static class MappingConfig
         config.NewConfig<UpdateStatusDto, Status>();
         config.NewConfig<Status, GetDropDownStatusDto>();
 
-
-        // EngineerRequest mappings
-        config.NewConfig<EngineerRequest, GetAllEngineerRequestDto>()
-            .Map(dest => dest.Project, src => src.Project)
-            .Map(dest => dest.Department, src => src.Department)
-            .Map(dest => dest.Priority, src => src.Priority)
-            .Map(dest => dest.Engineer, src => src.Engineer)
-            .Map(dest => dest.assignTo, src => src.assignTo)
-            .Map(dest => dest.Status, src => src.Status);
         config.NewConfig<CreateEngineerRequestDto, EngineerRequest>();
         config.NewConfig<UpdateEngineerRequestDto, EngineerRequest>();
+
+        config.NewConfig<CrearteEngineerRequestNotesDto, EngineerRequestNotes>();
+        config.NewConfig<EngineerRequestNotes, GetEngineerRequestNotesDto>()
+              .Map(dest => dest.Engineer, src => src.Engineer)
+              .Map(dest => dest.Status, src => src.Status);
+
+        config.NewConfig<Engineer, GetEngineerDto>();
+        config.NewConfig<Status, GetDropDownStatusDto>();
+        config.NewConfig<EngineerRequest, GetAllEngineerRequestDto>()
+                    .Map(dest => dest.Project, src => src.Project)
+                    .Map(dest => dest.Department, src => src.Department)
+                    .Map(dest => dest.Priority, src => src.Priority)
+                    .Map(dest => dest.Engineer, src => src.Engineer)
+                    .Map(dest => dest.assignTo, src => src.assignTo)
+                    .Map(dest => dest.Status, src => src.Status)
+                    .Map(dest => dest.EngineerRequestNotes, src => src.EngineerRequestNotes);
+
+        
+
+
+
 
 
     }

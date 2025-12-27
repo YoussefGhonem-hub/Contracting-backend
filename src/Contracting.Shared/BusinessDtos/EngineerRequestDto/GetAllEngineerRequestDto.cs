@@ -1,4 +1,5 @@
-﻿using Contracting.Shared.MasterDtos.DepartmentDtos;
+﻿using Contracting.Shared.BusinessDtos.EngineerRequestNotesDtos;
+using Contracting.Shared.MasterDtos.DepartmentDtos;
 using Contracting.Shared.MasterDtos.EngineerDto;
 using Contracting.Shared.MasterDtos.PriorityDto;
 using Contracting.Shared.MasterDtos.ProjectDtos;
@@ -24,5 +25,7 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestDto
         public string? Descreption { get; set; }
         public string? Note { get; set; }
         public DateTime? NoteDate { get; set; }
+        public int? timeDuration { get; set; }
+        public ICollection<GetEngineerRequestNotesDto> EngineerRequestNotes { get; set; }
     }
 }

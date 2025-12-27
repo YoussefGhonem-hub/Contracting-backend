@@ -22,6 +22,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<Priority> Priorities => Set<Priority>();
     public DbSet<Status> Statuses => Set<Status>();
     public DbSet<EngineerRequest> EngineerRequests => Set<EngineerRequest>();
+    public DbSet<EngineerRequestNotes> EngineerRequestNotes => Set<EngineerRequestNotes>();
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

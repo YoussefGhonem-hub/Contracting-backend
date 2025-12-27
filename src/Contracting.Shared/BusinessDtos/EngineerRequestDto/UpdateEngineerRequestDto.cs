@@ -1,4 +1,6 @@
-﻿namespace Contracting.Shared.BusinessDtos.EngineerRequestDto
+﻿using Contracting.Shared.BusinessDtos.EngineerRequestNotesDtos;
+
+namespace Contracting.Shared.BusinessDtos.EngineerRequestDto
 {
     public class UpdateEngineerRequestDto
     {
@@ -8,5 +10,7 @@
         public Guid? PriorityId { get; set; }
         public Guid? EngineerId { get; set; }
         public string? Descreption { get; set; }
+        public ICollection<UpdateEngineerRequestNotesDto> EngineerRequestNotes { get; set; }
+
     }
 }

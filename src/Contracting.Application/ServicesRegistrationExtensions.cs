@@ -20,9 +20,11 @@ public static class ServicesRegistrationExtensions
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(Assembly.GetExecutingAssembly()));
         services.AddValidatorsFromAssembly(typeof(Result<>).Assembly);
+        TypeAdapterConfig.GlobalSettings.Default.PreserveReference(true);
         MappingConfig.Register(TypeAdapterConfig.GlobalSettings);
         services.AddSingleton(TypeAdapterConfig.GlobalSettings);
         services.AddScoped<IMapper, ServiceMapper>();
+
 
         return services;
     }
