@@ -1,6 +1,7 @@
 using Contracting.Domain.Common;
 using Contracting.Domain.Entities;
 using Contracting.Domain.Entities.business;
+using Contracting.Domain.Entities.helper;
 using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Extensions;
 using Contracting.Shared.CurrentUser;
@@ -23,7 +24,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<Status> Statuses => Set<Status>();
     public DbSet<EngineerRequest> EngineerRequests => Set<EngineerRequest>();
     public DbSet<EngineerRequestNotes> EngineerRequestNotes => Set<EngineerRequestNotes>();
-
+    public DbSet<UserDeviceToken> userDeviceTokens => Set<UserDeviceToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

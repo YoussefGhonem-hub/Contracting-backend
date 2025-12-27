@@ -1,9 +1,12 @@
 using Contracting.API.Controllers.Shared;
 using Contracting.Application.Common;
+using Contracting.Application.Features.Users.Commands.FCMTokenNotification;
 using Contracting.Application.Features.Users.Commands.LoginUserCommand;
 using Contracting.Application.Features.Users.Commands.RefreshTokenCommand;
 using Contracting.Application.Features.Users.Commands.RegisterUserCommand;
+using Contracting.Application.Features.Users.Commands.RemoveFCMTokenNotification;
 using Contracting.Application.Features.Users.Commands.RevokeRefreshTokenCommand;
+using Contracting.Domain.Entities.helper;
 using ErrorOr;
 using MapsterMapper;
 using MediatR;
@@ -65,6 +68,27 @@ public class AuthController : APIBaseController
     {
         var result = await _mediator.Send(command);
 
+        return result.Match(
+            value => Ok(value),
+            errors => Problem(errors)
+       );
+    }
+
+    [HttpPost("fcm-token")]
+    public async Task<IActionResult> SaveFcmToken([FromBody] string fcmToken)
+    {
+        var command = new FCMTokenNotificationCommand(fcmToken); 
+        var result = await _mediator.Send(command);
+        return result.Match(
+            value => Ok(value),
+            errors => Problem(errors)
+       );
+    }
+    [HttpDelete("fcm-token")]
+    public async Task<IActionResult> DeleteFcmToken([FromBody] string fcmToken)
+    {
+        var command = new RemoveFCMTokenNotificationCommand(fcmToken);
+        var result = await _mediator.Send(command);
         return result.Match(
             value => Ok(value),
             errors => Problem(errors)

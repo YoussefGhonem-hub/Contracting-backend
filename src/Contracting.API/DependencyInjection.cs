@@ -1,5 +1,6 @@
 ﻿using Contracting.API.Commen.Errors;
 using Contracting.Application;
+using Contracting.Shared.HelperDtos;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
@@ -9,7 +10,7 @@ namespace Contracting.API
 {
     public static class DependencyInjection
     {
-        public static IServiceCollection AddPresentation(this IServiceCollection services)
+        public static IServiceCollection AddPresentation(this IServiceCollection services, IConfiguration configuration)
         {
             services.AddControllers().AddFluentValidation();
             services.AddEndpointsApiExplorer();
@@ -32,6 +33,7 @@ namespace Contracting.API
                     new AcceptLanguageHeaderRequestCultureProvider()
                 );
             });
+            services.Configure<FirebaseSettings>(configuration.GetSection("Firebase"));
             return services;
         }
     }
