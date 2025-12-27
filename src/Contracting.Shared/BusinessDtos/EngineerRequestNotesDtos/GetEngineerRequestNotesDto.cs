@@ -11,7 +11,7 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestNotesDtos
         public GetEngineerDto? Engineer { get; set; }
         public Guid? StatusId { get; set; }
         public GetDropDownStatusDto? Status { get; set; }
-        public DateTime CreatedDate { get; set; }
+        public DateTimeOffset CreatedDate { get; set; }
 
     }
 }
