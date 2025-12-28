@@ -75,6 +75,7 @@ public class AuthController : APIBaseController
     }
 
     [HttpPost("fcm-token")]
+    [Authorize]
     public async Task<IActionResult> SaveFcmToken([FromBody] string fcmToken)
     {
         var command = new FCMTokenNotificationCommand(fcmToken); 

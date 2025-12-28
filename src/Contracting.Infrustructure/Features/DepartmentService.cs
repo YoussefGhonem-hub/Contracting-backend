@@ -4,6 +4,7 @@ using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Infrustructure.Inteface;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.Dtos;
+using Contracting.Shared.MasterDtos.BranchDto;
 using Contracting.Shared.MasterDtos.DepartmentDtos;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
@@ -101,6 +102,19 @@ namespace Contracting.Infrustructure.Features
             _db.Departmentes.Remove(department);
             await _db.SaveChangesAsync();
             return true;
+        }
+
+        public async Task<List<GetDepartmentDto>> DropDownMethodAsync(Guid branchId)
+        {
+            return await _db.Departmentes
+                   .Where(x => x.BranchId == branchId)
+                   .Select(x => new GetDepartmentDto
+                   {
+                       Id = x.Id,
+                       nameAr = x.nameAr,
+                       nameEn = x.nameEn
+                   })
+                   .ToListAsync();
         }
     }
 

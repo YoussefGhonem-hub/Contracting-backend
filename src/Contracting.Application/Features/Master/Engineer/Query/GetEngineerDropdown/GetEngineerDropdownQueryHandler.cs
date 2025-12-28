@@ -19,7 +19,7 @@ namespace Contracting.Application.Features.Master.Engineer.Query.GetEngineerDrop
 
         public async Task<ErrorOr<List<GetEngineerDropDownDto>>> Handle(GetEngineerDropdownQuery request, CancellationToken cancellationToken)
         {
-            var result = await _service.GetEngineerDropdownAsync();
+            var result = await _service.GetEngineerDropdownAsync(request.departmentId);
             return result;
         }
     }

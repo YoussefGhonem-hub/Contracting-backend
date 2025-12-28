@@ -7,6 +7,10 @@ using Microsoft.AspNetCore.Mvc;
 using Contracting.API.Controllers.Shared;
 using Contracting.Shared.Dtos;
 using Contracting.Application.Features.Master.Department.Query.GetDepartmentsByBranchId;
+using Contracting.Application.Features.Master.Branch.Query.GetBanchDropDown;
+using Contracting.Shared.MasterDtos.BranchDto;
+using ErrorOr;
+using Contracting.Application.Features.Master.Department.Query.GetDropDownDepartment;
 
 namespace Contracting.API.Controllers
 {
@@ -69,6 +73,19 @@ namespace Contracting.API.Controllers
 
             return result.Match(
                 success => Ok(success),
+                errors => Problem(errors)
+            );
+        }
+
+        [HttpGet("dropdown/{branchId:guid}")]
+        public async Task<IActionResult> GetDropDown(Guid branchId)
+        {
+            var query = new GetDropDownDepartmentQuery(branchId);
+             var result =
+                await _mediator.Send(query);
+
+            return result.Match(
+                paged => Ok(paged),
                 errors => Problem(errors)
             );
         }

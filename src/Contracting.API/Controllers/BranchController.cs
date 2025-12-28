@@ -3,6 +3,7 @@ using Contracting.Application.Features.Master.Branch.Command.CreateBranch;
 using Contracting.Application.Features.Master.Branch.Command.DeleteBranch;
 using Contracting.Application.Features.Master.Branch.Command.UpdateBranch;
 using Contracting.Application.Features.Master.Branch.Query.GetAllBranches;
+using Contracting.Application.Features.Master.Branch.Query.GetBanchDropDown;
 using Contracting.Application.Features.Master.Branch.Query.GetBranchById;
 using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Shared.Dtos;
@@ -82,6 +83,19 @@ namespace Contracting.API.Controllers
         {
             var query = new GetAllBranchesQuery(filter);
             ErrorOr<PaginatedList<GetBranchDto>> result =
+                await _mediator.Send(query);
+
+            return result.Match(
+                paged => Ok(paged),
+                errors => Problem(errors)
+            );
+        }
+
+        [HttpGet("dropdown")]
+        public async Task<IActionResult> GetDropDown()
+        {
+            var query = new GetBanchDropDownQuery();
+            ErrorOr<List<BranchDropDownDto>> result =
                 await _mediator.Send(query);
 
             return result.Match(

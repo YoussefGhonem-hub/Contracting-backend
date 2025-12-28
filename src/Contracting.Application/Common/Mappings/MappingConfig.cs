@@ -1,3 +1,4 @@
+using Contracting.Domain.Entities;
 using Contracting.Domain.Entities.business;
 using Contracting.Domain.Entities.master;
 using Contracting.Shared.BusinessDtos.EngineerRequestDto;
@@ -7,6 +8,7 @@ using Contracting.Shared.MasterDtos.DepartmentDtos;
 using Contracting.Shared.MasterDtos.EngineerDto;
 using Contracting.Shared.MasterDtos.PriorityDto;
 using Contracting.Shared.MasterDtos.ProjectDtos;
+using Contracting.Shared.MasterDtos.RoleDto;
 using Contracting.Shared.MasterDtos.StatusDtos;
 using Mapster;
 
@@ -77,8 +79,21 @@ public static class MappingConfig
                     .Map(dest => dest.Status, src => src.Status)
                     .Map(dest => dest.EngineerRequestNotes, src => src.EngineerRequestNotes);
 
-        
 
+        config.NewConfig<CreateRoleDto, ApplicationRole>()
+               .Map(dest => dest.Name, src => src.Name)
+               .Map(dest => dest.DisplayName, src => src.DisplayName);
+
+        // Map UpdateRoleDto to ApplicationRole
+        config.NewConfig<UpdateRoleDto, ApplicationRole>()
+            .Map(dest => dest.Id, src => src.Id)
+            .Map(dest => dest.Name, src => src.Name)
+            .Map(dest => dest.DisplayName, src => src.DisplayName);
+
+        // Map ApplicationRole to RoleDropDownDto
+        config.NewConfig<ApplicationRole, RoleDropDownDto>()
+            .Map(dest => dest.Id, src => src.Id)
+            .Map(dest => dest.Name, src => src.Name);
 
 
 

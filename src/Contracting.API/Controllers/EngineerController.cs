@@ -66,7 +66,7 @@ namespace Contracting.API.Controllers
 
         // Get Engineer List (with filter)
         [HttpGet]
-        public async Task<IActionResult> GetList([FromQuery] string departmentId, [FromQuery] BaseFilterDto filter)
+        public async Task<IActionResult> GetList([FromQuery] Guid departmentId, [FromQuery] BaseFilterDto filter)
         {
             var query = new GetEngineerListQuery(departmentId, filter);
             var result = await _mediator.Send(query);
@@ -91,10 +91,10 @@ namespace Contracting.API.Controllers
         }
 
         // Get Engineer Dropdown
-        [HttpGet("dropdown")]
-        public async Task<IActionResult> GetDropdown()
+        [HttpGet("dropdown/{departmentId:guid}")]
+        public async Task<IActionResult> GetDropdown(Guid departmentId)
         {
-            var query = new GetEngineerDropdownQuery();
+            var query = new GetEngineerDropdownQuery(departmentId);
             var result = await _mediator.Send(query);
 
             return result.Match(

@@ -15,5 +15,7 @@ namespace Contracting.Infrustructure.Inteface
         Task<GetBranchDto> UpdateAsync(UpdateBranchDto branch);
         // Delete
         Task DeleteAsync(Guid id);
+        Task<List<BranchDropDownDto>> DropDownMethodAsync();
+
     }
 }

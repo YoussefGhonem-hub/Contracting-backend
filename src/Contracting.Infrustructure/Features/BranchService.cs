@@ -53,6 +53,18 @@ namespace Contracting.Infrustructure.Features
             await _db.SaveChangesAsync();
         }
 
+        public async Task<List<BranchDropDownDto>> DropDownMethodAsync()
+        {
+            return await _db.Branches
+                        .Select(b => new BranchDropDownDto
+                        {
+                            Id = b.Id,
+                            nameAr = b.nameAr,
+                            nameEn = b.nameEn
+,                        })
+                        .ToListAsync();
+        }
+
         // ---------------- GET ALL (PAGINATION) ----------------
         public async Task<PaginatedList<GetBranchDto>> GetAllAsync(
             BaseFilterDto filter,

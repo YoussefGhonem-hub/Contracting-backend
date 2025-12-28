@@ -50,6 +50,7 @@ public static class DependencyInjection
         services.AddScoped<IStatueService, StatueService>();
         services.AddScoped<IEngineerRequestService, EngineerRequestService>();
         services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<IRoleService, RoleService>();
 
         services.AddHttpContextAccessor();
 

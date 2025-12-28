@@ -5,5 +5,5 @@ using System.Collections.Generic;
 
 namespace Contracting.Application.Features.Master.Engineer.Query.GetEngineerDropdown
 {
-    public record GetEngineerDropdownQuery() : IRequest<ErrorOr<List<GetEngineerDropDownDto>>>;
+    public record GetEngineerDropdownQuery(Guid departmentId) : IRequest<ErrorOr<List<GetEngineerDropDownDto>>>;
 }

@@ -1,6 +1,6 @@
-﻿namespace Contracting.Shared.MasterDtos.DepartmentDtos
+﻿namespace Contracting.Shared.MasterDtos.BranchDto
 {
-    public class GetDepartmentDto
+    public class BranchDropDownDto
     {
         public Guid Id { get; set; }
         public string? nameEn { get; set; }

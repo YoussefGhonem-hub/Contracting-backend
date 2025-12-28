@@ -77,15 +77,10 @@ namespace Contracting.Infrustructure.Features
             return true;
         }
 
-        public async Task<PaginatedList<GetEngineerDto>> GetEngineerListAsync(string departmentId, BaseFilterDto filter)
+        public async Task<PaginatedList<GetEngineerDto>> GetEngineerListAsync(Guid departmentId, BaseFilterDto filter)
         {
-            var query = _db.Engineers.Include(x=>x.Department).AsNoTracking();
-
-            if (Guid.TryParse(departmentId, out var deptGuid))
-            {
-                query = query.Where(e => e.DepartmentId == deptGuid);
-            }
-
+            var query = _db.Engineers.Include(x=>x.Department).AsNoTracking();            
+            query = query.Where(e => e.DepartmentId == departmentId);           
             return await query.PaginateAsync<Engineer, GetEngineerDto>(filter.PageIndex, filter.PageSize);
         }
 
@@ -99,9 +94,9 @@ namespace Contracting.Infrustructure.Features
             return engineer is null ? null! : _mapper.Map<GetEngineerDto>(engineer);
         }
 
-        public async Task<List<GetEngineerDropDownDto>> GetEngineerDropdownAsync()
+        public async Task<List<GetEngineerDropDownDto>> GetEngineerDropdownAsync(Guid departmentId)
         {
-            var engineers = await _db.Engineers
+            var engineers = await _db.Engineers.Where(x=>x.DepartmentId == departmentId)
                .Include(e => e.Department) // Ensure Department is eagerly loaded
                .AsNoTracking()
                .ToListAsync();
