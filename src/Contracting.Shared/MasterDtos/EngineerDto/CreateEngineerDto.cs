@@ -12,8 +12,8 @@
         public string? phoneNumber { get; set; }
         public string? Email { get; set; }
         public string? password { get; set; }
-        public bool isManager { get; set; } = false;
-
         public Guid DepartmentId { get; set; }
+        public List<string> Roles { get; set; } = new(); // New property for roles
+
     }
 }

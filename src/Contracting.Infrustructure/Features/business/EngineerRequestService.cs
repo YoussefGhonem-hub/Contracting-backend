@@ -1,4 +1,5 @@
 using Contracting.Domain.Entities.business;
+using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Extensions;
 using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Infrustructure.Inteface.business;
@@ -51,11 +52,13 @@ namespace Contracting.Infrustructure.Features.business
             if (request.EngineerId == Guid.Empty) request.EngineerId = null;
 
             // Find the Team Lead for the selected department
-            var teamLead = await _db.Engineers
-                .Where(e => e.DepartmentId == request.DepartmentId && e.isManager)
-                .Select(e => e.ApplicationUserId)
-                .FirstOrDefaultAsync();
-           
+            var teamLead = await (from Engineer in _db.Engineers
+                                  join userRole in _db.UserRoles on engineer.ApplicationUserId equals userRole.UserId
+                                  join role in _db.Roles on userRole.RoleId equals role.Id
+                                  where engineer.DepartmentId == request.DepartmentId && role.Name == "team-lead"
+                                  select engineer.ApplicationUserId)
+                      .FirstOrDefaultAsync();
+
             // Handle notes
             if (dto.EngineerRequestNotes != null && dto.EngineerRequestNotes.Any())
             {
@@ -259,11 +262,14 @@ namespace Contracting.Infrustructure.Features.business
         // ---------------- CHECK IF ENGINEER IS MANAGER ----------------
         public async Task<bool> IsEngineerManagerOfDepartmentAsync(Guid engineerId, Guid departmentId)
         {
-            var department = await _db.Engineers
-                .AsNoTracking()
-                .FirstOrDefaultAsync(d => d.Id == departmentId && d.isManager == true);
+            var isTeamLead = await (from eng in _db.Engineers
+                                    join userRole in _db.UserRoles on eng.ApplicationUserId equals userRole.UserId
+                                    join role in _db.Roles on userRole.RoleId equals role.Id
+                                    where eng.Id == engineerId && eng.DepartmentId == departmentId && role.Name == "team-lead"
+                                    select eng.Id)
+                        .AnyAsync();
 
-            return department is not null;
+            return isTeamLead;
         }
 
         // ---------------- TAKE ACTION ON REQUEST ----------------
@@ -283,11 +289,13 @@ namespace Contracting.Infrustructure.Features.business
             if (!departmentId.HasValue)
                 return false;
 
-            var manager = await _db.Engineers
-                .AsNoTracking()
-                .FirstOrDefaultAsync(e => e.DepartmentId == departmentId.Value && e.isManager);
+            var isManager = await (from eng in _db.Engineers
+                                   join userRole in _db.UserRoles on eng.ApplicationUserId equals userRole.UserId
+                                   join role in _db.Roles on userRole.RoleId equals role.Id
+                                   where eng.DepartmentId == departmentId.Value && role.Name == "team-lead" && eng.ApplicationUserId == currentUserId
+                                   select eng.Id)
+                       .AnyAsync();
 
-            var isManager = manager != null && manager.ApplicationUserId == currentUserId;
             var isAssigned = request.assignToId.HasValue && request.assignToId.Value == currentUserId;
 
             // Only manager or assigned engineer can take action

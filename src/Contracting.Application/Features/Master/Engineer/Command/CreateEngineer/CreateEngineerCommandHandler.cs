@@ -1,5 +1,6 @@
 using Contracting.Application.Resources;
 using Contracting.Domain.Entities;
+using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Inteface;
 using Contracting.Shared.CurrentUser;
 using Contracting.Shared.MasterDtos.EngineerDto;
@@ -26,7 +27,7 @@ namespace Contracting.Application.Features.Master.Engineer.Command.CreateEnginee
 
         public async Task<ErrorOr<GetEngineerDto>> Handle(CreateEngineerCommand request, CancellationToken cancellationToken)
         {
-            if ((request.Engineer.DepartmentId != null || request.Engineer.DepartmentId == Guid.Empty) && request.Engineer.isManager )
+            if (request.Engineer.Roles.Contains("team-lead", StringComparer.OrdinalIgnoreCase))
             {
                 var hasManager = await _service.CheckDepartmentHaveManagerAsync(request.Engineer.DepartmentId);
                 if (hasManager) 
@@ -46,11 +47,14 @@ namespace Contracting.Application.Features.Master.Engineer.Command.CreateEnginee
             if (!Result.Succeeded)
                 return Error.Validation("General.Validation", Result.Errors.Select(e => e.Description).FirstOrDefault() ?? _localizer[SharedResourcesKeys.InvalidCredentials]);
 
+            // Update roles using the service method
+            await _service.UpdateUserRolesAsync(user.Id, request.Engineer.Roles);
 
-            var result = await _service.CreateEngineerAsync(request.Engineer, user.Id);
-            return result is null
+            // Create Engineer
+            var engineer = await _service.CreateEngineerAsync(request.Engineer, user.Id);
+            return engineer is null
                 ? Error.Failure("Could not create engineer.")
-                : result;
+                : engineer;
         }
     }
 }

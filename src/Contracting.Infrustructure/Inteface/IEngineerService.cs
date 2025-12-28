@@ -1,4 +1,5 @@
-﻿using Contracting.Infrustructure.Extensions.Helpers;
+﻿using Contracting.Domain.Entities;
+using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.MasterDtos.EngineerDto;
 
@@ -24,5 +25,8 @@ namespace Contracting.Infrustructure.Inteface
         // Get a dropdown list of engineers (id and name only)
         Task<List<GetEngineerDropDownDto>> GetEngineerDropdownAsync(Guid departmentId);
         Task<bool> CheckDepartmentHaveManagerAsync(Guid departmentId);
+        Task UpdateUserRolesAsync(Guid userId, List<string> roles);
+        Task<ApplicationUser> UpdateUserAsync(Guid userId, UpdateEngineerDto dto);
+
     }
 }

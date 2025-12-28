@@ -24,35 +24,28 @@ namespace Contracting.Application.Features.Master.Engineer.Command.UpdateEnginee
 
         public async Task<ErrorOr<GetEngineerDto>> Handle(UpdateEngineerCommand request, CancellationToken cancellationToken)
         {
-            if ((request.Engineer.ChangeDepartmentId != null || request.Engineer.ChangeDepartmentId == Guid.Empty) && request.Engineer.isManager)
+            // Validate if the department already has a manager
+            if (request.Engineer.ChangeDepartmentId != null || request.Engineer.ChangeDepartmentId == Guid.Empty)
             {
-                var hasManager = await _service.CheckDepartmentHaveManagerAsync(request.Engineer.ChangeDepartmentId ?? new Guid());
+                var hasManager = await _service.CheckDepartmentHaveManagerAsync(request.Engineer.ChangeDepartmentId ?? Guid.Empty);
                 if (hasManager)
                     return Error.Validation("Department.ManagerExists", "The selected department already has a manager.");
             }
 
-            // ? FIXED: Fetch the existing user from the database
-            var user = await _userManager.FindByIdAsync(request.Engineer.ApplicationUserId.ToString());
-            if (user is null)
-                return Error.NotFound("User not found.");
+            // Update the user details
+            var userUpdateResult = await _service.UpdateUserAsync(request.Engineer.ApplicationUserId, request.Engineer);
+            if (userUpdateResult is null)
+                return Error.NotFound("Engineer not found.");
 
-            // ? Update only the properties that can change
-            user.UserName = request.Engineer.Email;
-            user.Email = request.Engineer.Email;
-            user.FullName = request.Engineer.nameEn;
-            user.PhoneNumber = request.Engineer.phoneNumber;
-            user.IsActive = true;
+            // Update the engineer details
+            var engineerUpdateResult = await _service.UpdateEngineerAsync(request.Engineer);
+            if (engineerUpdateResult is null)
+                return Error.NotFound("Engineer not found.");
 
-            // ? Now update the user
-            var Result = await _userManager.UpdateAsync(user);
-            if (!Result.Succeeded)
-                return Error.Validation("General.Validation", Result.Errors.Select(e => e.Description).FirstOrDefault() ?? _localizer[SharedResourcesKeys.InvalidCredentials]);
+            // Update the user roles
+            await _service.UpdateUserRolesAsync(request.Engineer.ApplicationUserId, request.Engineer.Roles);
 
-            // Update the engineer
-            var result = await _service.UpdateEngineerAsync(request.Engineer);
-            return result is null
-                ? Error.NotFound("Engineer not found.")
-                : result;
+            return engineerUpdateResult;
         }
     }
 }

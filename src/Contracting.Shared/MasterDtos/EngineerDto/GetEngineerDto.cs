@@ -15,7 +15,6 @@ namespace Contracting.Shared.MasterDtos.EngineerDto
         public string? phoneNumber { get; set; }
         public string? Email { get; set; }
         public Guid? DepartmentId { get; set; }
-        public bool isManager { get; set; } = false;
         public GetDepartmentDto? Department { get; set; }
     }
 
@@ -24,7 +23,6 @@ namespace Contracting.Shared.MasterDtos.EngineerDto
         public Guid Id { get; set; }
         public string? nameEn { get; set; }
         public string? nameAr { get; set; }
-        public bool isManager { get; set; } = false;
         public Guid? DepartmentId { get; set; }
         public GetDepartmentDto? Department { get; set; }
     }

@@ -12,8 +12,9 @@
         public int? yearExperience { get; set; }
         public string? phoneNumber { get; set; }
         public string? Email { get; set; }
-        public bool isManager { get; set; } = false;
         public Guid ApplicationUserId { get; set; }
         public Guid? ChangeDepartmentId { get; set; }
+        public List<string> Roles { get; set; } = new(); // New property for roles
+
     }
 }

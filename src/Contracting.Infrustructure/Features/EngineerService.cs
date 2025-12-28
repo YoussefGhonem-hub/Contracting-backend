@@ -1,3 +1,4 @@
+using Contracting.Domain.Entities;
 using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Extensions;
 using Contracting.Infrustructure.Extensions.Helpers;
@@ -6,7 +7,9 @@ using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.MasterDtos.EngineerDto;
 using MapsterMapper;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Contracting.Infrustructure.Features
 {
@@ -50,7 +53,6 @@ namespace Contracting.Infrustructure.Features
             engineer.nationalId = dto.nationalId;
             engineer.position = dto.position;
             engineer.phoneNumber = dto.phoneNumber;
-            engineer.isManager = dto.isManager;
             engineer.yearExperience = dto.yearExperience;
             engineer.Email = dto.Email;
 
@@ -62,6 +64,40 @@ namespace Contracting.Infrustructure.Features
 
             await _db.SaveChangesAsync();
             return _mapper.Map<GetEngineerDto>(engineer);
+        }
+        public async Task UpdateUserRolesAsync(Guid userId, List<string> roles)
+        {
+            // Remove existing roles
+            var existingRoles = _db.UserRoles.Where(ur => ur.UserId == userId);
+            _db.UserRoles.RemoveRange(existingRoles);
+
+            // Add new roles
+            var userRoles = roles.Select(roleName => new IdentityUserRole<Guid>
+            {
+                UserId = userId,
+                RoleId = _db.Roles.First(r => r.Name == roleName).Id
+            }).ToList();
+
+            await _db.UserRoles.AddRangeAsync(userRoles);
+            await _db.SaveChangesAsync();
+        }
+
+        public async Task<ApplicationUser> UpdateUserAsync(Guid userId, UpdateEngineerDto dto)
+        {
+            var user = await _db.Users.FindAsync(userId);
+            if (user is null)
+                return null;
+
+            user.UserName = dto.Email;
+            user.Email = dto.Email;
+            user.FullName = dto.nameEn;
+            user.PhoneNumber = dto.phoneNumber;
+            user.IsActive = true;
+
+            _db.Users.Update(user);
+            await _db.SaveChangesAsync();
+
+            return user;
         }
 
 
@@ -106,7 +142,13 @@ namespace Contracting.Infrustructure.Features
 
         public async Task<bool> CheckDepartmentHaveManagerAsync(Guid departmentId)
         {
-            var hasManager = await _db.Engineers.AnyAsync(e => e.DepartmentId == departmentId && e.isManager == true);
+            var hasManager = await (from engineer in _db.Engineers
+                                    join userRole in _db.UserRoles on engineer.ApplicationUserId equals userRole.UserId
+                                    join role in _db.Roles on userRole.RoleId equals role.Id
+                                    where engineer.DepartmentId == departmentId && role.Name == "team-lead"
+                                    select engineer)
+                            .AnyAsync();
+
             return hasManager;
         }
     }
