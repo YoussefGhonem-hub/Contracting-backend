@@ -4,6 +4,7 @@ using Contracting.Infrustructure.Extensions;
 using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Infrustructure.Inteface;
 using Contracting.Infrustructure.Persistence;
+using Contracting.Shared.Constants;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.MasterDtos.EngineerDto;
 using MapsterMapper;
@@ -115,19 +116,87 @@ namespace Contracting.Infrustructure.Features
 
         public async Task<PaginatedList<GetEngineerDto>> GetEngineerListAsync(Guid departmentId, BaseFilterDto filter)
         {
-            var query = _db.Engineers.Include(x=>x.Department).AsNoTracking();            
-            query = query.Where(e => e.DepartmentId == departmentId);           
-            return await query.PaginateAsync<Engineer, GetEngineerDto>(filter.PageIndex, filter.PageSize);
+            var query = _db.Engineers
+                .Include(x => x.Department)
+                .Include(x => x.ApplicationUser)
+                .Where(e => e.DepartmentId == departmentId)
+                .AsNoTracking();
+
+            if (string.IsNullOrWhiteSpace(filter.Sort))
+            {
+                query = query.OrderBy(e => e.CreatedDate);
+            }
+            else
+            {
+                query = query.OrderByDynamic(filter.Sort, filter.Descending);
+            }
+
+            var totalCount = await query.CountAsync();
+
+            var engineers = await query
+                .Skip((filter.PageIndex - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .ToListAsync();
+
+            // Get all user IDs
+            var userIds = engineers.Select(e => e.ApplicationUserId).ToList();
+
+            // Get all roles for these users in one query
+            var userRolesDict = await _db.UserRoles
+                .Where(ur => userIds.Contains(ur.UserId))
+                .Join(_db.Roles,
+                    ur => ur.RoleId,
+                    r => r.Id,
+                    (ur, r) => new { ur.UserId, RoleName = r.Name })
+                .GroupBy(x => x.UserId)
+                .ToDictionaryAsync(
+                    g => g.Key,
+                    g => g.Select(x => x.RoleName).ToList());
+
+            // Map to DTOs and assign roles
+            var engineerDtos = engineers.Select(engineer =>
+            {
+                var dto = _mapper.Map<GetEngineerDto>(engineer);
+                dto.Roles = userRolesDict.ContainsKey(engineer.ApplicationUserId)
+                    ? userRolesDict[engineer.ApplicationUserId]
+                    : new List<string>();
+                return dto;
+            }).ToList();
+
+            return new PaginatedList<GetEngineerDto>(
+                engineerDtos,
+                totalCount,
+                filter.PageIndex,
+                filter.PageSize);
         }
 
         public async Task<GetEngineerDto> GetEngineerByIdAsync(Guid engineerId)
         {
             var engineer = await _db.Engineers
                 .Include(e => e.Department)
+                .Include(e=>e.ApplicationUser)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(e => e.Id == engineerId);
 
-            return engineer is null ? null! : _mapper.Map<GetEngineerDto>(engineer);
+            if (engineer is null)
+                return null!;
+
+            // Map to DTO
+            var dto = _mapper.Map<GetEngineerDto>(engineer);
+            dto.ApplicationUserId = engineer.ApplicationUserId;
+
+            // Get roles for this engineer
+            var roles = await _db.UserRoles
+                .Where(ur => ur.UserId == engineer.ApplicationUserId)
+                .Join(_db.Roles,
+                    ur => ur.RoleId,
+                    r => r.Id,
+                    (ur, r) => r.Name)
+                .ToListAsync();
+
+            dto.Roles = roles;
+
+            return dto;
         }
 
         public async Task<List<GetEngineerDropDownDto>> GetEngineerDropdownAsync(Guid departmentId)
@@ -145,7 +214,7 @@ namespace Contracting.Infrustructure.Features
             var hasManager = await (from engineer in _db.Engineers
                                     join userRole in _db.UserRoles on engineer.ApplicationUserId equals userRole.UserId
                                     join role in _db.Roles on userRole.RoleId equals role.Id
-                                    where engineer.DepartmentId == departmentId && role.Name == "team-lead"
+                                    where engineer.DepartmentId == departmentId && role.Name == RoleNames.Teamleadengineer
                                     select engineer)
                             .AnyAsync();
 

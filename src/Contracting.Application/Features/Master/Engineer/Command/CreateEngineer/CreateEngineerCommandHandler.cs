@@ -2,6 +2,7 @@ using Contracting.Application.Resources;
 using Contracting.Domain.Entities;
 using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Inteface;
+using Contracting.Shared.Constants;
 using Contracting.Shared.CurrentUser;
 using Contracting.Shared.MasterDtos.EngineerDto;
 using ErrorOr;
@@ -27,7 +28,7 @@ namespace Contracting.Application.Features.Master.Engineer.Command.CreateEnginee
 
         public async Task<ErrorOr<GetEngineerDto>> Handle(CreateEngineerCommand request, CancellationToken cancellationToken)
         {
-            if (request.Engineer.Roles.Contains("team-lead", StringComparer.OrdinalIgnoreCase))
+            if (request.Engineer.Roles.Contains(RoleNames.Teamleadengineer, StringComparer.OrdinalIgnoreCase))
             {
                 var hasManager = await _service.CheckDepartmentHaveManagerAsync(request.Engineer.DepartmentId);
                 if (hasManager) 

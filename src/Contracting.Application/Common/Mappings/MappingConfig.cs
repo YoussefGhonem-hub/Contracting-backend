@@ -41,7 +41,7 @@ public static class MappingConfig
         config.NewConfig<UpdateEngineerDto, Engineer>();
 
         config.NewConfig<Engineer, GetEngineerDto>()
-        .Map(dest => dest.Department, src => src.Department);
+        .Map(dest => dest.Department, src => src.Department).Ignore(dest => dest.Roles);
         config.NewConfig<Engineer, GetEngineerDropDownDto>()
         .Map(dest => dest.Department, src => src.Department);
 
@@ -68,7 +68,6 @@ public static class MappingConfig
               .Map(dest => dest.Engineer, src => src.Engineer)
               .Map(dest => dest.Status, src => src.Status);
 
-        config.NewConfig<Engineer, GetEngineerDto>();
         config.NewConfig<Status, GetDropDownStatusDto>();
         config.NewConfig<EngineerRequest, GetAllEngineerRequestDto>()
                     .Map(dest => dest.Project, src => src.Project)

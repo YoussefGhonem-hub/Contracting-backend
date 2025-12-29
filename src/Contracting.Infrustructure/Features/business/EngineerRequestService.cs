@@ -6,6 +6,7 @@ using Contracting.Infrustructure.Inteface.business;
 using Contracting.Infrustructure.Inteface.Helper;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.BusinessDtos.EngineerRequestDto;
+using Contracting.Shared.Constants;
 using Contracting.Shared.CurrentUser;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.HelperDtos;
@@ -55,7 +56,7 @@ namespace Contracting.Infrustructure.Features.business
             var teamLead = await (from Engineer in _db.Engineers
                                   join userRole in _db.UserRoles on engineer.ApplicationUserId equals userRole.UserId
                                   join role in _db.Roles on userRole.RoleId equals role.Id
-                                  where engineer.DepartmentId == request.DepartmentId && role.Name == "team-lead"
+                                  where engineer.DepartmentId == request.DepartmentId && role.Name == RoleNames.Teamleadengineer
                                   select engineer.ApplicationUserId)
                       .FirstOrDefaultAsync();
 
@@ -265,7 +266,7 @@ namespace Contracting.Infrustructure.Features.business
             var isTeamLead = await (from eng in _db.Engineers
                                     join userRole in _db.UserRoles on eng.ApplicationUserId equals userRole.UserId
                                     join role in _db.Roles on userRole.RoleId equals role.Id
-                                    where eng.Id == engineerId && eng.DepartmentId == departmentId && role.Name == "team-lead"
+                                    where eng.Id == engineerId && eng.DepartmentId == departmentId && role.Name == RoleNames.Teamleadengineer
                                     select eng.Id)
                         .AnyAsync();
 
@@ -292,7 +293,7 @@ namespace Contracting.Infrustructure.Features.business
             var isManager = await (from eng in _db.Engineers
                                    join userRole in _db.UserRoles on eng.ApplicationUserId equals userRole.UserId
                                    join role in _db.Roles on userRole.RoleId equals role.Id
-                                   where eng.DepartmentId == departmentId.Value && role.Name == "team-lead" && eng.ApplicationUserId == currentUserId
+                                   where eng.DepartmentId == departmentId.Value && role.Name == RoleNames.Teamleadengineer && eng.ApplicationUserId == currentUserId
                                    select eng.Id)
                        .AnyAsync();
 
