@@ -1,4 +1,5 @@
-﻿using Contracting.Shared.BusinessDtos.EngineerRequestNotesDtos;
+﻿using Contracting.Shared.BusinessDtos.EngineerRequestActiviteDto;
+using Contracting.Shared.BusinessDtos.EngineerRequestNotesDtos;
 using Contracting.Shared.MasterDtos.DepartmentDtos;
 using Contracting.Shared.MasterDtos.EngineerDto;
 using Contracting.Shared.MasterDtos.PriorityDto;
@@ -26,6 +27,7 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestDto
         public string? Note { get; set; }
         public DateTime? NoteDate { get; set; }
         public int? timeDuration { get; set; }
-        public ICollection<GetEngineerRequestNotesDto> EngineerRequestNotes { get; set; }
+        public ICollection<GetEngineerRequestNotesDto> EngineerRequestNotes { get; set; } = new List<GetEngineerRequestNotesDto>();
+        public ICollection<GetEngineerRequestActiviteDto> EngineerRequestActivites { get; set; } = new List<GetEngineerRequestActiviteDto>();
     }
 }

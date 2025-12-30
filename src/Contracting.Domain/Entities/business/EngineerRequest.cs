@@ -19,8 +19,8 @@ namespace Contracting.Domain.Entities.business
         public Status Status { get; set; }
         public Guid? assignToId { get; set; }
         public Engineer? assignTo { get; set; }
-        public string? Note { get; set; }
-        public DateTime? NoteDate { get; set; }
         public ICollection<EngineerRequestNotes> EngineerRequestNotes { get; set; }
+        public ICollection<EngineerRequestActivite> EngineerRequestActivites { get; set; }
+
     }
 }

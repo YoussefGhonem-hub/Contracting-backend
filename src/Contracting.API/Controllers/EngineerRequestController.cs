@@ -4,6 +4,7 @@ using Contracting.Application.Features.Business.EngineerRequest.Command.DeleteEn
 using Contracting.Application.Features.Business.EngineerRequest.Command.TakeActionOnRequest;
 using Contracting.Application.Features.Business.EngineerRequest.Command.UpdateEngineerRequest;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetAllRequestsByDepartment;
+using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequestActivities;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequestById;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequestCreatedOrApplyToEngineer;
 using Contracting.Shared.BusinessDtos.EngineerRequestDto;
@@ -112,7 +113,20 @@ namespace Contracting.API.Controllers
             var result = await _mediator.Send(command);
 
             return result.Match(
-                success => Ok(new { Message = dto.isAprroved ? "Request approved successfully" : "Request rejected successfully" }),
+                success => Ok(new { Message =   "Request approved successfully" }),
+                errors => Problem(errors)
+            );
+        }
+
+        // Get Request Activities (status changes, assignments)
+        [HttpGet("{requestId:guid}/activities")]
+        public async Task<IActionResult> GetActivities(Guid requestId)
+        {
+            var query = new GetRequestActivitiesQuery(requestId);
+            var result = await _mediator.Send(query);
+
+            return result.Match(
+                activities => Ok(activities),
                 errors => Problem(errors)
             );
         }

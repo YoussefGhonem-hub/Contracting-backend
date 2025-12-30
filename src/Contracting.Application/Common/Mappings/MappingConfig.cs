@@ -1,6 +1,7 @@
 using Contracting.Domain.Entities;
 using Contracting.Domain.Entities.business;
 using Contracting.Domain.Entities.master;
+using Contracting.Shared.BusinessDtos.EngineerRequestActiviteDto;
 using Contracting.Shared.BusinessDtos.EngineerRequestDto;
 using Contracting.Shared.BusinessDtos.EngineerRequestNotesDtos;
 using Contracting.Shared.MasterDtos.BranchDto;
@@ -65,10 +66,14 @@ public static class MappingConfig
 
         config.NewConfig<CrearteEngineerRequestNotesDto, EngineerRequestNotes>();
         config.NewConfig<EngineerRequestNotes, GetEngineerRequestNotesDto>()
-              .Map(dest => dest.Engineer, src => src.Engineer)
-              .Map(dest => dest.Status, src => src.Status);
+              .Map(dest => dest.Engineer, src => src.Engineer);
 
         config.NewConfig<Status, GetDropDownStatusDto>();
+        
+        config.NewConfig<EngineerRequestActivite, GetEngineerRequestActiviteDto>()
+            .Map(dest => dest.EngineerName, src => src.Engineer != null ? $"{src.Engineer.nameEn} / {src.Engineer.nameAr}" : null)
+            .Map(dest => dest.StatusName, src => src.Status != null ? $"{src.Status.nameEn} / {src.Status.nameAr}" : null);
+        
         config.NewConfig<EngineerRequest, GetAllEngineerRequestDto>()
                     .Map(dest => dest.Project, src => src.Project)
                     .Map(dest => dest.Department, src => src.Department)
@@ -76,7 +81,8 @@ public static class MappingConfig
                     .Map(dest => dest.Engineer, src => src.Engineer)
                     .Map(dest => dest.assignTo, src => src.assignTo)
                     .Map(dest => dest.Status, src => src.Status)
-                    .Map(dest => dest.EngineerRequestNotes, src => src.EngineerRequestNotes);
+                    .Map(dest => dest.EngineerRequestNotes, src => src.EngineerRequestNotes)
+                    .Map(dest => dest.EngineerRequestActivites, src => src.EngineerRequestActivites);
 
 
         config.NewConfig<CreateRoleDto, ApplicationRole>()

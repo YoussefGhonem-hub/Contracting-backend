@@ -6,6 +6,7 @@ using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Infrustructure.Inteface.business;
 using Contracting.Infrustructure.Inteface.Helper;
 using Contracting.Infrustructure.Persistence;
+using Contracting.Shared.BusinessDtos.EngineerRequestActiviteDto;
 using Contracting.Shared.BusinessDtos.EngineerRequestDto;
 using Contracting.Shared.Common;
 using Contracting.Shared.Constants;
@@ -72,7 +73,6 @@ namespace Contracting.Infrustructure.Features.business
                     .Select(noteDto =>
                     {
                         var note = _mapper.Map<EngineerRequestNotes>(noteDto);
-                        note.StatusId = firstStatus?.Id ?? Guid.Empty;
                         note.EngineerId = engineer?.Id;
                         note.EngineerRequest = request;
                         return note;
@@ -80,6 +80,17 @@ namespace Contracting.Infrustructure.Features.business
             }
 
             await _db.EngineerRequests.AddAsync(request);
+            
+            // Create initial activity for request creation
+            var createActivity = new EngineerRequestActivite
+            {
+                EngineerRequestId = request.Id,
+                EngineerId = engineer?.Id,
+                StatusId = request.StatusId,
+                ActionType = "Created"
+            };
+            await _db.EngineerRequestActivites.AddAsync(createActivity);
+            
             await _db.SaveChangesAsync();
 
             // Reload with navigation properties
@@ -91,6 +102,7 @@ namespace Contracting.Infrustructure.Features.business
                                 .Include(r => r.Engineer)
                                     .ThenInclude(e => e.Department)
                                 .Include(r => r.EngineerRequestNotes)
+                                .Include(r=>r.EngineerRequestActivites)
                                 .AsNoTracking()
                                 .FirstOrDefaultAsync(r => r.Id == request.Id);
 
@@ -129,7 +141,7 @@ namespace Contracting.Infrustructure.Features.business
             if (request is null)
                 return null!;
 
-            if (request.NoteDate.HasValue || request.assignToId != Guid.Empty)
+            if (request.assignToId != Guid.Empty)
                 return null!;
 
             // Update fields
@@ -198,7 +210,7 @@ namespace Contracting.Infrustructure.Features.business
                 return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.RequestNotFound]);
 
             // Check if action has been taken
-            if (request.NoteDate.HasValue || request.assignToId != Guid.Empty)
+            if (request.assignToId != Guid.Empty)
             {
                 // Request has been actioned, cannot delete
                 return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.RequestAlreadyActioned]);
@@ -222,6 +234,11 @@ namespace Contracting.Infrustructure.Features.business
                 .Include(r=>r.Status)
                 .Include(r => r.Engineer)
                     .ThenInclude(e => e.Department)
+                .Include(r => r.EngineerRequestNotes)
+                .Include(r => r.EngineerRequestActivites)
+                    .ThenInclude(a => a.Engineer)
+                .Include(r => r.EngineerRequestActivites)
+                    .ThenInclude(a => a.Status)
                 .Where(r => r.DepartmentId == departmentId)
                 .AsNoTracking();
 
@@ -257,8 +274,14 @@ namespace Contracting.Infrustructure.Features.business
                 .Include(r => r.Project)
                 .Include(r => r.Department)
                 .Include(r => r.Priority)
+                .Include(r => r.Status)
                 .Include(r => r.Engineer)
                     .ThenInclude(e => e.Department)
+                .Include(r => r.EngineerRequestNotes)
+                .Include(r => r.EngineerRequestActivites)
+                    .ThenInclude(a => a.Engineer)
+                .Include(r => r.EngineerRequestActivites)
+                    .ThenInclude(a => a.Status)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(r => r.Id == requestId);
 
@@ -308,10 +331,31 @@ namespace Contracting.Infrustructure.Features.business
             if (!isManager && !isAssigned)
                 return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.Unauthorized]);
 
+            // Track previous status for activity
+            var previousStatusId = request.StatusId;
+            var currentEngineerId = await _db.Engineers
+                .Where(e => e.ApplicationUserId == currentUserId)
+                .Select(e => e.Id)
+                .FirstOrDefaultAsync();
+
             // If manager, allow assignment
             if (isManager && actionDto.assignToId.HasValue)
             {
+                var previousAssignedId = request.assignToId;
                 request.assignToId = actionDto.assignToId.Value;
+                
+                // Create activity for assignment
+                if (previousAssignedId != actionDto.assignToId.Value)
+                {
+                    var assignActivity = new EngineerRequestActivite
+                    {
+                        EngineerRequestId = request.Id,
+                        EngineerId = currentEngineerId,
+                        StatusId = request.StatusId,
+                        ActionType = "Assigned"
+                    };
+                    await _db.EngineerRequestActivites.AddAsync(assignActivity);
+                }
             }
             // If assigned engineer, do not allow assignment change
             else if (isAssigned && actionDto.assignToId.HasValue && actionDto.assignToId.Value != currentUserId)
@@ -321,8 +365,20 @@ namespace Contracting.Infrustructure.Features.business
             }
 
             // Update status, note, and note date
-            if (actionDto.statusId.HasValue)
+            if (actionDto.statusId.HasValue && actionDto.statusId.Value != previousStatusId)
+            {
                 request.StatusId = actionDto.statusId.Value;
+                
+                // Create activity for status change
+                var statusActivity = new EngineerRequestActivite
+                {
+                    EngineerRequestId = request.Id,
+                    EngineerId = currentEngineerId,
+                    StatusId = actionDto.statusId.Value,
+                    ActionType = "StatusChanged"
+                };
+                await _db.EngineerRequestActivites.AddAsync(statusActivity);
+            }
 
             if (isAssigned && request.timeDuration != actionDto.timeDuration.Value)
             {
@@ -332,13 +388,7 @@ namespace Contracting.Infrustructure.Features.business
             if (actionDto.timeDuration.HasValue)
             {
                 request.timeDuration = actionDto.timeDuration.Value;
-            }            
-
-            if (!request.NoteDate.HasValue)
-            {            
-               request.Note = (actionDto.isAprroved ? "Approved" : "Rejected");
-               request.NoteDate = DateTime.UtcNow;
-            }
+            }                        
 
             if (actionDto.EngineerRequestNotes != null && actionDto.EngineerRequestNotes.Any())
             {
@@ -445,6 +495,11 @@ namespace Contracting.Infrustructure.Features.business
                     .ThenInclude(e => e.Department)
                 .Include(r => r.Engineer)
                     .ThenInclude(e => e.ApplicationUser)
+                .Include(r => r.EngineerRequestNotes)
+                .Include(r => r.EngineerRequestActivites)
+                    .ThenInclude(a => a.Engineer)
+                .Include(r => r.EngineerRequestActivites)
+                    .ThenInclude(a => a.Status)
                 .Where(r => r.Engineer.ApplicationUser.Id == Guid.Parse(CurrentUser.UserId) || r.assignToId == engineer.Id)
                 .AsNoTracking();
 
@@ -471,6 +526,32 @@ namespace Contracting.Infrustructure.Features.business
                 totalCount,
                 filter.PageIndex,
                 filter.PageSize);
+        }
+
+        // ---------------- GET REQUEST ACTIVITIES ----------------
+        public async Task<List<GetEngineerRequestActiviteDto>> GetRequestActivitiesAsync(Guid requestId)
+        {
+            var activities = await _db.EngineerRequestActivites
+                .Include(a => a.Engineer)
+                .Include(a => a.Status)
+                .Where(a => a.EngineerRequestId == requestId)
+                .OrderByDescending(a => a.CreatedDate)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var activitiesDto = activities.Select(a => new GetEngineerRequestActiviteDto
+            {
+                Id = a.Id,
+                EngineerRequestId = a.EngineerRequestId,
+                EngineerId = a.EngineerId,
+                EngineerName = a.Engineer != null ? $"{a.Engineer.nameEn} / {a.Engineer.nameAr}" : null,
+                StatusId = a.StatusId,
+                StatusName = a.Status != null ? $"{a.Status.nameEn} / {a.Status.nameAr}" : null,
+                ActionType = a.ActionType,
+                CreatedDate = a.CreatedDate
+            }).ToList();
+
+            return activitiesDto;
         }
     }
 }

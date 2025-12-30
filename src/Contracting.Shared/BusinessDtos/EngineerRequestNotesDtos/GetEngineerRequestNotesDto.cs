@@ -9,8 +9,6 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestNotesDtos
         public string? note { get; set; }
         public Guid? EngineerId { get; set; }
         public GetEngineerDto? Engineer { get; set; }
-        public Guid? StatusId { get; set; }
-        public GetDropDownStatusDto? Status { get; set; }
         public DateTimeOffset CreatedDate { get; set; }
 
     }

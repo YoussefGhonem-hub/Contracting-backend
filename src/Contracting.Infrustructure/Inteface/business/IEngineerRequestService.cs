@@ -1,4 +1,5 @@
 ﻿using Contracting.Infrustructure.Extensions.Helpers;
+using Contracting.Shared.BusinessDtos.EngineerRequestActiviteDto;
 using Contracting.Shared.BusinessDtos.EngineerRequestDto;
 using Contracting.Shared.Common;
 using Contracting.Shared.Dtos;
@@ -33,5 +34,8 @@ namespace Contracting.Infrustructure.Inteface.business
 
         // Action on request (approve/reject) - creates entry in action table
         Task<GenericResponse> TakeActionOnRequestAsync(Guid requestId, Guid currentUserId, TakeActionRequestDto actionDto);
+        
+        // Get activities for a request
+        Task<List<GetEngineerRequestActiviteDto>> GetRequestActivitiesAsync(Guid requestId);
     }
 }

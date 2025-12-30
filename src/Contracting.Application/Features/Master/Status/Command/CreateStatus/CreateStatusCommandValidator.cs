@@ -20,7 +20,7 @@ namespace Contracting.Application.Features.Master.Status.Command.CreateStatus
                 .NotEmpty().WithMessage(localizer[SharedResourcesKeys.CodeRequired])
                 .MaximumLength(50).WithMessage(string.Format(localizer[SharedResourcesKeys.CodeMaxLength], 50));
 
-            RuleFor(x => x.Status.orderNumber).Empty().GreaterThan(0);
+            RuleFor(x => x.Status.orderNumber).GreaterThan(0);
         }
     }
 }
