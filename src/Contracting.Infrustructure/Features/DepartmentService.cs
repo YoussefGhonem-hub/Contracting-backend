@@ -1,4 +1,5 @@
-﻿using Contracting.Domain.Entities.master;
+﻿using Contracting.Shared.Resources;
+using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Extensions;
 using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Infrustructure.Inteface;
@@ -9,6 +10,7 @@ using Contracting.Shared.MasterDtos.BranchDto;
 using Contracting.Shared.MasterDtos.DepartmentDtos;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 
 namespace Contracting.Infrustructure.Features
 {
@@ -16,11 +18,13 @@ namespace Contracting.Infrustructure.Features
     {
         private readonly ApplicationDbContext _db;
         private readonly IMapper _mapper;
+        private readonly IStringLocalizer<SharedResources> _localizer;
 
-        public DepartmentService(ApplicationDbContext db, IMapper mapper)
+        public DepartmentService(ApplicationDbContext db, IMapper mapper, IStringLocalizer<SharedResources> localizer)
         {
             _db = db;
             _mapper = mapper;
+            _localizer = localizer;
         }
 
         public async Task<GetDepartmentDto> CreateDepartmentAsync(Guid branchId, CreateDepartmentDto departmentDto)
@@ -98,11 +102,11 @@ namespace Contracting.Infrustructure.Features
                 .FirstOrDefaultAsync(d => d.Id == departmentId && d.BranchId == branchId);
 
             if (department is null)
-                return GenericResponse.FailureResult("Department not found");
+                return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.DepartmentNotFound]);
 
             _db.Departmentes.Remove(department);
             await _db.SaveChangesAsync();
-            return GenericResponse.SuccessResult("Department removed successfully");
+            return GenericResponse.SuccessResult(_localizer[SharedResourcesKeys.DepartmentRemoveSuccess]);
         }
 
         public async Task<List<GetDepartmentDto>> DropDownMethodAsync(Guid branchId)

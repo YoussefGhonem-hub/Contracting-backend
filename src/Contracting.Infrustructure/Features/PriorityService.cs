@@ -1,3 +1,4 @@
+using Contracting.Shared.Resources;
 using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Inteface;
 using Contracting.Infrustructure.Persistence;
@@ -6,6 +7,7 @@ using Contracting.Shared.MasterDtos.PriorityDto;
 using Contracting.Shared.MasterDtos.StatusDtos;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 
 namespace Contracting.Infrustructure.Features
 {
@@ -13,11 +15,13 @@ namespace Contracting.Infrustructure.Features
     {
         private readonly ApplicationDbContext _db;
         private readonly IMapper _mapper;
+        private readonly IStringLocalizer<SharedResources> _localizer;
 
-        public PriorityService(ApplicationDbContext db, IMapper mapper)
+        public PriorityService(ApplicationDbContext db, IMapper mapper, IStringLocalizer<SharedResources> localizer)
         {
             _db = db;
             _mapper = mapper;
+            _localizer = localizer;
         }
 
         // ---------------- CREATE ----------------
@@ -55,11 +59,11 @@ namespace Contracting.Infrustructure.Features
         {
             var priority = await _db.Priorities.FindAsync(priorityId);
             if (priority is null)
-                return GenericResponse.FailureResult("Priority not found");
+                return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.PriorityNotFound]);
 
             _db.Priorities.Remove(priority);
             await _db.SaveChangesAsync();
-            return GenericResponse.SuccessResult("Priority deleted successfully");
+            return GenericResponse.SuccessResult(_localizer[SharedResourcesKeys.PriorityDeleteSuccess]);
         }
 
         // ---------------- DROPDOWN ----------------

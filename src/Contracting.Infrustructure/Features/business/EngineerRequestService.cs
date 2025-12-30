@@ -1,3 +1,4 @@
+using Contracting.Shared.Resources;
 using Contracting.Domain.Entities.business;
 using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Extensions;
@@ -14,6 +15,7 @@ using Contracting.Shared.HelperDtos;
 using MapsterMapper;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 
 namespace Contracting.Infrustructure.Features.business
 {
@@ -22,13 +24,15 @@ namespace Contracting.Infrustructure.Features.business
         private readonly ApplicationDbContext _db;
         private readonly IMapper _mapper;
         private readonly INotificationService _notificationService;
+        private readonly IStringLocalizer<SharedResources> _localizer;
 
 
-        public EngineerRequestService(ApplicationDbContext db, IMapper mapper, INotificationService notificationService)
+        public EngineerRequestService(ApplicationDbContext db, IMapper mapper, INotificationService notificationService, IStringLocalizer<SharedResources> localizer)
         {
             _db = db;
             _mapper = mapper;
             _notificationService = notificationService;
+            _localizer = localizer;
         }
 
         // ---------------- CREATE ----------------
@@ -191,18 +195,18 @@ namespace Contracting.Infrustructure.Features.business
         {
             var request = await _db.EngineerRequests.FindAsync(requestId);
             if (request is null)
-                return GenericResponse.FailureResult("Request not found");
+                return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.RequestNotFound]);
 
             // Check if action has been taken
             if (request.NoteDate.HasValue || request.assignToId != Guid.Empty)
             {
                 // Request has been actioned, cannot delete
-                return GenericResponse.FailureResult("Cannot delete request that has been actioned");
+                return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.RequestAlreadyActioned]);
             }
 
             _db.EngineerRequests.Remove(request);
             await _db.SaveChangesAsync();
-            return GenericResponse.SuccessResult("Request deleted successfully");
+            return GenericResponse.SuccessResult(_localizer[SharedResourcesKeys.RequestDeleteSuccess]);
         }
 
         // ---------------- GET ALL BY DEPARTMENT (FOR MANAGERS) ----------------
@@ -284,12 +288,12 @@ namespace Contracting.Infrustructure.Features.business
                 .FirstOrDefaultAsync(r => r.Id == requestId);
 
             if (request is null)
-                return GenericResponse.FailureResult("Request not found");
+                return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.RequestNotFound]);
           
             // Get department manager
             var departmentId = request.DepartmentId;
             if (!departmentId.HasValue)
-                return GenericResponse.FailureResult("Request does not have a department");
+                return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.RequestNoDepartment]);
 
             var isManager = await (from eng in _db.Engineers
                                    join userRole in _db.UserRoles on eng.ApplicationUserId equals userRole.UserId
@@ -302,7 +306,7 @@ namespace Contracting.Infrustructure.Features.business
 
             // Only manager or assigned engineer can take action
             if (!isManager && !isAssigned)
-                return GenericResponse.FailureResult("You are not authorized to take action on this request");
+                return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.Unauthorized]);
 
             // If manager, allow assignment
             if (isManager && actionDto.assignToId.HasValue)
@@ -313,7 +317,7 @@ namespace Contracting.Infrustructure.Features.business
             else if (isAssigned && actionDto.assignToId.HasValue && actionDto.assignToId.Value != currentUserId)
             {
                 // Assigned engineer cannot reassign
-                return GenericResponse.FailureResult("Assigned engineer cannot reassign the request");
+                return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.CannotReassign]);
             }
 
             // Update status, note, and note date
@@ -322,7 +326,7 @@ namespace Contracting.Infrustructure.Features.business
 
             if (isAssigned && request.timeDuration != actionDto.timeDuration.Value)
             {
-                return GenericResponse.FailureResult("Time duration mismatch");
+                return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.TimeDurationMismatch]);
             }
 
             if (actionDto.timeDuration.HasValue)
@@ -423,7 +427,7 @@ namespace Contracting.Infrustructure.Features.business
             }
 
 
-            return GenericResponse.SuccessResult("Action taken successfully");
+            return GenericResponse.SuccessResult(_localizer[SharedResourcesKeys.ActionTakenSuccess]);
         }
 
 

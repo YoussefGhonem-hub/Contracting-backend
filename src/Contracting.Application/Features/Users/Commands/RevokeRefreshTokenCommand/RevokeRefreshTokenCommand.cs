@@ -1,5 +1,5 @@
 using Contracting.Application.Common;
-using Contracting.Application.Resources;
+using Contracting.Shared.Resources;
 using Contracting.Infrustructure.Identity;
 using ErrorOr;
 using MediatR;

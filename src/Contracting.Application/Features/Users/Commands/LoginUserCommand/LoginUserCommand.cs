@@ -1,4 +1,4 @@
-using Contracting.Application.Resources;
+using Contracting.Shared.Resources;
 using Contracting.Domain.Entities;
 using Contracting.Infrustructure.Identity;
 using Contracting.Infrustructure.Persistence;

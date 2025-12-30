@@ -1,4 +1,5 @@
-﻿using Contracting.Domain.Entities.master;
+﻿using Contracting.Shared.Resources;
+using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Extensions;
 using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Infrustructure.Inteface;
@@ -8,6 +9,7 @@ using Contracting.Shared.Dtos;
 using Contracting.Shared.MasterDtos.ProjectDtos;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 
 namespace Contracting.Infrustructure.Features
 {
@@ -15,11 +17,13 @@ namespace Contracting.Infrustructure.Features
     {
         private readonly ApplicationDbContext _db;
         private readonly IMapper _mapper;
+        private readonly IStringLocalizer<SharedResources> _localizer;
 
-        public ProjectService(ApplicationDbContext db, IMapper mapper)
+        public ProjectService(ApplicationDbContext db, IMapper mapper, IStringLocalizer<SharedResources> localizer)
         {
             _db = db;
             _mapper = mapper;
+            _localizer = localizer;
         }
 
         public async Task<GetProjectDto> CreateProjectAsync(CreateProjectDto dto)
@@ -68,11 +72,11 @@ namespace Contracting.Infrustructure.Features
         {
             var project = await _db.Projects.FindAsync(projectId);
             if (project is null)
-                return GenericResponse.FailureResult("Project not found");
+                return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.ProjectNotFound]);
 
             _db.Projects.Remove(project);
             await _db.SaveChangesAsync();
-            return GenericResponse.SuccessResult("Project deleted successfully");
+            return GenericResponse.SuccessResult(_localizer[SharedResourcesKeys.ProjectDeleteSuccess]);
         }
 
                 // ✅ UPDATED: Filter by branchId

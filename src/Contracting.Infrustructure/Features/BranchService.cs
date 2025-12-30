@@ -1,4 +1,5 @@
-﻿using Contracting.Domain.Entities.master;
+﻿using Contracting.Shared.Resources;
+using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Extensions;
 using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Infrustructure.Inteface;
@@ -8,6 +9,7 @@ using Contracting.Shared.Dtos;
 using Contracting.Shared.MasterDtos.BranchDto;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 
 namespace Contracting.Infrustructure.Features
 {
@@ -15,11 +17,13 @@ namespace Contracting.Infrustructure.Features
     {
         private readonly ApplicationDbContext _db;
         private readonly IMapper _mapper;
+        private readonly IStringLocalizer<SharedResources> _localizer;
 
-        public BranchService(ApplicationDbContext db, IMapper mapper)
+        public BranchService(ApplicationDbContext db, IMapper mapper, IStringLocalizer<SharedResources> localizer)
         {
             _db = db;
             _mapper = mapper;
+            _localizer = localizer;
         }
 
         // ---------------- CREATE ----------------
@@ -45,16 +49,16 @@ namespace Contracting.Infrustructure.Features
         {
             var branch = await _db.Branches.FindAsync(id);
             if (branch is null)
-                return GenericResponse.FailureResult("Branch not found");
+                return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.BranchNotFound]);
             
             // Check for related departments
             bool hasDepartments = await _db.Departmentes.AnyAsync(d => d.Branch.Id == id);
             if (hasDepartments)
-                return GenericResponse.FailureResult("Cannot delete branch with existing departments");
+                return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.BranchHasDepartments]);
 
             _db.Branches.Remove(branch);
             await _db.SaveChangesAsync();
-            return GenericResponse.SuccessResult("Branch deleted successfully");
+            return GenericResponse.SuccessResult(_localizer[SharedResourcesKeys.BranchDeleteSuccess]);
         }
 
         public async Task<List<BranchDropDownDto>> DropDownMethodAsync()

@@ -1,6 +1,6 @@
 using Contracting.Application.Common;
 using Contracting.Application.Features.Users.Commands.LoginUserCommand;
-using Contracting.Application.Resources;
+using Contracting.Shared.Resources;
 using Contracting.Domain.Entities;
 using Contracting.Infrustructure.Identity;
 using ErrorOr;

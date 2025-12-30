@@ -1,4 +1,4 @@
-using Contracting.Application.Resources;
+using Contracting.Shared.Resources;
 using FluentValidation;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Extensions.Localization;

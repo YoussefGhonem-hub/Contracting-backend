@@ -1,4 +1,4 @@
-using Contracting.Application.Resources;
+using Contracting.Shared.Resources;
 using Microsoft.Extensions.Localization;
 using System.Net;
 using System.Text.Json;

@@ -1,3 +1,4 @@
+using Contracting.Shared.Resources;
 using Contracting.Domain.Entities;
 using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Extensions;
@@ -12,6 +13,7 @@ using Contracting.Shared.MasterDtos.RoleDto;
 using MapsterMapper;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Contracting.Infrustructure.Features
@@ -20,12 +22,14 @@ namespace Contracting.Infrustructure.Features
     {
         private readonly ApplicationDbContext _db;
         private readonly IMapper _mapper;
+        private readonly IStringLocalizer<SharedResources> _localizer;
 
 
-        public EngineerService(ApplicationDbContext db, IMapper mapper)
+        public EngineerService(ApplicationDbContext db, IMapper mapper, IStringLocalizer<SharedResources> localizer)
         {
             _db = db;
             _mapper = mapper;
+            _localizer = localizer;
         }
 
         public async Task<GetEngineerDto> CreateEngineerAsync(CreateEngineerDto dto, Guid UserId)
@@ -107,11 +111,11 @@ namespace Contracting.Infrustructure.Features
         {
             var engineer = await _db.Engineers.FindAsync(engineerId);
             if (engineer is null)
-                return GenericResponse.FailureResult("Engineer not found");
+                return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.EngineerNotFound]);
 
             _db.Engineers.Remove(engineer);
             await _db.SaveChangesAsync();
-            return GenericResponse.SuccessResult("Engineer deleted successfully");
+            return GenericResponse.SuccessResult(_localizer[SharedResourcesKeys.EngineerDeleteSuccess]);
         }
 
         public async Task<PaginatedList<GetEngineerDto>> GetEngineerListAsync(Guid departmentId, BaseFilterDto filter)

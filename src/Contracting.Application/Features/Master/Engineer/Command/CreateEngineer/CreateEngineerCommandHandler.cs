@@ -1,4 +1,4 @@
-using Contracting.Application.Resources;
+using Contracting.Shared.Resources;
 using Contracting.Domain.Entities;
 using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Inteface;
@@ -33,7 +33,7 @@ namespace Contracting.Application.Features.Master.Engineer.Command.CreateEnginee
         {
             // Get the Teamlead-engineer role ID by looking up the role name
             var teamleadRole = await _roleManager.Roles.FirstOrDefaultAsync(r => r.Name == RoleNames.Teamleadengineer);
-            
+
             if (teamleadRole != null && request.Engineer.Roles.Contains(teamleadRole.Id))
             {
                 var hasManager = await _service.CheckDepartmentHaveManagerAsync(request.Engineer.DepartmentId);

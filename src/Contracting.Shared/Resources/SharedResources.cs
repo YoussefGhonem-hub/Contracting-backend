@@ -1,4 +1,4 @@
-﻿namespace Contracting.Application.Resources
+﻿namespace Contracting.Shared.Resources
 {
     public  class SharedResources
     {

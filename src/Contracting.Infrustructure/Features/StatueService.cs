@@ -1,3 +1,4 @@
+using Contracting.Shared.Resources;
 using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Inteface;
 using Contracting.Infrustructure.Persistence;
@@ -5,6 +6,7 @@ using Contracting.Shared.Common;
 using Contracting.Shared.MasterDtos.StatusDtos;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 
 namespace Contracting.Infrustructure.Features
 {
@@ -12,11 +14,13 @@ namespace Contracting.Infrustructure.Features
     {
         private readonly ApplicationDbContext _db;
         private readonly IMapper _mapper;
+        private readonly IStringLocalizer<SharedResources> _localizer;
 
-        public StatueService(ApplicationDbContext db, IMapper mapper)
+        public StatueService(ApplicationDbContext db, IMapper mapper, IStringLocalizer<SharedResources> localizer)
         {
             _db = db;
             _mapper = mapper;
+            _localizer = localizer;
         }
 
         // ---------------- CREATE ----------------
@@ -54,11 +58,11 @@ namespace Contracting.Infrustructure.Features
         {
             var Status = await _db.Statuses.FindAsync(StatusId);
             if (Status is null)
-                return GenericResponse.FailureResult("Status not found");
+                return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.StatusNotFound]);
 
             _db.Statuses.Remove(Status);
             await _db.SaveChangesAsync();
-            return GenericResponse.SuccessResult("Status deleted successfully");
+            return GenericResponse.SuccessResult(_localizer[SharedResourcesKeys.StatusDeleteSuccess]);
         }
 
         // ---------------- DROPDOWN ----------------

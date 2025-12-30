@@ -1,4 +1,4 @@
-using Contracting.Application.Resources;
+using Contracting.Shared.Resources;
 using FluentValidation;
 using Microsoft.Extensions.Localization;
 
