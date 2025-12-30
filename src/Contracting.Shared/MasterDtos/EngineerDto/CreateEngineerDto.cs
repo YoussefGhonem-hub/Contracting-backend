@@ -13,7 +13,7 @@
         public string? Email { get; set; }
         public string? password { get; set; }
         public Guid DepartmentId { get; set; }
-        public List<string> Roles { get; set; } = new(); // New property for roles
+        public List<Guid> Roles { get; set; } = new(); // New property for roles
 
     }
 }

@@ -4,9 +4,11 @@ using Contracting.Infrustructure.Extensions;
 using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Infrustructure.Inteface;
 using Contracting.Infrustructure.Persistence;
+using Contracting.Shared.Common;
 using Contracting.Shared.Constants;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.MasterDtos.EngineerDto;
+using Contracting.Shared.MasterDtos.RoleDto;
 using MapsterMapper;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -66,17 +68,17 @@ namespace Contracting.Infrustructure.Features
             await _db.SaveChangesAsync();
             return _mapper.Map<GetEngineerDto>(engineer);
         }
-        public async Task UpdateUserRolesAsync(Guid userId, List<string> roles)
+        public async Task UpdateUserRolesAsync(Guid userId, List<Guid> roleIds)
         {
             // Remove existing roles
             var existingRoles = _db.UserRoles.Where(ur => ur.UserId == userId);
             _db.UserRoles.RemoveRange(existingRoles);
 
             // Add new roles
-            var userRoles = roles.Select(roleName => new IdentityUserRole<Guid>
+            var userRoles = roleIds.Select(roleId => new IdentityUserRole<Guid>
             {
                 UserId = userId,
-                RoleId = _db.Roles.First(r => r.Name == roleName).Id
+                RoleId = roleId
             }).ToList();
 
             await _db.UserRoles.AddRangeAsync(userRoles);
@@ -101,17 +103,15 @@ namespace Contracting.Infrustructure.Features
             return user;
         }
 
-
-
-        public async Task<bool> DeleteEngineerAsync(Guid engineerId)
+        public async Task<GenericResponse> DeleteEngineerAsync(Guid engineerId)
         {
             var engineer = await _db.Engineers.FindAsync(engineerId);
             if (engineer is null)
-                return false;
+                return GenericResponse.FailureResult("Engineer not found");
 
             _db.Engineers.Remove(engineer);
             await _db.SaveChangesAsync();
-            return true;
+            return GenericResponse.SuccessResult("Engineer deleted successfully");
         }
 
         public async Task<PaginatedList<GetEngineerDto>> GetEngineerListAsync(Guid departmentId, BaseFilterDto filter)
@@ -147,11 +147,11 @@ namespace Contracting.Infrustructure.Features
                 .Join(_db.Roles,
                     ur => ur.RoleId,
                     r => r.Id,
-                    (ur, r) => new { ur.UserId, RoleName = r.Name })
+                    (ur, r) => new { ur.UserId, RoleId = r.Id, RoleName = r.Name })
                 .GroupBy(x => x.UserId)
                 .ToDictionaryAsync(
                     g => g.Key,
-                    g => g.Select(x => x.RoleName).ToList());
+                    g => g.Select(x => new RoleDropDownDto { Id = x.RoleId, Name = x.RoleName }).ToList());
 
             // Map to DTOs and assign roles
             var engineerDtos = engineers.Select(engineer =>
@@ -159,7 +159,7 @@ namespace Contracting.Infrustructure.Features
                 var dto = _mapper.Map<GetEngineerDto>(engineer);
                 dto.Roles = userRolesDict.ContainsKey(engineer.ApplicationUserId)
                     ? userRolesDict[engineer.ApplicationUserId]
-                    : new List<string>();
+                    : new List<RoleDropDownDto>();
                 return dto;
             }).ToList();
 
@@ -191,7 +191,7 @@ namespace Contracting.Infrustructure.Features
                 .Join(_db.Roles,
                     ur => ur.RoleId,
                     r => r.Id,
-                    (ur, r) => r.Name)
+                    (ur, r) => new RoleDropDownDto { Id = r.Id, Name = r.Name })
                 .ToListAsync();
 
             dto.Roles = roles;

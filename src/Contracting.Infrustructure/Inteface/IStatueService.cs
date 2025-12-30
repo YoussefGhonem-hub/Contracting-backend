@@ -1,4 +1,5 @@
 ﻿
+using Contracting.Shared.Common;
 using Contracting.Shared.MasterDtos.StatusDtos;
 
 namespace Contracting.Infrustructure.Inteface
@@ -12,7 +13,7 @@ namespace Contracting.Infrustructure.Inteface
         Task<GetDropDownStatusDto> UpdateStatusAsync(UpdateStatusDto dto);
 
         // Delete
-        Task<bool> DeleteStatusAsync(Guid StatusId);
+        Task<GenericResponse> DeleteStatusAsync(Guid StatusId);
 
         // Dropdown
         Task<List<GetDropDownStatusDto>> GetStatusDropdownAsync();

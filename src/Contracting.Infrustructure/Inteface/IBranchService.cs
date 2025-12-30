@@ -1,5 +1,6 @@
 ﻿using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Extensions.Helpers;
+using Contracting.Shared.Common;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.MasterDtos.BranchDto;
 
@@ -14,7 +15,7 @@ namespace Contracting.Infrustructure.Inteface
         // Update
         Task<GetBranchDto> UpdateAsync(UpdateBranchDto branch);
         // Delete
-        Task DeleteAsync(Guid id);
+        Task<GenericResponse> DeleteAsync(Guid id);
         Task<List<BranchDropDownDto>> DropDownMethodAsync();
 
     }

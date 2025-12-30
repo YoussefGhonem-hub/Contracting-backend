@@ -3,6 +3,7 @@ using Contracting.Infrustructure.Extensions;
 using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Infrustructure.Inteface;
 using Contracting.Infrustructure.Persistence;
+using Contracting.Shared.Common;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.MasterDtos.BranchDto;
 using MapsterMapper;
@@ -40,17 +41,20 @@ namespace Contracting.Infrustructure.Features
         }
 
         // ---------------- DELETE ----------------
-        public async Task DeleteAsync(Guid id)
+        public async Task<GenericResponse> DeleteAsync(Guid id)
         {
             var branch = await _db.Branches.FindAsync(id);
+            if (branch is null)
+                return GenericResponse.FailureResult("Branch not found");
             
             // Check for related departments
             bool hasDepartments = await _db.Departmentes.AnyAsync(d => d.Branch.Id == id);
             if (hasDepartments)
-                throw new InvalidOperationException("Cannot delete branch with existing departments."); // Or return an error
+                return GenericResponse.FailureResult("Cannot delete branch with existing departments");
 
             _db.Branches.Remove(branch);
             await _db.SaveChangesAsync();
+            return GenericResponse.SuccessResult("Branch deleted successfully");
         }
 
         public async Task<List<BranchDropDownDto>> DropDownMethodAsync()

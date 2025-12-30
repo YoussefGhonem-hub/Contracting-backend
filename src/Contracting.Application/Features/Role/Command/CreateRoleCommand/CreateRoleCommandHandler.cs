@@ -1,9 +1,11 @@
 using Contracting.Infrustructure.Inteface;
+using Contracting.Shared.Common;
+using ErrorOr;
 using MediatR;
 
 namespace Contracting.Application.Features.Role.Command.CreateRoleCommand
 {
-    public class CreateRoleCommandHandler : IRequestHandler<CreateRoleCommand, Unit>
+    public class CreateRoleCommandHandler : IRequestHandler<CreateRoleCommand, ErrorOr<GenericResponse>>
     {
         private readonly IRoleService _roleService;
 
@@ -12,10 +14,12 @@ namespace Contracting.Application.Features.Role.Command.CreateRoleCommand
             _roleService = roleService;
         }
 
-        public async Task<Unit> Handle(CreateRoleCommand request, CancellationToken cancellationToken)
+        public async Task<ErrorOr<GenericResponse>> Handle(CreateRoleCommand request, CancellationToken cancellationToken)
         {
-            await _roleService.CreateRoleAsync(request.Dto);
-            return Unit.Value;
+            var result = await _roleService.CreateRoleAsync(request.Dto);
+            return result.Success
+                ? result
+                : Error.Failure(result.Message ?? "Failed to create role");
         }
     }
 }

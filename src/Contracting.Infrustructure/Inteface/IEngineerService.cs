@@ -1,5 +1,6 @@
 ﻿using Contracting.Domain.Entities;
 using Contracting.Infrustructure.Extensions.Helpers;
+using Contracting.Shared.Common;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.MasterDtos.EngineerDto;
 
@@ -14,7 +15,7 @@ namespace Contracting.Infrustructure.Inteface
         Task<GetEngineerDto> UpdateEngineerAsync(UpdateEngineerDto dto);
 
         // Delete an engineer by Id
-        Task<bool> DeleteEngineerAsync(Guid engineerId);
+        Task<GenericResponse> DeleteEngineerAsync(Guid engineerId);
 
         // Get a list of engineers (optionally paginated)
         Task<PaginatedList<GetEngineerDto>> GetEngineerListAsync(Guid DepartmentId, BaseFilterDto filter);
@@ -25,7 +26,7 @@ namespace Contracting.Infrustructure.Inteface
         // Get a dropdown list of engineers (id and name only)
         Task<List<GetEngineerDropDownDto>> GetEngineerDropdownAsync(Guid departmentId);
         Task<bool> CheckDepartmentHaveManagerAsync(Guid departmentId);
-        Task UpdateUserRolesAsync(Guid userId, List<string> roles);
+        Task UpdateUserRolesAsync(Guid userId, List<Guid> roleIds);
         Task<ApplicationUser> UpdateUserAsync(Guid userId, UpdateEngineerDto dto);
 
     }

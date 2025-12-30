@@ -6,6 +6,7 @@ using Contracting.Infrustructure.Inteface.business;
 using Contracting.Infrustructure.Inteface.Helper;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.BusinessDtos.EngineerRequestDto;
+using Contracting.Shared.Common;
 using Contracting.Shared.Constants;
 using Contracting.Shared.CurrentUser;
 using Contracting.Shared.Dtos;
@@ -186,22 +187,22 @@ namespace Contracting.Infrustructure.Features.business
         }
 
         // ---------------- DELETE ----------------
-        public async Task<bool> DeleteEngineerRequestAsync(Guid requestId)
+        public async Task<GenericResponse> DeleteEngineerRequestAsync(Guid requestId)
         {
             var request = await _db.EngineerRequests.FindAsync(requestId);
             if (request is null)
-                return false;
+                return GenericResponse.FailureResult("Request not found");
 
             // Check if action has been taken
             if (request.NoteDate.HasValue || request.assignToId != Guid.Empty)
             {
                 // Request has been actioned, cannot delete
-                return false;
+                return GenericResponse.FailureResult("Cannot delete request that has been actioned");
             }
 
             _db.EngineerRequests.Remove(request);
             await _db.SaveChangesAsync();
-            return true;
+            return GenericResponse.SuccessResult("Request deleted successfully");
         }
 
         // ---------------- GET ALL BY DEPARTMENT (FOR MANAGERS) ----------------
@@ -274,7 +275,7 @@ namespace Contracting.Infrustructure.Features.business
         }
 
         // ---------------- TAKE ACTION ON REQUEST ----------------
-        public async Task<bool> TakeActionOnRequestAsync(Guid requestId, Guid currentUserId, TakeActionRequestDto actionDto)
+        public async Task<GenericResponse> TakeActionOnRequestAsync(Guid requestId, Guid currentUserId, TakeActionRequestDto actionDto)
         {
 
             var request = await _db.EngineerRequests
@@ -283,12 +284,12 @@ namespace Contracting.Infrustructure.Features.business
                 .FirstOrDefaultAsync(r => r.Id == requestId);
 
             if (request is null)
-                return false;
+                return GenericResponse.FailureResult("Request not found");
           
             // Get department manager
             var departmentId = request.DepartmentId;
             if (!departmentId.HasValue)
-                return false;
+                return GenericResponse.FailureResult("Request does not have a department");
 
             var isManager = await (from eng in _db.Engineers
                                    join userRole in _db.UserRoles on eng.ApplicationUserId equals userRole.UserId
@@ -301,7 +302,7 @@ namespace Contracting.Infrustructure.Features.business
 
             // Only manager or assigned engineer can take action
             if (!isManager && !isAssigned)
-                return false;
+                return GenericResponse.FailureResult("You are not authorized to take action on this request");
 
             // If manager, allow assignment
             if (isManager && actionDto.assignToId.HasValue)
@@ -312,7 +313,7 @@ namespace Contracting.Infrustructure.Features.business
             else if (isAssigned && actionDto.assignToId.HasValue && actionDto.assignToId.Value != currentUserId)
             {
                 // Assigned engineer cannot reassign
-                return false;
+                return GenericResponse.FailureResult("Assigned engineer cannot reassign the request");
             }
 
             // Update status, note, and note date
@@ -321,7 +322,7 @@ namespace Contracting.Infrustructure.Features.business
 
             if (isAssigned && request.timeDuration != actionDto.timeDuration.Value)
             {
-                return false;
+                return GenericResponse.FailureResult("Time duration mismatch");
             }
 
             if (actionDto.timeDuration.HasValue)
@@ -422,7 +423,7 @@ namespace Contracting.Infrustructure.Features.business
             }
 
 
-            return true;
+            return GenericResponse.SuccessResult("Action taken successfully");
         }
 
 

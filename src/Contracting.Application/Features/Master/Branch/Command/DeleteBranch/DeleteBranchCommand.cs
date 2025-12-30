@@ -1,4 +1,5 @@
-﻿using ErrorOr;
+﻿using Contracting.Shared.Common;
+using ErrorOr;
 using MediatR;
 using System;
 using System.Collections.Generic;
@@ -8,5 +9,5 @@ using System.Threading.Tasks;
 
 namespace Contracting.Application.Features.Master.Branch.Command.DeleteBranch
 {
-    public record DeleteBranchCommand(Guid Id) : IRequest<ErrorOr<bool>>;
+    public record DeleteBranchCommand(Guid Id) : IRequest<ErrorOr<GenericResponse>>;
 }

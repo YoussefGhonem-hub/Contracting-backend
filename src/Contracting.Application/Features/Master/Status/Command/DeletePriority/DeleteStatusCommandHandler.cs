@@ -1,10 +1,11 @@
 using Contracting.Infrustructure.Inteface;
+using Contracting.Shared.Common;
 using ErrorOr;
 using MediatR;
 
 namespace Contracting.Application.Features.Master.Status.Command.DeleteStatus
 {
-    public class DeleteStatusCommandHandler : IRequestHandler<DeleteStatusCommand, ErrorOr<bool>>
+    public class DeleteStatusCommandHandler : IRequestHandler<DeleteStatusCommand, ErrorOr<GenericResponse>>
     {
         private readonly IStatueService _service;
 
@@ -13,13 +14,13 @@ namespace Contracting.Application.Features.Master.Status.Command.DeleteStatus
             _service = service;
         }
 
-        public async Task<ErrorOr<bool>> Handle(DeleteStatusCommand request, CancellationToken cancellationToken)
+        public async Task<ErrorOr<GenericResponse>> Handle(DeleteStatusCommand request, CancellationToken cancellationToken)
         {
             var result = await _service.DeleteStatusAsync(request.StatusId);
             
-            return result
+            return result.Success
                 ? result
-                : Error.NotFound("Status not found.");
+                : Error.NotFound(result.Message ?? "Status not found.");
         }
     }
 }

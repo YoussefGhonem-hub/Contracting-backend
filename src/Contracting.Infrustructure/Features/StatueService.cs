@@ -1,6 +1,7 @@
 using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Inteface;
 using Contracting.Infrustructure.Persistence;
+using Contracting.Shared.Common;
 using Contracting.Shared.MasterDtos.StatusDtos;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
@@ -49,15 +50,15 @@ namespace Contracting.Infrustructure.Features
         }
 
         // ---------------- DELETE ----------------
-        public async Task<bool> DeleteStatusAsync(Guid StatusId)
+        public async Task<GenericResponse> DeleteStatusAsync(Guid StatusId)
         {
             var Status = await _db.Statuses.FindAsync(StatusId);
             if (Status is null)
-                return false;
+                return GenericResponse.FailureResult("Status not found");
 
             _db.Statuses.Remove(Status);
             await _db.SaveChangesAsync();
-            return true;
+            return GenericResponse.SuccessResult("Status deleted successfully");
         }
 
         // ---------------- DROPDOWN ----------------

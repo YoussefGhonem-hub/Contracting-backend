@@ -1,4 +1,5 @@
 ﻿
+using Contracting.Shared.Common;
 using Contracting.Shared.MasterDtos.PriorityDto;
 using Contracting.Shared.MasterDtos.StatusDtos;
 
@@ -13,7 +14,7 @@ namespace Contracting.Infrustructure.Inteface
         Task<GetDropDownPriorityDto> UpdatePriorityAsync(UpdatePriorityDto dto);
 
         // Delete
-        Task<bool> DeletePriorityAsync(Guid priorityId);
+        Task<GenericResponse> DeletePriorityAsync(Guid priorityId);
 
         // Dropdown
         Task<List<GetDropDownPriorityDto>> GetPriorityDropdownAsync();

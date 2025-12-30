@@ -1,10 +1,11 @@
 using Contracting.Infrustructure.Inteface;
+using Contracting.Shared.Common;
 using ErrorOr;
 using MediatR;
 
 namespace Contracting.Application.Features.Master.Project.Command.DeleteProject
 {
-    public class DeleteProjectCommandHandler : IRequestHandler<DeleteProjectCommand, ErrorOr<bool>>
+    public class DeleteProjectCommandHandler : IRequestHandler<DeleteProjectCommand, ErrorOr<GenericResponse>>
     {
         private readonly IProjectService _service;
 
@@ -13,13 +14,13 @@ namespace Contracting.Application.Features.Master.Project.Command.DeleteProject
             _service = service;
         }
 
-        public async Task<ErrorOr<bool>> Handle(DeleteProjectCommand request, CancellationToken cancellationToken)
+        public async Task<ErrorOr<GenericResponse>> Handle(DeleteProjectCommand request, CancellationToken cancellationToken)
         {
             var result = await _service.DeleteProjectAsync(request.ProjectId);
             
-            return result
+            return result.Success
                 ? result
-                : Error.NotFound("Project not found.");
+                : Error.NotFound(result.Message ?? "Project not found.");
         }
     }
 }

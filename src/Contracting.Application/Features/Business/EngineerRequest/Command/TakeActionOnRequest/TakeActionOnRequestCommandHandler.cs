@@ -1,11 +1,12 @@
 using Contracting.Infrustructure.Inteface.business;
+using Contracting.Shared.Common;
 using Contracting.Shared.CurrentUser;
 using ErrorOr;
 using MediatR;
 
 namespace Contracting.Application.Features.Business.EngineerRequest.Command.TakeActionOnRequest
 {
-    public class TakeActionRequestCommandHandler : IRequestHandler<TakeActionRequestCommand, ErrorOr<bool>>
+    public class TakeActionRequestCommandHandler : IRequestHandler<TakeActionRequestCommand, ErrorOr<GenericResponse>>
     {
         private readonly IEngineerRequestService _service;
 
@@ -14,7 +15,7 @@ namespace Contracting.Application.Features.Business.EngineerRequest.Command.Take
             _service = service;
         }
 
-        public async Task<ErrorOr<bool>> Handle(TakeActionRequestCommand request, CancellationToken cancellationToken)
+        public async Task<ErrorOr<GenericResponse>> Handle(TakeActionRequestCommand request, CancellationToken cancellationToken)
         {
             var result = await _service.TakeActionOnRequestAsync(
                 request.RequestId,
@@ -22,9 +23,9 @@ namespace Contracting.Application.Features.Business.EngineerRequest.Command.Take
                 request.ActionDto
             );
 
-            return result
-                ? true
-                : Error.Failure("You are not authorized or the request cannot be actioned.");
+            return result.Success
+                ? result
+                : Error.Failure(result.Message ?? "You are not authorized or the request cannot be actioned.");
         }
     }
 }

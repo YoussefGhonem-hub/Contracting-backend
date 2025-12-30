@@ -14,7 +14,7 @@
         public string? Email { get; set; }
         public Guid ApplicationUserId { get; set; }
         public Guid? ChangeDepartmentId { get; set; }
-        public List<string> Roles { get; set; } = new(); // New property for roles
+        public List<Guid> Roles { get; set; } = new(); // New property for roles
 
     }
 }

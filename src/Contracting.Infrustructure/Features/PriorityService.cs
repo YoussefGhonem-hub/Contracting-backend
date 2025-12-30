@@ -1,6 +1,7 @@
 using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Inteface;
 using Contracting.Infrustructure.Persistence;
+using Contracting.Shared.Common;
 using Contracting.Shared.MasterDtos.PriorityDto;
 using Contracting.Shared.MasterDtos.StatusDtos;
 using MapsterMapper;
@@ -50,15 +51,15 @@ namespace Contracting.Infrustructure.Features
         }
 
         // ---------------- DELETE ----------------
-        public async Task<bool> DeletePriorityAsync(Guid priorityId)
+        public async Task<GenericResponse> DeletePriorityAsync(Guid priorityId)
         {
             var priority = await _db.Priorities.FindAsync(priorityId);
             if (priority is null)
-                return false;
+                return GenericResponse.FailureResult("Priority not found");
 
             _db.Priorities.Remove(priority);
             await _db.SaveChangesAsync();
-            return true;
+            return GenericResponse.SuccessResult("Priority deleted successfully");
         }
 
         // ---------------- DROPDOWN ----------------

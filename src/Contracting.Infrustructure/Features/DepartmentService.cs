@@ -3,6 +3,7 @@ using Contracting.Infrustructure.Extensions;
 using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Infrustructure.Inteface;
 using Contracting.Infrustructure.Persistence;
+using Contracting.Shared.Common;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.MasterDtos.BranchDto;
 using Contracting.Shared.MasterDtos.DepartmentDtos;
@@ -91,17 +92,17 @@ namespace Contracting.Infrustructure.Features
                 filter.PageSize);
         }
 
-        public async Task<bool> RemoveDepartmentAsync(Guid branchId, Guid departmentId)
+        public async Task<GenericResponse> RemoveDepartmentAsync(Guid branchId, Guid departmentId)
         {
             var department = await _db.Departmentes  // ✅ FIXED: Make async
                 .FirstOrDefaultAsync(d => d.Id == departmentId && d.BranchId == branchId);
 
             if (department is null)
-                return false;
+                return GenericResponse.FailureResult("Department not found");
 
             _db.Departmentes.Remove(department);
             await _db.SaveChangesAsync();
-            return true;
+            return GenericResponse.SuccessResult("Department removed successfully");
         }
 
         public async Task<List<GetDepartmentDto>> DropDownMethodAsync(Guid branchId)

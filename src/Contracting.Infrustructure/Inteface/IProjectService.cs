@@ -1,4 +1,5 @@
 ﻿using Contracting.Infrustructure.Extensions.Helpers;
+using Contracting.Shared.Common;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.MasterDtos.ProjectDtos;
 
@@ -12,7 +13,7 @@ namespace Contracting.Infrustructure.Inteface
         Task<GetProjectDto> UpdateProjectAsync(UpdateProjectDto dto);
 
         // Delete
-        Task<bool> DeleteProjectAsync(Guid projectId);
+        Task<GenericResponse> DeleteProjectAsync(Guid projectId);
 
         // Get All with Pagination
         Task<PaginatedList<GetProjectDto>> GetAllProjectsAsync(Guid? branchId, BaseFilterDto filter, CancellationToken cancellationToken = default);

@@ -8,6 +8,7 @@ using Contracting.Shared.MasterDtos.EngineerDto;
 using ErrorOr;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 
 namespace Contracting.Application.Features.Master.Engineer.Command.CreateEngineer
@@ -16,19 +17,24 @@ namespace Contracting.Application.Features.Master.Engineer.Command.CreateEnginee
     {
         private readonly IEngineerService _service;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly RoleManager<ApplicationRole> _roleManager;
         private readonly IStringLocalizer<SharedResources> _localizer;
 
 
-        public CreateEngineerCommandHandler(IEngineerService service, UserManager<ApplicationUser> userManager, IStringLocalizer<SharedResources> localizer)
+        public CreateEngineerCommandHandler(IEngineerService service, UserManager<ApplicationUser> userManager, RoleManager<ApplicationRole> roleManager, IStringLocalizer<SharedResources> localizer)
         {
             _service = service;
             _userManager = userManager;
+            _roleManager = roleManager;
             _localizer = localizer;
         }
 
         public async Task<ErrorOr<GetEngineerDto>> Handle(CreateEngineerCommand request, CancellationToken cancellationToken)
         {
-            if (request.Engineer.Roles.Contains(RoleNames.Teamleadengineer, StringComparer.OrdinalIgnoreCase))
+            // Get the Teamlead-engineer role ID by looking up the role name
+            var teamleadRole = await _roleManager.Roles.FirstOrDefaultAsync(r => r.Name == RoleNames.Teamleadengineer);
+            
+            if (teamleadRole != null && request.Engineer.Roles.Contains(teamleadRole.Id))
             {
                 var hasManager = await _service.CheckDepartmentHaveManagerAsync(request.Engineer.DepartmentId);
                 if (hasManager) 
@@ -44,7 +50,7 @@ namespace Contracting.Application.Features.Master.Engineer.Command.CreateEnginee
                 PhoneNumber = request.Engineer.phoneNumber,
                 IsActive = true
             };
-            var Result = await _userManager.CreateAsync(user, request.Engineer.password);
+            var Result = await _userManager.CreateAsync(user, request.Engineer.password ?? string.Empty);
             if (!Result.Succeeded)
                 return Error.Validation("General.Validation", Result.Errors.Select(e => e.Description).FirstOrDefault() ?? _localizer[SharedResourcesKeys.InvalidCredentials]);
 

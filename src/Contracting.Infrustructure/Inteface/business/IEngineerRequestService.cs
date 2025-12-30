@@ -1,5 +1,6 @@
 ﻿using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Shared.BusinessDtos.EngineerRequestDto;
+using Contracting.Shared.Common;
 using Contracting.Shared.Dtos;
 
 namespace Contracting.Infrustructure.Inteface.business
@@ -13,7 +14,7 @@ namespace Contracting.Infrustructure.Inteface.business
         Task<GetAllEngineerRequestDto> UpdateEngineerRequestAsync(UpdateEngineerRequestDto dto);
 
         // Delete
-        Task<bool> DeleteEngineerRequestAsync(Guid requestId);
+        Task<GenericResponse> DeleteEngineerRequestAsync(Guid requestId);
 
         // Get All filtered by DepartmentId (for managers)
         Task<PaginatedList<GetAllEngineerRequestDto>> GetAllEngineerRequestsByDepartmentAsync(
@@ -31,6 +32,6 @@ namespace Contracting.Infrustructure.Inteface.business
         Task<bool> IsEngineerManagerOfDepartmentAsync(Guid engineerId, Guid departmentId);
 
         // Action on request (approve/reject) - creates entry in action table
-        Task<bool> TakeActionOnRequestAsync(Guid requestId, Guid currentUserId, TakeActionRequestDto actionDto);
+        Task<GenericResponse> TakeActionOnRequestAsync(Guid requestId, Guid currentUserId, TakeActionRequestDto actionDto);
     }
 }

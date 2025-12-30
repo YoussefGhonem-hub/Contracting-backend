@@ -1,8 +1,10 @@
+using Contracting.Shared.Common;
+using ErrorOr;
 using MediatR;
 
 namespace Contracting.Application.Features.Role.Command.DeleteRoleCommand
 {
-    public class DeleteRoleCommand : IRequest<Unit> // Specify Unit as the return type
+    public class DeleteRoleCommand : IRequest<ErrorOr<GenericResponse>>
     {
         public Guid RoleId { get; }
 

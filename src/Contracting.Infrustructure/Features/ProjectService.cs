@@ -3,6 +3,7 @@ using Contracting.Infrustructure.Extensions;
 using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Infrustructure.Inteface;
 using Contracting.Infrustructure.Persistence;
+using Contracting.Shared.Common;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.MasterDtos.ProjectDtos;
 using MapsterMapper;
@@ -63,15 +64,15 @@ namespace Contracting.Infrustructure.Features
             return _mapper.Map<GetProjectDto>(project);
         }
 
-        public async Task<bool> DeleteProjectAsync(Guid projectId)
+        public async Task<GenericResponse> DeleteProjectAsync(Guid projectId)
         {
             var project = await _db.Projects.FindAsync(projectId);
             if (project is null)
-                return false;
+                return GenericResponse.FailureResult("Project not found");
 
             _db.Projects.Remove(project);
             await _db.SaveChangesAsync();
-            return true;
+            return GenericResponse.SuccessResult("Project deleted successfully");
         }
 
                 // ✅ UPDATED: Filter by branchId

@@ -1,4 +1,5 @@
 ﻿using Contracting.Shared.MasterDtos.DepartmentDtos;
+using Contracting.Shared.MasterDtos.RoleDto;
 
 namespace Contracting.Shared.MasterDtos.EngineerDto
 {
@@ -15,7 +16,7 @@ namespace Contracting.Shared.MasterDtos.EngineerDto
         public string? phoneNumber { get; set; }
         public string? Email { get; set; }
         public Guid ApplicationUserId { get; set; }
-        public List<string>? Roles { get; set; }
+        public List<RoleDropDownDto>? Roles { get; set; }
         public Guid? DepartmentId { get; set; }
         public GetDepartmentDto? Department { get; set; }
     }

@@ -1,3 +1,4 @@
+using Contracting.API.Controllers.Shared;
 using Contracting.Application.Features.Role.Command.CreateRoleCommand;
 using Contracting.Application.Features.Role.Command.DeleteRoleCommand;
 using Contracting.Application.Features.Role.Command.UpdateRoleCommand;
@@ -9,7 +10,7 @@ namespace Contracting.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class RoleController : ControllerBase
+    public class RoleController : APIBaseController
     {
         private readonly IMediator _mediator;
 
@@ -22,24 +23,36 @@ namespace Contracting.API.Controllers
         public async Task<IActionResult> Create([FromBody] CreateRoleDto dto)
         {
             var command = new CreateRoleCommand(dto);
-            await _mediator.Send(command);
-            return Ok();
+            var result = await _mediator.Send(command);
+
+            return result.Match(
+                response => Ok(response),
+                errors => Problem(errors)
+            );
         }
 
         [HttpPut]
         public async Task<IActionResult> Update([FromBody] UpdateRoleDto dto)
         {
             var command = new UpdateRoleCommand(dto);
-            await _mediator.Send(command);
-            return Ok();
+            var result = await _mediator.Send(command);
+
+            return result.Match(
+                response => Ok(response),
+                errors => Problem(errors)
+            );
         }
 
         [HttpDelete("{id:guid}")]
         public async Task<IActionResult> Delete(Guid id)
         {
             var command = new DeleteRoleCommand(id);
-            await _mediator.Send(command);
-            return Ok();
+            var result = await _mediator.Send(command);
+
+            return result.Match(
+                response => Ok(response),
+                errors => Problem(errors)
+            );
         }
 
         [HttpGet("dropdown")]
