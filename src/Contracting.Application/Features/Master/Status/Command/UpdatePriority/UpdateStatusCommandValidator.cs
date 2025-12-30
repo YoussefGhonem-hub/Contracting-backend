@@ -1,27 +1,31 @@
+using Contracting.Shared.Resources;
 using FluentValidation;
+using Microsoft.Extensions.Localization;
 
 namespace Contracting.Application.Features.Master.Status.Command.UpdateStatus
 {
     public class UpdateStatusCommandValidator : AbstractValidator<UpdateStatusCommand>
     {
-        public UpdateStatusCommandValidator()
+        public UpdateStatusCommandValidator(IStringLocalizer<SharedResources> localizer)
         {
             RuleFor(x => x.Status.Id)
-                .NotEmpty().WithMessage("Status ID is required.");
+                .NotEmpty().WithMessage(localizer[SharedResourcesKeys.Required]);
 
             RuleFor(x => x.Status.nameEn)
-                .NotEmpty().WithMessage("Status name (English) is required.")
-                .MaximumLength(100).WithMessage("Status name (English) cannot exceed 100 characters.");
+                .NotEmpty().WithMessage(localizer[SharedResourcesKeys.NameEnRequired])
+                .MaximumLength(100).WithMessage(string.Format(localizer[SharedResourcesKeys.NameEnMaxLength], 100));
 
             RuleFor(x => x.Status.nameAr)
-                .NotEmpty().WithMessage("Status name (Arabic) is required.")
-                .MaximumLength(100).WithMessage("Status name (Arabic) cannot exceed 100 characters.");
+                .NotEmpty().WithMessage(localizer[SharedResourcesKeys.NameArRequired])
+                .MaximumLength(100).WithMessage(string.Format(localizer[SharedResourcesKeys.NameArMaxLength], 100));
 
             RuleFor(x => x.Status.Code)
-                .NotEmpty().WithMessage("Status code is required.")
-                .MaximumLength(50).WithMessage("Status code cannot exceed 50 characters.");
-            RuleFor(x => x.Status.orderNumber).Empty().WithMessage("Status Order Number Is Required").GreaterThan(0).WithMessage("Status Order Number Should be Greater Then 0");
-
+                .NotEmpty().WithMessage(localizer[SharedResourcesKeys.CodeRequired])
+                .MaximumLength(50).WithMessage(string.Format(localizer[SharedResourcesKeys.CodeMaxLength], 50));
+            
+            RuleFor(x => x.Status.orderNumber)
+                .Empty().WithMessage(localizer[SharedResourcesKeys.OrderNumberRequired])
+                .GreaterThan(0).WithMessage(localizer[SharedResourcesKeys.OrderNumberGreaterThanZero]);
         }
     }
 }

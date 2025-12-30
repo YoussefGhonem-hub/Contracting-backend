@@ -257,5 +257,51 @@
   </data>
   <data name="ActionTakenSuccess" xml:space="preserve">
     <value>تم اتخاذ الإجراء بنجاح</value>
+  </data>  <data name="NameEnRequired" xml:space="preserve">
+    <value>الاسم بالإنجليزية مطلوب</value>
   </data>
-</root>
+  <data name="NameArRequired" xml:space="preserve">
+    <value>الاسم بالعربية مطلوب</value>
+  </data>
+  <data name="NameEnMaxLength" xml:space="preserve">
+    <value>الاسم بالإنجليزية لا يمكن أن يتجاوز {0} حرف</value>
+  </data>
+  <data name="NameArMaxLength" xml:space="preserve">
+    <value>الاسم بالعربية لا يمكن أن يتجاوز {0} حرف</value>
+  </data>
+  <data name="CodeRequired" xml:space="preserve">
+    <value>الرمز مطلوب</value>
+  </data>
+  <data name="CodeMaxLength" xml:space="preserve">
+    <value>الرمز لا يمكن أن يتجاوز {0} حرف</value>
+  </data>
+  <data name="LocationMaxLength" xml:space="preserve">
+    <value>الموقع لا يمكن أن يتجاوز {0} حرف</value>
+  </data>
+  <data name="RoleNameRequired" xml:space="preserve">
+    <value>اسم الدور مطلوب</value>
+  </data>
+  <data name="RoleDisplayNameRequired" xml:space="preserve">
+    <value>اسم العرض للدور مطلوب</value>
+  </data>
+  <data name="InvalidGuid" xml:space="preserve">
+    <value>معرف غير صالح</value>
+  </data>
+  <data name="OrderNumberRequired" xml:space="preserve">
+    <value>رقم الترتيب مطلوب</value>
+  </data>
+  <data name="OrderNumberGreaterThanZero" xml:space="preserve">
+    <value>رقم الترتيب يجب أن يكون أكبر من 0</value>
+  </data>
+  <data name="AddressRequired" xml:space="preserve">
+    <value>العنوان مطلوب</value>
+  </data>
+  <data name="LocationRequired" xml:space="preserve">
+    <value>الموقع مطلوب</value>
+  </data>
+  <data name="DescriptionRequired" xml:space="preserve">
+    <value>الوصف مطلوب</value>
+  </data>
+  <data name="DescriptionMaxLength" xml:space="preserve">
+    <value>الوصف لا يمكن أن يتجاوز {0} حرف</value>
+  </data></root>

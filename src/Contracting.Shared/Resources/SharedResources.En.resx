@@ -258,4 +258,52 @@
   <data name="ActionTakenSuccess" xml:space="preserve">
     <value>Action taken successfully</value>
   </data>
+  <data name="NameEnRequired" xml:space="preserve">
+    <value>English name is required</value>
+  </data>
+  <data name="NameArRequired" xml:space="preserve">
+    <value>Arabic name is required</value>
+  </data>
+  <data name="NameEnMaxLength" xml:space="preserve">
+    <value>English name cannot exceed {0} characters</value>
+  </data>
+  <data name="NameArMaxLength" xml:space="preserve">
+    <value>Arabic name cannot exceed {0} characters</value>
+  </data>
+  <data name="CodeRequired" xml:space="preserve">
+    <value>Code is required</value>
+  </data>
+  <data name="CodeMaxLength" xml:space="preserve">
+    <value>Code cannot exceed {0} characters</value>
+  </data>
+  <data name="LocationMaxLength" xml:space="preserve">
+    <value>Location cannot exceed {0} characters</value>
+  </data>
+  <data name="RoleNameRequired" xml:space="preserve">
+    <value>Role name is required</value>
+  </data>
+  <data name="RoleDisplayNameRequired" xml:space="preserve">
+    <value>Role display name is required</value>
+  </data>
+  <data name="InvalidGuid" xml:space="preserve">
+    <value>Invalid identifier</value>
+  </data>
+  <data name="OrderNumberRequired" xml:space="preserve">
+    <value>Order number is required</value>
+  </data>
+  <data name="OrderNumberGreaterThanZero" xml:space="preserve">
+    <value>Order number must be greater than 0</value>
+  </data>
+  <data name="AddressRequired" xml:space="preserve">
+    <value>Address is required</value>
+  </data>
+  <data name="LocationRequired" xml:space="preserve">
+    <value>Location is required</value>
+  </data>
+  <data name="DescriptionRequired" xml:space="preserve">
+    <value>Description is required</value>
+  </data>
+  <data name="DescriptionMaxLength" xml:space="preserve">
+    <value>Description cannot exceed {0} characters</value>
+  </data>
 </root>

@@ -57,5 +57,23 @@
         public const string TimeDurationMismatch = "TimeDurationMismatch";
         public const string ActionTakenSuccess = "ActionTakenSuccess";
 
+        // Validation messages - Field specific
+        public const string NameEnRequired = "NameEnRequired";
+        public const string NameArRequired = "NameArRequired";
+        public const string NameEnMaxLength = "NameEnMaxLength";
+        public const string NameArMaxLength = "NameArMaxLength";
+        public const string CodeRequired = "CodeRequired";
+        public const string CodeMaxLength = "CodeMaxLength";
+        public const string LocationMaxLength = "LocationMaxLength";
+        public const string RoleNameRequired = "RoleNameRequired";
+        public const string RoleDisplayNameRequired = "RoleDisplayNameRequired";
+        public const string InvalidGuid = "InvalidGuid";
+        public const string OrderNumberRequired = "OrderNumberRequired";
+        public const string OrderNumberGreaterThanZero = "OrderNumberGreaterThanZero";
+        public const string AddressRequired = "AddressRequired";
+        public const string LocationRequired = "LocationRequired";
+        public const string DescriptionRequired = "DescriptionRequired";
+        public const string DescriptionMaxLength = "DescriptionMaxLength";
+
     }
 }

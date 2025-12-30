@@ -1,3 +1,4 @@
+using ErrorOr;
 using FluentValidation;
 using MediatR;
 
@@ -23,16 +24,41 @@ public class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TReques
 
             if (failures.Count != 0)
             {
-                var dict = failures
-                    .GroupBy(f => f.PropertyName)
-                    .ToDictionary(g => g.Key, g => g.Select(f => f.ErrorMessage).ToArray());
-
-                // assume TResponse is Result<>
-                var resultType = typeof(TResponse);
-                var method = resultType.GetMethod("Validation", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-                if (method != null)
+                // Check if TResponse is ErrorOr<T>
+                var responseType = typeof(TResponse);
+                if (responseType.IsGenericType && responseType.GetGenericTypeDefinition() == typeof(ErrorOr<>))
                 {
-                    return (TResponse)method.Invoke(null, new object[] { dict })!;
+                    // Create validation errors for ErrorOr
+                    var errors = failures
+                        .Select(failure => Error.Validation(
+                            code: failure.PropertyName,
+                            description: failure.ErrorMessage))
+                        .ToList();
+
+                    // Get the generic argument (T in ErrorOr<T>)
+                    var resultType = responseType.GetGenericArguments()[0];
+                    
+                    // Create ErrorOr<T> from errors using reflection
+                    var errorOrType = typeof(ErrorOr<>).MakeGenericType(resultType);
+                    var fromMethod = errorOrType.GetMethod("From", new[] { typeof(List<Error>) });
+                    
+                    if (fromMethod != null)
+                    {
+                        return (TResponse)fromMethod.Invoke(null, new object[] { errors })!;
+                    }
+                }
+                else
+                {
+                    // Fallback to Result<T> pattern for backward compatibility
+                    var dict = failures
+                        .GroupBy(f => f.PropertyName)
+                        .ToDictionary(g => g.Key, g => g.Select(f => f.ErrorMessage).ToArray());
+
+                    var method = responseType.GetMethod("Validation", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                    if (method != null)
+                    {
+                        return (TResponse)method.Invoke(null, new object[] { dict })!;
+                    }
                 }
             }
         }

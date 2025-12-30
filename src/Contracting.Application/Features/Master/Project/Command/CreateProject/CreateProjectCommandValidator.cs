@@ -1,25 +1,27 @@
+using Contracting.Shared.Resources;
 using FluentValidation;
+using Microsoft.Extensions.Localization;
 
 namespace Contracting.Application.Features.Master.Project.Command.CreateProject
 {
     public class CreateProjectCommandValidator : AbstractValidator<CreateProjectCommand>
     {
-        public CreateProjectCommandValidator()
+        public CreateProjectCommandValidator(IStringLocalizer<SharedResources> localizer)
         {
             RuleFor(x => x.Project.nameEn)
-                .NotEmpty().WithMessage("Project name (English) is required.")
-                .MaximumLength(200).WithMessage("Project name (English) cannot exceed 200 characters.");
+                .NotEmpty().WithMessage(localizer[SharedResourcesKeys.NameEnRequired])
+                .MaximumLength(200).WithMessage(string.Format(localizer[SharedResourcesKeys.NameEnMaxLength], 200));
 
             RuleFor(x => x.Project.nameAr)
-                .NotEmpty().WithMessage("Project name (Arabic) is required.")
-                .MaximumLength(200).WithMessage("Project name (Arabic) cannot exceed 200 characters.");
+                .NotEmpty().WithMessage(localizer[SharedResourcesKeys.NameArRequired])
+                .MaximumLength(200).WithMessage(string.Format(localizer[SharedResourcesKeys.NameArMaxLength], 200));
 
             RuleFor(x => x.Project.location)
-                .MaximumLength(500).WithMessage("Location cannot exceed 500 characters.");
+                .MaximumLength(500).WithMessage(string.Format(localizer[SharedResourcesKeys.LocationMaxLength], 500));
 
             RuleFor(x => x.Project.BranchId)
                 .Must(id => id == null || id != Guid.Empty)
-                .WithMessage("BranchId must be either null or a valid GUID.");
+                .WithMessage(localizer[SharedResourcesKeys.InvalidGuid]);
         }
     }
 }
