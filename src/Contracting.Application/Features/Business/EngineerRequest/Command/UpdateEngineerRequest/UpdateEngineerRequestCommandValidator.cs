@@ -23,10 +23,6 @@ namespace Contracting.Application.Features.Business.EngineerRequest.Command.Upda
                 .Must(id => id == null || id != Guid.Empty)
                 .WithMessage(localizer[SharedResourcesKeys.InvalidGuid]);
 
-            RuleFor(x => x.Request.EngineerId)
-                .Must(id => id == null || id != Guid.Empty)
-                .WithMessage(localizer[SharedResourcesKeys.InvalidGuid]);
-
             RuleFor(x => x.Request.Descreption)
                 .NotEmpty().WithMessage(localizer[SharedResourcesKeys.DescriptionRequired])
                 .MaximumLength(1000).WithMessage(string.Format(localizer[SharedResourcesKeys.DescriptionMaxLength], 1000));

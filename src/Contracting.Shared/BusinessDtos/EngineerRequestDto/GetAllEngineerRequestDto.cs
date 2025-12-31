@@ -24,9 +24,9 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestDto
         public Guid? assignToId { get; set; }
         public GetEngineerDto? assignTo { get; set; }
         public string? Descreption { get; set; }
-        public string? Note { get; set; }
-        public DateTime? NoteDate { get; set; }
         public int? timeDuration { get; set; }
+        public DateTime? startDate { get; set; }
+        public DateTime? endDate { get; set; }
         public ICollection<GetEngineerRequestNotesDto> EngineerRequestNotes { get; set; } = new List<GetEngineerRequestNotesDto>();
         public ICollection<GetEngineerRequestActiviteDto> EngineerRequestActivites { get; set; } = new List<GetEngineerRequestActiviteDto>();
     }

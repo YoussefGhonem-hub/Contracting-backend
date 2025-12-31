@@ -7,7 +7,6 @@ namespace Contracting.Application.Features.Business.EngineerRequest.Command.Take
         public TakeActionRequestCommandValidator()
         {
             RuleFor(x => x.RequestId).NotEmpty();
-            RuleFor(x => x.ActionDto).NotNull();
             RuleFor(x => x.ActionDto.statusId).NotEmpty();
         }
     }

@@ -135,20 +135,23 @@ namespace Contracting.Infrustructure.Features.business
         // ---------------- UPDATE ----------------
         public async Task<GetAllEngineerRequestDto> UpdateEngineerRequestAsync(UpdateEngineerRequestDto dto)
         {
+            var engineer = await _db.Engineers
+                .AsNoTracking()
+                .FirstOrDefaultAsync(e => e.ApplicationUserId == Guid.Parse(CurrentUser.UserId));
+
             var request = await _db.EngineerRequests
                 .Include(r => r.EngineerRequestNotes)
                 .FirstOrDefaultAsync(r => r.Id == dto.Id);
             if (request is null)
                 return null!;
 
-            if (request.assignToId != Guid.Empty)
+            if (request.assignToId != null && request.assignToId != Guid.Empty)
                 return null!;
 
             // Update fields
-            request.ProjectId = dto.ProjectId == Guid.Empty ? null : dto.ProjectId;
-            request.DepartmentId = dto.DepartmentId == Guid.Empty ? null : dto.DepartmentId;
-            request.PriorityId = dto.PriorityId == Guid.Empty ? null : dto.PriorityId;
-            request.EngineerId = dto.EngineerId == Guid.Empty ? null : dto.EngineerId;
+            request.ProjectId = dto.ProjectId == Guid.Empty ? request.ProjectId : dto.ProjectId;
+            request.DepartmentId = dto.DepartmentId == Guid.Empty ? request.DepartmentId : dto.DepartmentId;
+            request.PriorityId = dto.PriorityId == Guid.Empty ? request.PriorityId : dto.PriorityId;
             request.Descreption = dto.Descreption;
 
             // Handle notes
@@ -171,16 +174,19 @@ namespace Contracting.Infrustructure.Features.business
                 {
                     if (noteDto.Id.HasValue)
                     {
+                        // Update existing note
                         var existingNote = request.EngineerRequestNotes.FirstOrDefault(n => n.Id == noteDto.Id);
                         if (existingNote != null)
                         {
-                            _mapper.Map(noteDto, existingNote);
+                            existingNote.note = noteDto.note;
                         }
                     }
                     else
                     {
+                        // Add new note
                         var newNote = _mapper.Map<EngineerRequestNotes>(noteDto);
                         newNote.EngineerRequestId = request.Id;
+                        newNote.EngineerId = engineer?.Id;
                         await _db.EngineerRequestNotes.AddAsync(newNote);
                     }
                 }
@@ -388,6 +394,8 @@ namespace Contracting.Infrustructure.Features.business
             if (actionDto.timeDuration.HasValue)
             {
                 request.timeDuration = actionDto.timeDuration.Value;
+                request.startDate = actionDto.startDate.Value;
+                request.endDate = actionDto.startDate.Value.AddDays(actionDto.timeDuration.Value);
             }                        
 
             if (actionDto.EngineerRequestNotes != null && actionDto.EngineerRequestNotes.Any())
