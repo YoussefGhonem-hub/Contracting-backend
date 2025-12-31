@@ -2,6 +2,8 @@ using Contracting.API.Controllers.Shared;
 using Contracting.Application.Features.Role.Command.CreateRoleCommand;
 using Contracting.Application.Features.Role.Command.DeleteRoleCommand;
 using Contracting.Application.Features.Role.Command.UpdateRoleCommand;
+using Contracting.Application.Features.Role.Query.GetAllRole;
+using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.RoleDtos;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -51,6 +53,19 @@ namespace Contracting.API.Controllers
 
             return result.Match(
                 response => Ok(response),
+                errors => Problem(errors)
+            );
+        }
+
+        // Get All Roles with Pagination
+        [HttpGet]
+        public async Task<IActionResult> GetAll([FromQuery] BaseFilterDto filter)
+        {
+            var query = new GetAllRoleQuery(filter);
+            var result = await _mediator.Send(query);
+
+            return result.Match(
+                roles => Ok(roles),
                 errors => Problem(errors)
             );
         }

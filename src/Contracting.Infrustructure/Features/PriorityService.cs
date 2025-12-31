@@ -7,6 +7,9 @@ using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Contracting.Shared.Dtos.MasterDtos.PriorityDto;
+using Contracting.Infrustructure.Extensions.Helpers;
+using Contracting.Shared.Dtos;
+using Contracting.Infrustructure.Extensions;
 
 namespace Contracting.Infrustructure.Features
 {
@@ -63,6 +66,36 @@ namespace Contracting.Infrustructure.Features
             _db.Priorities.Remove(priority);
             await _db.SaveChangesAsync();
             return GenericResponse.SuccessResult(_localizer[SharedResourcesKeys.PriorityDeleteSuccess]);
+        }
+
+        // ---------------- GET ALL WITH PAGINATION ----------------
+        public async Task<PaginatedList<GetDropDownPriorityDto>> GetAllPrioritiesAsync(BaseFilterDto filter, CancellationToken cancellationToken = default)
+        {
+            var query = _db.Priorities.AsNoTracking();
+
+            if (string.IsNullOrWhiteSpace(filter.Sort))
+            {
+                query = query.OrderBy(p => p.CreatedDate);
+            }
+            else
+            {
+                query = query.OrderByDynamic(filter.Sort, filter.Descending);
+            }
+
+            var totalCount = await query.CountAsync(cancellationToken);
+
+            var priorities = await query
+                .Skip((filter.PageIndex - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .ToListAsync(cancellationToken);
+
+            var priorityDtos = _mapper.Map<List<GetDropDownPriorityDto>>(priorities);
+
+            return new PaginatedList<GetDropDownPriorityDto>(
+                priorityDtos,
+                totalCount,
+                filter.PageIndex,
+                filter.PageSize);
         }
 
         // ---------------- DROPDOWN ----------------

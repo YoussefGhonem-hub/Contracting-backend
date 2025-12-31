@@ -5,6 +5,9 @@ using Contracting.Shared.Common;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Localization;
 using Contracting.Shared.Dtos.MasterDtos.RoleDtos;
+using Contracting.Infrustructure.Extensions.Helpers;
+using Contracting.Shared.Dtos;
+using Contracting.Infrustructure.Extensions;
 
 namespace Contracting.Infrustructure.Features
 {
@@ -58,6 +61,38 @@ namespace Contracting.Infrustructure.Features
             return result.Succeeded
                 ? GenericResponse.SuccessResult(_localizer[SharedResourcesKeys.RoleDeleteSuccess])
                 : GenericResponse.FailureResult(_localizer[SharedResourcesKeys.DeleteFailed], result.Errors.Select(e => e.Description).ToArray());
+        }
+
+        public async Task<PaginatedList<RoleDropDownDto>> GetAllRolesAsync(BaseFilterDto filter, CancellationToken cancellationToken = default)
+        {
+            var query = _roleManager.Roles.AsQueryable();
+
+            if (string.IsNullOrWhiteSpace(filter.Sort))
+            {
+                query = query.OrderBy(r => r.Name);
+            }
+            else
+            {
+                query = query.OrderByDynamic(filter.Sort, filter.Descending);
+            }
+
+            var totalCount = query.Count();
+
+            var roles = query
+                .Skip((filter.PageIndex - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .Select(r => new RoleDropDownDto
+                {
+                    Id = r.Id,
+                    Name = r.Name
+                })
+                .ToList();
+
+            return new PaginatedList<RoleDropDownDto>(
+                roles,
+                totalCount,
+                filter.PageIndex,
+                filter.PageSize);
         }
 
         public async Task<List<RoleDropDownDto>> GetRolesDropdownAsync()

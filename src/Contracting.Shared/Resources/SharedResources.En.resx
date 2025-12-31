@@ -306,4 +306,13 @@
   <data name="DescriptionMaxLength" xml:space="preserve">
     <value>Description cannot exceed {0} characters</value>
   </data>
+  <data name="PageIndexMustBeGreaterThanZero" xml:space="preserve">
+    <value>Page index must be greater than 0</value>
+  </data>
+  <data name="PageSizeMustBeGreaterThanZero" xml:space="preserve">
+    <value>Page size must be greater than 0</value>
+  </data>
+  <data name="PageSizeMustBeLessThan100" xml:space="preserve">
+    <value>Page size must be less than or equal to 100</value>
+  </data>
 </root>

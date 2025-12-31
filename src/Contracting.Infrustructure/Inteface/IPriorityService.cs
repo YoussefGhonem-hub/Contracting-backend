@@ -1,5 +1,7 @@
 ﻿
+using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Shared.Common;
+using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.PriorityDto;
 
 namespace Contracting.Infrustructure.Inteface
@@ -14,6 +16,9 @@ namespace Contracting.Infrustructure.Inteface
 
         // Delete
         Task<GenericResponse> DeletePriorityAsync(Guid priorityId);
+
+        // Get All with Pagination
+        Task<PaginatedList<GetDropDownPriorityDto>> GetAllPrioritiesAsync(BaseFilterDto filter, CancellationToken cancellationToken = default);
 
         // Dropdown
         Task<List<GetDropDownPriorityDto>> GetPriorityDropdownAsync();

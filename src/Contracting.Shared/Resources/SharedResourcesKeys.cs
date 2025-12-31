@@ -75,5 +75,10 @@
         public const string DescriptionRequired = "DescriptionRequired";
         public const string DescriptionMaxLength = "DescriptionMaxLength";
 
+        // Pagination validation
+        public const string PageIndexMustBeGreaterThanZero = "PageIndexMustBeGreaterThanZero";
+        public const string PageSizeMustBeGreaterThanZero = "PageSizeMustBeGreaterThanZero";
+        public const string PageSizeMustBeLessThan100 = "PageSizeMustBeLessThan100";
+
     }
 }

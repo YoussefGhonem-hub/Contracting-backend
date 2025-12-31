@@ -7,6 +7,9 @@ using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Contracting.Shared.Dtos.MasterDtos.StatusDtos;
+using Contracting.Infrustructure.Extensions.Helpers;
+using Contracting.Shared.Dtos;
+using Contracting.Infrustructure.Extensions;
 
 namespace Contracting.Infrustructure.Features
 {
@@ -63,6 +66,36 @@ namespace Contracting.Infrustructure.Features
             _db.Statuses.Remove(Status);
             await _db.SaveChangesAsync();
             return GenericResponse.SuccessResult(_localizer[SharedResourcesKeys.StatusDeleteSuccess]);
+        }
+
+        // ---------------- GET ALL WITH PAGINATION ----------------
+        public async Task<PaginatedList<GetDropDownStatusDto>> GetAllStatusesAsync(BaseFilterDto filter, CancellationToken cancellationToken = default)
+        {
+            var query = _db.Statuses.AsNoTracking();
+
+            if (string.IsNullOrWhiteSpace(filter.Sort))
+            {
+                query = query.OrderBy(s => s.orderNumber);
+            }
+            else
+            {
+                query = query.OrderByDynamic(filter.Sort, filter.Descending);
+            }
+
+            var totalCount = await query.CountAsync(cancellationToken);
+
+            var statuses = await query
+                .Skip((filter.PageIndex - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .ToListAsync(cancellationToken);
+
+            var statusDtos = _mapper.Map<List<GetDropDownStatusDto>>(statuses);
+
+            return new PaginatedList<GetDropDownStatusDto>(
+                statusDtos,
+                totalCount,
+                filter.PageIndex,
+                filter.PageSize);
         }
 
         // ---------------- DROPDOWN ----------------

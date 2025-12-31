@@ -2,7 +2,9 @@ using Contracting.API.Controllers.Shared;
 using Contracting.Application.Features.Master.Priority.Command.CreatePriority;
 using Contracting.Application.Features.Master.Priority.Command.DeletePriority;
 using Contracting.Application.Features.Master.Priority.Command.UpdatePriority;
+using Contracting.Application.Features.Master.Priority.Query.GetAllPriority;
 using Contracting.Application.Features.Master.Priority.Query.GetPriorityDropdown;
+using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.PriorityDto;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -55,6 +57,19 @@ namespace Contracting.API.Controllers
 
             return result.Match(
                 success => Ok(success),
+                errors => Problem(errors)
+            );
+        }
+
+        // Get All Priorities with Pagination
+        [HttpGet]
+        public async Task<IActionResult> GetAll([FromQuery] BaseFilterDto filter)
+        {
+            var query = new GetAllPriorityQuery(filter);
+            var result = await _mediator.Send(query);
+
+            return result.Match(
+                priorities => Ok(priorities),
                 errors => Problem(errors)
             );
         }

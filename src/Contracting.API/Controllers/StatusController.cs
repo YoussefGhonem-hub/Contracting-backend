@@ -2,7 +2,9 @@ using Contracting.API.Controllers.Shared;
 using Contracting.Application.Features.Master.Status.Command.CreateStatus;
 using Contracting.Application.Features.Master.Status.Command.DeleteStatus;
 using Contracting.Application.Features.Master.Status.Command.UpdateStatus;
+using Contracting.Application.Features.Master.Status.Query.GetAllStatus;
 using Contracting.Application.Features.Master.Status.Query.GetStatusDropdown;
+using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.StatusDtos;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -55,6 +57,19 @@ namespace Contracting.API.Controllers
 
             return result.Match(
                 success => Ok(success),
+                errors => Problem(errors)
+            );
+        }
+
+        // Get All Statuses with Pagination
+        [HttpGet]
+        public async Task<IActionResult> GetAll([FromQuery] BaseFilterDto filter)
+        {
+            var query = new GetAllStatusQuery(filter);
+            var result = await _mediator.Send(query);
+
+            return result.Match(
+                statuses => Ok(statuses),
                 errors => Problem(errors)
             );
         }
