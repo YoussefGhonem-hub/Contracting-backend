@@ -107,27 +107,12 @@ namespace Contracting.Infrustructure.Features.business
                                 .FirstOrDefaultAsync(r => r.Id == request.Id);
 
             // Send notification to the Team Lead
-            if (teamLead != Guid.Empty)
-            {
-                // Get all FCM tokens for the team lead
-                var teamLeadTokens = await _db.userDeviceTokens
-                    .Where(t => t.UserId == teamLead)
-                    .Select(t => t.FcmToken)
-                    .ToListAsync();
-
-                foreach (var token in teamLeadTokens)
-                {
-                    var notification = new PushNotificationDto
-                    {
-                        Token = token,
-                        Title = "New Request Created",
-                        Body = $"A new request has been created for your department {createdRequest.Id}.",
-                        DepartmentId = request.DepartmentId?.ToString(),
-                        RequestId = request.Id.ToString()
-                    };
-                    await _notificationService.SendAsync(notification);
-                }
-            }
+            await _notificationService.SendNotificationToUserAsync(
+                teamLead,
+                "New Request Created",
+                $"A new request has been created for your department.",
+                request.Id,
+                request.DepartmentId);
 
             return _mapper.Map<GetAllEngineerRequestDto>(createdRequest);
         }
@@ -410,48 +395,27 @@ namespace Contracting.Infrustructure.Features.business
 
             await _db.SaveChangesAsync();
 
-            if (isManager && request.EngineerId.HasValue)
+            // Send notifications
+            if (isManager && request.EngineerId.HasValue && request.Engineer?.ApplicationUserId != Guid.Empty)
             {
-                if (request.Engineer.ApplicationUserId != Guid.Empty)
-                {
-                    var creatorTokens = await _db.userDeviceTokens
-                                       .Where(t => t.UserId == request.Engineer.ApplicationUserId)
-                                       .Select(t => t.FcmToken)
-                                       .ToListAsync();
-                    foreach (var token in creatorTokens)
-                    {
-                        var notification = new PushNotificationDto
-                        {
-                            Token = token,
-                            Title = "Your Request Was Updated",
-                            Body = "The team lead has taken action on your request.",
-                            EngineerId = request.Engineer.ApplicationUserId.ToString(),
-                            RequestId = request.Id.ToString()
-                        };
-                        await _notificationService.SendAsync(notification);
-                    }
-                }
+                // Notify the request creator that team lead took action
+                await _notificationService.SendNotificationToUserAsync(
+                    request.Engineer.ApplicationUserId,
+                    "Your Request Was Updated",
+                    "The team lead has taken action on your request.",
+                    request.Id);
             }
 
             if (request.assignToId.HasValue)
             {
-                var assignedTokens = await _db.userDeviceTokens
-                    .Where(t => t.UserId == request.assignToId.Value)
-                    .Select(t => t.FcmToken)
-                    .ToListAsync();
-
-                foreach (var token in assignedTokens)
-                {
-                    var notification = new PushNotificationDto
-                    {
-                        Token = token,
-                        Title = "You Have Been Assigned a Request",
-                        Body = "A request has been assigned to you.",
-                        EngineerId = request.assignToId.Value.ToString(),
-                        RequestId = request.Id.ToString()
-                    };
-                    await _notificationService.SendAsync(notification);
-                }
+                var assignEngineer = await _db.Engineers
+                .FirstOrDefaultAsync(r => r.Id == request.assignToId);
+                // Notify the engineer who was assigned
+                await _notificationService.SendNotificationToUserAsync(
+                    assignEngineer.ApplicationUserId,
+                    "You Have Been Assigned a Request",
+                    "A request has been assigned to you.",
+                    request.Id);
             }
 
             // If the current user is the assigned engineer and not the team lead
@@ -462,28 +426,13 @@ namespace Contracting.Infrustructure.Features.business
                     .Select(e => e.ApplicationUserId)
                     .FirstOrDefaultAsync();
 
-                if (creator != Guid.Empty)
-                {
-                    var creatorTokens = await _db.userDeviceTokens
-                        .Where(t => t.UserId == creator)
-                        .Select(t => t.FcmToken)
-                        .ToListAsync();
-
-                    foreach (var token in creatorTokens)
-                    {
-                        var notification = new PushNotificationDto
-                        {
-                            Token = token,
-                            Title = "Update on Your Request",
-                            Body = "The assigned engineer has taken action on your request.",
-                            EngineerId = creator.ToString(),
-                            RequestId = request.Id.ToString()
-                        };
-                        await _notificationService.SendAsync(notification);
-                    }
-                }
+                // Notify the request creator that assigned engineer took action
+                await _notificationService.SendNotificationToUserAsync(
+                    creator,
+                    "Update on Your Request",
+                    "The assigned engineer has taken action on your request.",
+                    request.Id);
             }
-
 
             return GenericResponse.SuccessResult(_localizer[SharedResourcesKeys.ActionTakenSuccess]);
         }

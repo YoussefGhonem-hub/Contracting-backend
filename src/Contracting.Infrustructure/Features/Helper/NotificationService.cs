@@ -111,5 +111,30 @@ namespace Contracting.Infrustructure.Features.Helper
                 _logger.LogError(ex, "Failed to send Firebase notification");
             }
         }
+
+        public async Task SendNotificationToUserAsync(Guid userId, string title, string body, Guid? requestId = null, Guid? departmentId = null)
+        {
+            if (userId == Guid.Empty)
+                return;
+
+            var tokens = await _db.userDeviceTokens
+                .Where(t => t.UserId == userId)
+                .Select(t => t.FcmToken)
+                .ToListAsync();
+
+            foreach (var token in tokens)
+            {
+                var notification = new PushNotificationDto
+                {
+                    Token = token,
+                    Title = title,
+                    Body = body,
+                    RequestId = requestId?.ToString(),
+                    DepartmentId = departmentId?.ToString()
+                };
+                await SendAsync(notification);
+            }
+        }
+
     }
 }
