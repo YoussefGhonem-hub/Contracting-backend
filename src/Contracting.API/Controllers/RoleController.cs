@@ -2,7 +2,7 @@ using Contracting.API.Controllers.Shared;
 using Contracting.Application.Features.Role.Command.CreateRoleCommand;
 using Contracting.Application.Features.Role.Command.DeleteRoleCommand;
 using Contracting.Application.Features.Role.Command.UpdateRoleCommand;
-using Contracting.Shared.MasterDtos.RoleDto;
+using Contracting.Shared.Dtos.MasterDtos.RoleDtos;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 

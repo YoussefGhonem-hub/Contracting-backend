@@ -1,6 +1,6 @@
 ﻿
 using Contracting.Shared.Common;
-using Contracting.Shared.MasterDtos.StatusDtos;
+using Contracting.Shared.Dtos.MasterDtos.StatusDtos;
 
 namespace Contracting.Infrustructure.Inteface
 {

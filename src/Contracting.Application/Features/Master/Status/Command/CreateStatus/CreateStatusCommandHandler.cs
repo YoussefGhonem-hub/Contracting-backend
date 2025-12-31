@@ -1,6 +1,6 @@
 using Contracting.Application.Features.Master.Status.Command.CreateStatus;
 using Contracting.Infrustructure.Inteface;
-using Contracting.Shared.MasterDtos.StatusDtos;
+using Contracting.Shared.Dtos.MasterDtos.StatusDtos;
 using ErrorOr;
 using MediatR;
 

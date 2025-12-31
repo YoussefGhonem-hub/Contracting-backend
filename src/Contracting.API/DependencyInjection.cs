@@ -1,6 +1,5 @@
 ﻿using Contracting.API.Commen.Errors;
-using Contracting.Application;
-using Contracting.Shared.HelperDtos;
+using Contracting.Shared.Dtos.HelperDtos;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc.Infrastructure;

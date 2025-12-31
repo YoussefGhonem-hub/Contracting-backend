@@ -1,9 +1,0 @@
-﻿namespace Contracting.Shared.MasterDtos.DepartmentDtos
-{
-    public class GetDepartmentDto
-    {
-        public Guid Id { get; set; }
-        public string? nameEn { get; set; }
-        public string? nameAr { get; set; }
-    }
-}

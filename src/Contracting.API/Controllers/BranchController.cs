@@ -7,10 +7,9 @@ using Contracting.Application.Features.Master.Branch.Query.GetBanchDropDown;
 using Contracting.Application.Features.Master.Branch.Query.GetBranchById;
 using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Shared.Dtos;
-using Contracting.Shared.MasterDtos.BranchDto;
+using Contracting.Shared.Dtos.MasterDtos.BranchDto;
 using ErrorOr;
 using MediatR;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Contracting.API.Controllers
@@ -41,12 +40,12 @@ namespace Contracting.API.Controllers
         [HttpPut]
         public async Task<IActionResult> Update([FromBody] UpdateBranchDto dto)
         {
-            
+
             var command = new UpdateBranchCommand(dto);
             var result = await _mediator.Send(command);
 
             return result.Match(
-                result =>Ok(result),
+                result => Ok(result),
                 errors => Problem(errors)
             );
         }

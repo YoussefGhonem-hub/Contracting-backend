@@ -1,16 +1,13 @@
+using Contracting.API.Controllers.Shared;
 using Contracting.Application.Features.Master.Department.Command.CreateDepartment;
-using Contracting.Application.Features.Master.Department.Command.UpdateDepartment;
 using Contracting.Application.Features.Master.Department.Command.RemoveDepartment;
-using Contracting.Shared.MasterDtos.DepartmentDtos;
+using Contracting.Application.Features.Master.Department.Command.UpdateDepartment;
+using Contracting.Application.Features.Master.Department.Query.GetDepartmentsByBranchId;
+using Contracting.Application.Features.Master.Department.Query.GetDropDownDepartment;
+using Contracting.Shared.Dtos;
+using Contracting.Shared.Dtos.MasterDtos.DepartmentDtos;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using Contracting.API.Controllers.Shared;
-using Contracting.Shared.Dtos;
-using Contracting.Application.Features.Master.Department.Query.GetDepartmentsByBranchId;
-using Contracting.Application.Features.Master.Branch.Query.GetBanchDropDown;
-using Contracting.Shared.MasterDtos.BranchDto;
-using ErrorOr;
-using Contracting.Application.Features.Master.Department.Query.GetDropDownDepartment;
 
 namespace Contracting.API.Controllers
 {
@@ -81,8 +78,8 @@ namespace Contracting.API.Controllers
         public async Task<IActionResult> GetDropDown(Guid branchId)
         {
             var query = new GetDropDownDepartmentQuery(branchId);
-             var result =
-                await _mediator.Send(query);
+            var result =
+               await _mediator.Send(query);
 
             return result.Match(
                 paged => Ok(paged),

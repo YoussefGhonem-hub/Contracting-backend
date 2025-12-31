@@ -1,5 +1,5 @@
 using Contracting.Shared.Common;
-using Contracting.Shared.MasterDtos.RoleDto;
+using Contracting.Shared.Dtos.MasterDtos.RoleDtos;
 
 namespace Contracting.Infrustructure.Inteface
 {

@@ -1,6 +1,5 @@
 using Contracting.Infrustructure.Inteface;
-using Contracting.Shared.MasterDtos.PriorityDto;
-using Contracting.Shared.MasterDtos.StatusDtos;
+using Contracting.Shared.Dtos.MasterDtos.PriorityDto;
 using ErrorOr;
 using MediatR;
 

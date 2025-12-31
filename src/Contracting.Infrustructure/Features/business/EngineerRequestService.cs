@@ -1,6 +1,5 @@
 using Contracting.Shared.Resources;
 using Contracting.Domain.Entities.business;
-using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Extensions;
 using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Infrustructure.Inteface.business;
@@ -12,9 +11,7 @@ using Contracting.Shared.Common;
 using Contracting.Shared.Constants;
 using Contracting.Shared.CurrentUser;
 using Contracting.Shared.Dtos;
-using Contracting.Shared.HelperDtos;
 using MapsterMapper;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 

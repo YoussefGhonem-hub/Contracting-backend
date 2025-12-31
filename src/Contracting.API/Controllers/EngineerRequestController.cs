@@ -81,7 +81,7 @@ namespace Contracting.API.Controllers
         [HttpGet("appliedOrCreatedReqeust")]
         public async Task<IActionResult> GetAllRequestAppliedOrCreated([FromQuery] BaseFilterDto filter)
         {
-            var query = new GetRequestCreatedOrApplyToEngineerQuery( filter);
+            var query = new GetRequestCreatedOrApplyToEngineerQuery(filter);
             var result = await _mediator.Send(query);
 
             return result.Match(
@@ -113,7 +113,7 @@ namespace Contracting.API.Controllers
             var result = await _mediator.Send(command);
 
             return result.Match(
-                success => Ok(new { Message =   "Request approved successfully" }),
+                success => Ok(new { Message = "Request approved successfully" }),
                 errors => Problem(errors)
             );
         }

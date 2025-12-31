@@ -2,9 +2,9 @@ using Contracting.Shared.Resources;
 using Contracting.Domain.Entities;
 using Contracting.Infrustructure.Inteface;
 using Contracting.Shared.Common;
-using Contracting.Shared.MasterDtos.RoleDto;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Localization;
+using Contracting.Shared.Dtos.MasterDtos.RoleDtos;
 
 namespace Contracting.Infrustructure.Features
 {

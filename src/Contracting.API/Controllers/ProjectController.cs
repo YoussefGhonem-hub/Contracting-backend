@@ -6,7 +6,7 @@ using Contracting.Application.Features.Master.Project.Query.GetAllProjects;
 using Contracting.Application.Features.Master.Project.Query.GetProjectById;
 using Contracting.Application.Features.Master.Project.Query.GetProjectDropdown;
 using Contracting.Shared.Dtos;
-using Contracting.Shared.MasterDtos.ProjectDtos;
+using Contracting.Shared.Dtos.MasterDtos.ProjectDtos;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 

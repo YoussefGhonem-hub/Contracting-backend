@@ -1,4 +1,4 @@
-using Contracting.Shared.MasterDtos.EngineerDto;
+using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
 using ErrorOr;
 using MediatR;
 using System.Collections.Generic;

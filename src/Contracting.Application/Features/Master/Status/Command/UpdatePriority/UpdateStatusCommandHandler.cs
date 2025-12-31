@@ -1,5 +1,5 @@
 using Contracting.Infrustructure.Inteface;
-using Contracting.Shared.MasterDtos.StatusDtos;
+using Contracting.Shared.Dtos.MasterDtos.StatusDtos;
 using ErrorOr;
 using MediatR;
 

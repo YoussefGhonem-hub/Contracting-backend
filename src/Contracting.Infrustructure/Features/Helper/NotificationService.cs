@@ -2,7 +2,7 @@
 using Contracting.Infrustructure.Inteface.Helper;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.CurrentUser;
-using Contracting.Shared.HelperDtos;
+using Contracting.Shared.Dtos.HelperDtos;
 using FirebaseAdmin;
 using FirebaseAdmin.Messaging;
 using Google.Apis.Auth.OAuth2;

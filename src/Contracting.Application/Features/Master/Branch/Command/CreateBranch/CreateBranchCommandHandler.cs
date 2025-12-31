@@ -1,7 +1,7 @@
 ﻿using Azure.Core;
 using Contracting.Infrustructure.Inteface;
 using Contracting.Infrustructure.Persistence;
-using Contracting.Shared.MasterDtos.BranchDto;
+using Contracting.Shared.Dtos.MasterDtos.BranchDto;
 using ErrorOr;
 using Mapster;
 using MapsterMapper;

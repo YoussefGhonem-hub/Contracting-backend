@@ -3,8 +3,7 @@ using Contracting.Application.Features.Master.Priority.Command.CreatePriority;
 using Contracting.Application.Features.Master.Priority.Command.DeletePriority;
 using Contracting.Application.Features.Master.Priority.Command.UpdatePriority;
 using Contracting.Application.Features.Master.Priority.Query.GetPriorityDropdown;
-using Contracting.Shared.MasterDtos.PriorityDto;
-using Contracting.Shared.MasterDtos.StatusDtos;
+using Contracting.Shared.Dtos.MasterDtos.PriorityDto;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 

@@ -1,19 +1,13 @@
 using Contracting.API.Controllers.Shared;
-using Contracting.Application.Common;
 using Contracting.Application.Features.Users.Commands.FCMTokenNotification;
 using Contracting.Application.Features.Users.Commands.LoginUserCommand;
 using Contracting.Application.Features.Users.Commands.RefreshTokenCommand;
 using Contracting.Application.Features.Users.Commands.RegisterUserCommand;
 using Contracting.Application.Features.Users.Commands.RemoveFCMTokenNotification;
 using Contracting.Application.Features.Users.Commands.RevokeRefreshTokenCommand;
-using Contracting.Domain.Entities.helper;
-using ErrorOr;
-using MapsterMapper;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Identity.Client;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 
 namespace Contracting.API.Controllers;
 
@@ -36,7 +30,7 @@ public class AuthController : APIBaseController
         return result.Match(
             authResult => Ok(authResult),
             errors => Problem(errors)
-        );       
+        );
     }
 
     [HttpPost("login")]
@@ -78,7 +72,7 @@ public class AuthController : APIBaseController
     [Authorize]
     public async Task<IActionResult> SaveFcmToken([FromBody] string fcmToken)
     {
-        var command = new FCMTokenNotificationCommand(fcmToken); 
+        var command = new FCMTokenNotificationCommand(fcmToken);
         var result = await _mediator.Send(command);
         return result.Match(
             value => Ok(value),

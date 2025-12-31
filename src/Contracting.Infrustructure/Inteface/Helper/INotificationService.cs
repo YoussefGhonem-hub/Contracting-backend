@@ -1,4 +1,4 @@
-﻿using Contracting.Shared.HelperDtos;
+﻿using Contracting.Shared.Dtos.HelperDtos;
 
 namespace Contracting.Infrustructure.Inteface.Helper
 {

@@ -5,7 +5,6 @@ using Contracting.Domain.Entities;
 using Contracting.Infrustructure;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.CurrentUser;
-using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;

@@ -1,4 +1,4 @@
-using Contracting.Shared.MasterDtos.RoleDto;
+using Contracting.Shared.Dtos.MasterDtos.RoleDtos;
 using MediatR;
 
 public class GetRolesDropdownQuery : IRequest<List<RoleDropDownDto>>

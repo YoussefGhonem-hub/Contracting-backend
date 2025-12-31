@@ -8,13 +8,13 @@ using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.Common;
 using Contracting.Shared.Constants;
 using Contracting.Shared.Dtos;
-using Contracting.Shared.MasterDtos.EngineerDto;
-using Contracting.Shared.MasterDtos.RoleDto;
 using MapsterMapper;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using static System.Runtime.InteropServices.JavaScript.JSType;
+using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
+using Contracting.Shared.Dtos.MasterDtos.RoleDtos;
 
 namespace Contracting.Infrustructure.Features
 {

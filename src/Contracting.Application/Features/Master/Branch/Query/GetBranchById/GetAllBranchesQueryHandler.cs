@@ -1,6 +1,6 @@
 ﻿using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Infrustructure.Inteface;
-using Contracting.Shared.MasterDtos.BranchDto;
+using Contracting.Shared.Dtos.MasterDtos.BranchDto;
 using ErrorOr;
 using MediatR;
 

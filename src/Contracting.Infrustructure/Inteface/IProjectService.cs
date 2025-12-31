@@ -1,7 +1,7 @@
 ﻿using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Shared.Common;
 using Contracting.Shared.Dtos;
-using Contracting.Shared.MasterDtos.ProjectDtos;
+using Contracting.Shared.Dtos.MasterDtos.ProjectDtos;
 
 namespace Contracting.Infrustructure.Inteface
 {

@@ -6,11 +6,10 @@ using Contracting.Infrustructure.Inteface;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.Common;
 using Contracting.Shared.Dtos;
-using Contracting.Shared.MasterDtos.BranchDto;
-using Contracting.Shared.MasterDtos.DepartmentDtos;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Contracting.Shared.Dtos.MasterDtos.DepartmentDtos;
 
 namespace Contracting.Infrustructure.Features
 {

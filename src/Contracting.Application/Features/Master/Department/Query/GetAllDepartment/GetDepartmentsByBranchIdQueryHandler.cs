@@ -1,6 +1,6 @@
 using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Infrustructure.Inteface;
-using Contracting.Shared.MasterDtos.DepartmentDtos;
+using Contracting.Shared.Dtos.MasterDtos.DepartmentDtos;
 using ErrorOr;
 using MediatR;
 

@@ -3,7 +3,7 @@ using Contracting.Application.Features.Master.Status.Command.CreateStatus;
 using Contracting.Application.Features.Master.Status.Command.DeleteStatus;
 using Contracting.Application.Features.Master.Status.Command.UpdateStatus;
 using Contracting.Application.Features.Master.Status.Query.GetStatusDropdown;
-using Contracting.Shared.MasterDtos.StatusDtos;
+using Contracting.Shared.Dtos.MasterDtos.StatusDtos;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 

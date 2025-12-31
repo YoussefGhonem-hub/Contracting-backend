@@ -1,7 +1,6 @@
 ﻿
 using Contracting.Shared.Common;
-using Contracting.Shared.MasterDtos.PriorityDto;
-using Contracting.Shared.MasterDtos.StatusDtos;
+using Contracting.Shared.Dtos.MasterDtos.PriorityDto;
 
 namespace Contracting.Infrustructure.Inteface
 {

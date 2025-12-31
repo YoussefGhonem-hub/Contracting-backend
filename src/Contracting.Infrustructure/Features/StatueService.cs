@@ -3,10 +3,10 @@ using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Inteface;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.Common;
-using Contracting.Shared.MasterDtos.StatusDtos;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Contracting.Shared.Dtos.MasterDtos.StatusDtos;
 
 namespace Contracting.Infrustructure.Features
 {

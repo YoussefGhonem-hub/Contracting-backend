@@ -1,5 +1,5 @@
 using Contracting.Infrustructure.Inteface;
-using Contracting.Shared.MasterDtos.RoleDto;
+using Contracting.Shared.Dtos.MasterDtos.RoleDtos;
 using MediatR;
 
 public class GetRolesDropdownQueryHandler : IRequestHandler<GetRolesDropdownQuery, List<RoleDropDownDto>>
