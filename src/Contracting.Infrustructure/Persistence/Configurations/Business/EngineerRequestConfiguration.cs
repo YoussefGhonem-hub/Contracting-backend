@@ -1,0 +1,15 @@
+using Contracting.Domain.Entities.business;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+namespace Contracting.Infrustructure.Persistence.Configurations.Business
+{
+    public class EngineerRequestConfiguration : IEntityTypeConfiguration<EngineerRequest>
+    {
+        public void Configure(EntityTypeBuilder<EngineerRequest> builder)
+        {
+            builder.ToTable("EngineerRequests", "business");
+            builder.Property(r => r.title).HasMaxLength(500);
+        }
+    }
+}
