@@ -98,7 +98,7 @@ namespace Contracting.API.Commen.Errors
             var errors = httpContext?.Items[HttpContextitemKeys.Errors] as List<Error>;
             if (errors is not null)
             {
-                problemDetails.Extensions.Add("Errors", errors.Select(e => e.Code));
+                problemDetails.Extensions.Add("Errors", errors.Select(e => e.Description));
             }
 
 

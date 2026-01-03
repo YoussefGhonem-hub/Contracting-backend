@@ -116,11 +116,6 @@ app.UseMiddleware<ExceptionMiddleware>();
 app.UseCors("default");
 app.UseAuthentication();
 app.UseAuthorization();
-app.MapControllers();
-#region Logger
-app.UseSharedHttpLogging();
-#endregion
-CurrentUser.Initialize(app.Services.GetRequiredService<IHttpContextAccessor>());
 
 // Start Hangfire server and expose dashboard at /hangfire with authorization
 app.UseHangfireServer();
@@ -128,6 +123,12 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {
     Authorization = new[] { new HangfireAuthorizationFilter() }
 });
+
+app.MapControllers();
+#region Logger
+app.UseSharedHttpLogging();
+#endregion
+CurrentUser.Initialize(app.Services.GetRequiredService<IHttpContextAccessor>());
 
 
 app.Run();
