@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.14.36623.8 d17.14
+# Visual Studio Version 18
+VisualStudioVersion = 18.1.11312.151 d18.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Contracting.Application", "src\Contracting.Application\Contracting.Application.csproj", "{B606AF0D-FB7D-4286-B21E-ECA044329B0B}"
 EndProject
@@ -12,6 +12,10 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Contracting.Domain", "src\Contracting.Domain\Contracting.Domain.csproj", "{52C8D7C2-4E1C-4E21-B862-A183BF833B46}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Contracting.Shared", "src\Contracting.Shared\Contracting.Shared.csproj", "{03A65B09-C100-404A-91EA-118D634B8F3D}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Contracting.Packages", "Contracting.Packages", "{3D9AA502-A91B-4494-8479-03CB80A9ADF7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Logging.Serilog", "src\Logging.Serilog\Logging.Serilog.csproj", "{91435608-508E-4266-AB31-6AFAF88CC33E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -39,9 +43,16 @@ Global
 		{03A65B09-C100-404A-91EA-118D634B8F3D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{03A65B09-C100-404A-91EA-118D634B8F3D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{03A65B09-C100-404A-91EA-118D634B8F3D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{91435608-508E-4266-AB31-6AFAF88CC33E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{91435608-508E-4266-AB31-6AFAF88CC33E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{91435608-508E-4266-AB31-6AFAF88CC33E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{91435608-508E-4266-AB31-6AFAF88CC33E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{91435608-508E-4266-AB31-6AFAF88CC33E} = {3D9AA502-A91B-4494-8479-03CB80A9ADF7}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {D32FAF8E-A9C5-40DF-A6B1-F1757B5A624E}

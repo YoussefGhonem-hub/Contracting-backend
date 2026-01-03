@@ -12,6 +12,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using Logging.Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -72,7 +73,9 @@ builder.Services.AddCors(o => o.AddPolicy("default", p =>
 {
     p.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin();
 }));
-
+#region Logger
+builder.AddSharedSerilog(serviceName: "ContractingAPI");
+#endregion
 var app = builder.Build();
 
 app.UseSwagger();
@@ -99,10 +102,14 @@ var options = app.Services.GetService<IOptions<RequestLocalizationOptions>>();
 app.UseRequestLocalization(options.Value);
 app.UseStaticFiles();
 app.UseMiddleware<ExceptionMiddleware>();
+
 app.UseCors("default");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+#region Logger
+app.UseSharedHttpLogging();
+#endregion
 CurrentUser.Initialize(app.Services.GetRequiredService<IHttpContextAccessor>());
 
 
