@@ -15,6 +15,7 @@ using System.Text;
 using Logging.Serilog;
 using Hangfire;
 using Hangfire.MemoryStorage;
+using Hangfire.Dashboard;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -121,9 +122,12 @@ app.UseSharedHttpLogging();
 #endregion
 CurrentUser.Initialize(app.Services.GetRequiredService<IHttpContextAccessor>());
 
-// Start Hangfire server and dashboard
+// Start Hangfire server and expose dashboard at /hangfire with authorization
 app.UseHangfireServer();
-app.UseHangfireDashboard();
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = new[] { new HangfireAuthorizationFilter() }
+});
 
 
 app.Run();
