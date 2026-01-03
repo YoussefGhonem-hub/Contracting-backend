@@ -13,12 +13,21 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using Logging.Serilog;
+using Hangfire;
+using Hangfire.MemoryStorage;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddPresentation(builder.Configuration);
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructure(builder.Configuration);
+
+// Hangfire configuration (requires Hangfire.AspNetCore and a storage provider)
+builder.Services.AddHangfire(configuration => configuration
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UseMemoryStorage());
+builder.Services.AddHangfireServer();
 
 
 var jwtSection = builder.Configuration.GetSection("JwtSettings");
@@ -111,6 +120,10 @@ app.MapControllers();
 app.UseSharedHttpLogging();
 #endregion
 CurrentUser.Initialize(app.Services.GetRequiredService<IHttpContextAccessor>());
+
+// Start Hangfire server and dashboard
+app.UseHangfireServer();
+app.UseHangfireDashboard();
 
 
 app.Run();

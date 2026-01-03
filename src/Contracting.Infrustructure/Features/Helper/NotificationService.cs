@@ -7,6 +7,7 @@ using FirebaseAdmin;
 using FirebaseAdmin.Messaging;
 using Google.Apis.Auth.OAuth2;
 using Microsoft.AspNetCore.Builder.Extensions;
+using Hangfire;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Data.Entity;
@@ -18,8 +19,9 @@ namespace Contracting.Infrustructure.Features.Helper
     {
         private readonly ILogger<NotificationService> _logger;
         private readonly ApplicationDbContext _db;
+        private readonly IBackgroundJobClient _backgroundJobClient;
 
-        public NotificationService(ILogger<NotificationService> logger, ApplicationDbContext db, IOptions<FirebaseSettings> firebaseOptions)
+        public NotificationService(ILogger<NotificationService> logger, ApplicationDbContext db, IOptions<FirebaseSettings> firebaseOptions, IBackgroundJobClient backgroundJobClient)
         {
             _logger = logger;
 
@@ -46,6 +48,7 @@ namespace Contracting.Infrustructure.Features.Helper
             }
 
             _db = db;
+            _backgroundJobClient = backgroundJobClient;
         }
 
         public async Task<bool> GenerateToken(string fcmToken)
@@ -112,28 +115,41 @@ namespace Contracting.Infrustructure.Features.Helper
             }
         }
 
-        public async Task SendNotificationToUserAsync(Guid userId, string title, string body, Guid? requestId = null, Guid? departmentId = null)
+        public Task SendNotificationToUserAsync(Guid userId, string title, string body, Guid? requestId = null, Guid? departmentId = null)
         {
             if (userId == Guid.Empty)
-                return;
+                return Task.CompletedTask;
 
-            var tokens = await _db.userDeviceTokens
+            var tokens = _db.userDeviceTokens
                 .Where(t => t.UserId == userId)
                 .Select(t => t.FcmToken)
                 .ToListAsync();
 
-            foreach (var token in tokens)
+            // enqueue a background job per token
+            tokens.ContinueWith(tks =>
             {
-                var notification = new PushNotificationDto
+                foreach (var token in tks.Result)
                 {
-                    Token = token,
-                    Title = title,
-                    Body = body,
-                    RequestId = requestId?.ToString(),
-                    DepartmentId = departmentId?.ToString()
-                };
-                await SendAsync(notification);
-            }
+                    var notification = new PushNotificationDto
+                    {
+                        Token = token,
+                        Title = title,
+                        Body = body,
+                        RequestId = requestId?.ToString(),
+                        DepartmentId = departmentId?.ToString()
+                    };
+                    try
+                    {
+                        _backgroundJobClient.Enqueue<NotificationService>(svc => svc.SendAsync(notification));
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to enqueue notification job");
+                    }
+                }
+            });
+
+            return Task.CompletedTask;
         }
 
     }
