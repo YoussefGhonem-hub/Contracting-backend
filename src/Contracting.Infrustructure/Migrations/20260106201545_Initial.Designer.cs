@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Contracting.Infrustructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251224121418_Status")]
-    partial class Status
+    [Migration("20260106201545_Initial")]
+    partial class Initial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -36,7 +36,8 @@ namespace Contracting.Infrustructure.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("DisplayName")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("Name")
                         .HasMaxLength(256)
@@ -53,7 +54,7 @@ namespace Contracting.Infrustructure.Migrations
                         .HasDatabaseName("RoleNameIndex")
                         .HasFilter("[NormalizedName] IS NOT NULL");
 
-                    b.ToTable("AspNetRoles", (string)null);
+                    b.ToTable("Roles", "security");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.ApplicationUser", b =>
@@ -66,7 +67,8 @@ namespace Contracting.Infrustructure.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("AvatarUrl")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
@@ -80,10 +82,13 @@ namespace Contracting.Infrustructure.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("FullName")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("bit");
@@ -128,7 +133,7 @@ namespace Contracting.Infrustructure.Migrations
                         .HasDatabaseName("UserNameIndex")
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
 
-                    b.ToTable("AspNetUsers", (string)null);
+                    b.ToTable("Users", "security");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.RefreshToken", b =>
@@ -181,7 +186,8 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.Property<string>("TokenHash")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
@@ -192,7 +198,7 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("RefreshTokens");
+                    b.ToTable("RefreshTokens", "security");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.business.EngineerRequest", b =>
@@ -217,7 +223,8 @@ namespace Contracting.Infrustructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Descreption")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<Guid?>("EngineerId")
                         .HasColumnType("uniqueidentifier");
@@ -231,17 +238,26 @@ namespace Contracting.Infrustructure.Migrations
                     b.Property<DateTimeOffset?>("ModifiedDate")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<string>("Note")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("NoteDate")
-                        .HasColumnType("datetime2");
-
                     b.Property<Guid?>("PriorityId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("ProjectId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("StatusId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("assignToId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("endDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("startDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("timeDuration")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -255,7 +271,157 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.HasIndex("ProjectId");
 
-                    b.ToTable("EngineerRequests");
+                    b.HasIndex("StatusId");
+
+                    b.HasIndex("assignToId");
+
+                    b.ToTable("EngineerRequests", "business");
+                });
+
+            modelBuilder.Entity("Contracting.Domain.Entities.business.EngineerRequestActivite", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ActionType")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedDate")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("DeletedDate")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("EngineerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("EngineerRequestId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("ModifiedDate")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("StatusId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EngineerId");
+
+                    b.HasIndex("EngineerRequestId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("StatusId");
+
+                    b.ToTable("EngineerRequestActivites", "business");
+                });
+
+            modelBuilder.Entity("Contracting.Domain.Entities.business.EngineerRequestNotes", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedDate")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("DeletedDate")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("EngineerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("EngineerRequestId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("ModifiedDate")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("note")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EngineerId");
+
+                    b.HasIndex("EngineerRequestId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.ToTable("EngineerRequestNotes", "business");
+                });
+
+            modelBuilder.Entity("Contracting.Domain.Entities.helper.UserDeviceToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedDate")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("DeletedDate")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("FcmToken")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("ModifiedDate")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("UserId", "FcmToken")
+                        .IsUnique();
+
+                    b.ToTable("UserDeviceTokens", "security");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.master.Branch", b =>
@@ -292,16 +458,18 @@ namespace Contracting.Infrustructure.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("nameAr")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("nameEn")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("IsDeleted");
 
-                    b.ToTable("Branches");
+                    b.ToTable("Branches", "master");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.master.Department", b =>
@@ -335,10 +503,12 @@ namespace Contracting.Infrustructure.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("nameAr")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("nameEn")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.HasKey("Id");
 
@@ -346,7 +516,7 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.HasIndex("IsDeleted");
 
-                    b.ToTable("Departmentes");
+                    b.ToTable("Departments", "master");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.master.Engineer", b =>
@@ -388,14 +558,13 @@ namespace Contracting.Infrustructure.Migrations
                     b.Property<string>("address")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<bool>("isManager")
-                        .HasColumnType("bit");
-
                     b.Property<string>("nameAr")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("nameEn")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("nationalId")
                         .HasColumnType("nvarchar(max)");
@@ -420,7 +589,7 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.HasIndex("IsDeleted");
 
-                    b.ToTable("Engineers");
+                    b.ToTable("Engineers", "master");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.master.Priority", b =>
@@ -454,16 +623,18 @@ namespace Contracting.Infrustructure.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("nameAr")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("nameEn")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("IsDeleted");
 
-                    b.ToTable("Priorities");
+                    b.ToTable("Priorities", "master");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.master.Project", b =>
@@ -503,10 +674,12 @@ namespace Contracting.Infrustructure.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("nameAr")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("nameEn")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.HasKey("Id");
 
@@ -514,7 +687,7 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.HasIndex("IsDeleted");
 
-                    b.ToTable("Projects");
+                    b.ToTable("Projects", "master");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.master.Status", b =>
@@ -548,16 +721,21 @@ namespace Contracting.Infrustructure.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("nameAr")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("nameEn")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("orderNumber")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
                     b.HasIndex("IsDeleted");
 
-                    b.ToTable("Statuses");
+                    b.ToTable("Statuses", "master");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -581,7 +759,7 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("AspNetRoleClaims", (string)null);
+                    b.ToTable("RoleClaims", "security");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
@@ -605,7 +783,7 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserClaims", (string)null);
+                    b.ToTable("UserClaims", "security");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
@@ -626,7 +804,7 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserLogins", (string)null);
+                    b.ToTable("UserLogins", "security");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<System.Guid>", b =>
@@ -641,7 +819,7 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("AspNetUserRoles", (string)null);
+                    b.ToTable("UserRoles", "security");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
@@ -660,7 +838,7 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.HasKey("UserId", "LoginProvider", "Name");
 
-                    b.ToTable("AspNetUserTokens", (string)null);
+                    b.ToTable("UserTokens", "security");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.RefreshToken", b =>
@@ -692,6 +870,16 @@ namespace Contracting.Infrustructure.Migrations
                         .WithMany()
                         .HasForeignKey("ProjectId");
 
+                    b.HasOne("Contracting.Domain.Entities.master.Status", "Status")
+                        .WithMany()
+                        .HasForeignKey("StatusId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Contracting.Domain.Entities.master.Engineer", "assignTo")
+                        .WithMany()
+                        .HasForeignKey("assignToId");
+
                     b.Navigation("Department");
 
                     b.Navigation("Engineer");
@@ -699,6 +887,46 @@ namespace Contracting.Infrustructure.Migrations
                     b.Navigation("Priority");
 
                     b.Navigation("Project");
+
+                    b.Navigation("Status");
+
+                    b.Navigation("assignTo");
+                });
+
+            modelBuilder.Entity("Contracting.Domain.Entities.business.EngineerRequestActivite", b =>
+                {
+                    b.HasOne("Contracting.Domain.Entities.master.Engineer", "Engineer")
+                        .WithMany()
+                        .HasForeignKey("EngineerId");
+
+                    b.HasOne("Contracting.Domain.Entities.business.EngineerRequest", "EngineerRequest")
+                        .WithMany("EngineerRequestActivites")
+                        .HasForeignKey("EngineerRequestId");
+
+                    b.HasOne("Contracting.Domain.Entities.master.Status", "Status")
+                        .WithMany()
+                        .HasForeignKey("StatusId");
+
+                    b.Navigation("Engineer");
+
+                    b.Navigation("EngineerRequest");
+
+                    b.Navigation("Status");
+                });
+
+            modelBuilder.Entity("Contracting.Domain.Entities.business.EngineerRequestNotes", b =>
+                {
+                    b.HasOne("Contracting.Domain.Entities.master.Engineer", "Engineer")
+                        .WithMany()
+                        .HasForeignKey("EngineerId");
+
+                    b.HasOne("Contracting.Domain.Entities.business.EngineerRequest", "EngineerRequest")
+                        .WithMany("EngineerRequestNotes")
+                        .HasForeignKey("EngineerRequestId");
+
+                    b.Navigation("Engineer");
+
+                    b.Navigation("EngineerRequest");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.master.Department", b =>
@@ -787,6 +1015,13 @@ namespace Contracting.Infrustructure.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Contracting.Domain.Entities.business.EngineerRequest", b =>
+                {
+                    b.Navigation("EngineerRequestActivites");
+
+                    b.Navigation("EngineerRequestNotes");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.master.Branch", b =>

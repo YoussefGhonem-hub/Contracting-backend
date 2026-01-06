@@ -71,31 +71,51 @@ namespace Contracting.Infrustructure.Features
         // ---------------- GET ALL WITH PAGINATION ----------------
         public async Task<PaginatedList<GetDropDownStatusDto>> GetAllStatusesAsync(BaseFilterDto filter, CancellationToken cancellationToken = default)
         {
-            var query = _db.Statuses.AsNoTracking();
-
-            if (string.IsNullOrWhiteSpace(filter.Sort))
+            try
             {
-                query = query.OrderBy(s => s.orderNumber);
+                var query = _db.Statuses.AsNoTracking();
+
+                if (string.IsNullOrWhiteSpace(filter.Sort))
+                {
+                    query = query.OrderBy(s => s.orderNumber);
+                }
+                else
+                {
+                    query = query.OrderByDynamic(filter.Sort, filter.Descending);
+                }
+
+                var totalCount = await query.CountAsync(cancellationToken);
+
+                if (totalCount == 0)
+                {
+                    return new PaginatedList<GetDropDownStatusDto>(
+                        new List<GetDropDownStatusDto>(),
+                        0,
+                        filter.PageIndex,
+                        filter.PageSize);
+                }
+
+                var statuses = await query
+                    .Skip((filter.PageIndex - 1) * filter.PageSize)
+                    .Take(filter.PageSize)
+                    .ToListAsync(cancellationToken);
+
+                var statusDtos = _mapper.Map<List<GetDropDownStatusDto>>(statuses);
+
+                return new PaginatedList<GetDropDownStatusDto>(
+                    statusDtos,
+                    totalCount,
+                    filter.PageIndex,
+                    filter.PageSize);
             }
-            else
+            catch (Exception)
             {
-                query = query.OrderByDynamic(filter.Sort, filter.Descending);
+                return new PaginatedList<GetDropDownStatusDto>(
+                    new List<GetDropDownStatusDto>(),
+                    0,
+                    filter.PageIndex,
+                    filter.PageSize);
             }
-
-            var totalCount = await query.CountAsync(cancellationToken);
-
-            var statuses = await query
-                .Skip((filter.PageIndex - 1) * filter.PageSize)
-                .Take(filter.PageSize)
-                .ToListAsync(cancellationToken);
-
-            var statusDtos = _mapper.Map<List<GetDropDownStatusDto>>(statuses);
-
-            return new PaginatedList<GetDropDownStatusDto>(
-                statusDtos,
-                totalCount,
-                filter.PageIndex,
-                filter.PageSize);
         }
 
         // ---------------- DROPDOWN ----------------

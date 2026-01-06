@@ -8,7 +8,7 @@ namespace Contracting.Infrustructure.Persistence.Configurations.Security
     {
         public void Configure(EntityTypeBuilder<ApplicationRole> builder)
         {
-            builder.ToTable("AspNetRoles", "security");
+            builder.ToTable("Roles", "security");
             builder.Property(r => r.DisplayName).HasMaxLength(200);
         }
     }

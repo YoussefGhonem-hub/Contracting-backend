@@ -85,39 +85,59 @@ namespace Contracting.Infrustructure.Features
             BaseFilterDto filter,
             CancellationToken cancellationToken = default)
         {
-            var query = _db.Projects
-                .Include(p => p.Branch)
-                .AsNoTracking();
-
-            // ✅ ADDED: Filter by BranchId if provided
-            if (branchId.HasValue && branchId.Value != Guid.Empty)
+            try
             {
-                query = query.Where(p => p.BranchId == branchId.Value);
-            }
+                var query = _db.Projects
+                    .Include(p => p.Branch)
+                    .AsNoTracking();
 
-            if (string.IsNullOrWhiteSpace(filter.Sort))
+                // ✅ ADDED: Filter by BranchId if provided
+                if (branchId.HasValue && branchId.Value != Guid.Empty)
+                {
+                    query = query.Where(p => p.BranchId == branchId.Value);
+                }
+
+                if (string.IsNullOrWhiteSpace(filter.Sort))
+                {
+                    query = query.OrderBy(p => p.CreatedDate);
+                }
+                else
+                {
+                    query = query.OrderByDynamic(filter.Sort, filter.Descending);
+                }
+
+                var totalCount = await query.CountAsync(cancellationToken);
+
+                if (totalCount == 0)
+                {
+                    return new PaginatedList<GetProjectDto>(
+                        new List<GetProjectDto>(),
+                        0,
+                        filter.PageIndex,
+                        filter.PageSize);
+                }
+
+                var projects = await query
+                    .Skip((filter.PageIndex - 1) * filter.PageSize)
+                    .Take(filter.PageSize)
+                    .ToListAsync(cancellationToken);
+
+                var projectDtos = _mapper.Map<List<GetProjectDto>>(projects);
+
+                return new PaginatedList<GetProjectDto>(
+                    projectDtos,
+                    totalCount,
+                    filter.PageIndex,
+                    filter.PageSize);
+            }
+            catch (Exception)
             {
-                query = query.OrderBy(p => p.CreatedDate);
+                return new PaginatedList<GetProjectDto>(
+                    new List<GetProjectDto>(),
+                    0,
+                    filter.PageIndex,
+                    filter.PageSize);
             }
-            else
-            {
-                query = query.OrderByDynamic(filter.Sort, filter.Descending);
-            }
-
-            var totalCount = await query.CountAsync(cancellationToken);
-
-            var projects = await query
-                .Skip((filter.PageIndex - 1) * filter.PageSize)
-                .Take(filter.PageSize)
-                .ToListAsync(cancellationToken);
-
-            var projectDtos = _mapper.Map<List<GetProjectDto>>(projects);
-
-            return new PaginatedList<GetProjectDto>(
-                projectDtos,
-                totalCount,
-                filter.PageIndex,
-                filter.PageSize);
         }
 
         public async Task<GetProjectDto> GetProjectByIdAsync(Guid projectId)

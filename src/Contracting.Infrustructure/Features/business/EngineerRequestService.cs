@@ -215,44 +215,64 @@ namespace Contracting.Infrustructure.Features.business
             BaseFilterDto filter,
             CancellationToken cancellationToken = default)
         {
-            var query = _db.EngineerRequests
-                .Include(r => r.Project)
-                .Include(r => r.Department)
-                .Include(r => r.Priority)
-                .Include(r=>r.Status)
-                .Include(r => r.Engineer)
-                    .ThenInclude(e => e.Department)
-                .Include(r => r.EngineerRequestNotes)
-                .Include(r => r.EngineerRequestActivites)
-                    .ThenInclude(a => a.Engineer)
-                .Include(r => r.EngineerRequestActivites)
-                    .ThenInclude(a => a.Status)
-                .Where(r => r.DepartmentId == departmentId)
-                .AsNoTracking();
-
-            if (string.IsNullOrWhiteSpace(filter.Sort))
+            try
             {
-                query = query.OrderByDescending(r => r.CreatedDate);
+                var query = _db.EngineerRequests
+                    .Include(r => r.Project)
+                    .Include(r => r.Department)
+                    .Include(r => r.Priority)
+                    .Include(r=>r.Status)
+                    .Include(r => r.Engineer)
+                        .ThenInclude(e => e.Department)
+                    .Include(r => r.EngineerRequestNotes)
+                    .Include(r => r.EngineerRequestActivites)
+                        .ThenInclude(a => a.Engineer)
+                    .Include(r => r.EngineerRequestActivites)
+                        .ThenInclude(a => a.Status)
+                    .Where(r => r.DepartmentId == departmentId)
+                    .AsNoTracking();
+
+                if (string.IsNullOrWhiteSpace(filter.Sort))
+                {
+                    query = query.OrderByDescending(r => r.CreatedDate);
+                }
+                else
+                {
+                    query = query.OrderByDynamic(filter.Sort, filter.Descending);
+                }
+
+                var totalCount = await query.CountAsync(cancellationToken);
+
+                if (totalCount == 0)
+                {
+                    return new PaginatedList<GetAllEngineerRequestDto>(
+                        new List<GetAllEngineerRequestDto>(),
+                        0,
+                        filter.PageIndex,
+                        filter.PageSize);
+                }
+
+                var requests = await query
+                    .Skip((filter.PageIndex - 1) * filter.PageSize)
+                    .Take(filter.PageSize)
+                    .ToListAsync(cancellationToken);
+
+                var requestDtos = _mapper.Map<List<GetAllEngineerRequestDto>>(requests);
+
+                return new PaginatedList<GetAllEngineerRequestDto>(
+                    requestDtos,
+                    totalCount,
+                    filter.PageIndex,
+                    filter.PageSize);
             }
-            else
+            catch (Exception)
             {
-                query = query.OrderByDynamic(filter.Sort, filter.Descending);
+                return new PaginatedList<GetAllEngineerRequestDto>(
+                    new List<GetAllEngineerRequestDto>(),
+                    0,
+                    filter.PageIndex,
+                    filter.PageSize);
             }
-
-            var totalCount = await query.CountAsync(cancellationToken);
-
-            var requests = await query
-                .Skip((filter.PageIndex - 1) * filter.PageSize)
-                .Take(filter.PageSize)
-                .ToListAsync(cancellationToken);
-
-            var requestDtos = _mapper.Map<List<GetAllEngineerRequestDto>>(requests);
-
-            return new PaginatedList<GetAllEngineerRequestDto>(
-                requestDtos,
-                totalCount,
-                filter.PageIndex,
-                filter.PageSize);
         }
 
         // ---------------- GET BY ID ----------------
@@ -438,48 +458,68 @@ namespace Contracting.Infrustructure.Features.business
 
         public async Task<PaginatedList<GetAllEngineerRequestDto>> GetCreatedRequestOrapplaied(BaseFilterDto filter, CancellationToken cancellationToken = default)
         {
-            var engineer = _db.Engineers.Include(x => x.ApplicationUser).AsNoTracking().FirstOrDefault(x => x.ApplicationUserId == Guid.Parse(CurrentUser.UserId));
-
-            var query = _db.EngineerRequests
-                .Include(r => r.Project)
-                .Include(r => r.Department)
-                .Include(r => r.Priority)
-                .Include(r => r.Status)
-                .Include(r => r.Engineer)
-                    .ThenInclude(e => e.Department)
-                .Include(r => r.Engineer)
-                    .ThenInclude(e => e.ApplicationUser)
-                .Include(r => r.EngineerRequestNotes)
-                .Include(r => r.EngineerRequestActivites)
-                    .ThenInclude(a => a.Engineer)
-                .Include(r => r.EngineerRequestActivites)
-                    .ThenInclude(a => a.Status)
-                .Where(r => r.Engineer.ApplicationUser.Id == Guid.Parse(CurrentUser.UserId) || r.assignToId == engineer.Id)
-                .AsNoTracking();
-
-            if (string.IsNullOrWhiteSpace(filter.Sort))
+            try
             {
-                query = query.OrderByDescending(r => r.CreatedDate);
+                var engineer = _db.Engineers.Include(x => x.ApplicationUser).AsNoTracking().FirstOrDefault(x => x.ApplicationUserId == Guid.Parse(CurrentUser.UserId));
+
+                var query = _db.EngineerRequests
+                    .Include(r => r.Project)
+                    .Include(r => r.Department)
+                    .Include(r => r.Priority)
+                    .Include(r => r.Status)
+                    .Include(r => r.Engineer)
+                        .ThenInclude(e => e.Department)
+                    .Include(r => r.Engineer)
+                        .ThenInclude(e => e.ApplicationUser)
+                    .Include(r => r.EngineerRequestNotes)
+                    .Include(r => r.EngineerRequestActivites)
+                        .ThenInclude(a => a.Engineer)
+                    .Include(r => r.EngineerRequestActivites)
+                        .ThenInclude(a => a.Status)
+                    .Where(r => r.Engineer.ApplicationUser.Id == Guid.Parse(CurrentUser.UserId) || r.assignToId == engineer.Id)
+                    .AsNoTracking();
+
+                if (string.IsNullOrWhiteSpace(filter.Sort))
+                {
+                    query = query.OrderByDescending(r => r.CreatedDate);
+                }
+                else
+                {
+                    query = query.OrderByDynamic(filter.Sort, filter.Descending);
+                }
+
+                var totalCount = await query.CountAsync(cancellationToken);
+
+                if (totalCount == 0)
+                {
+                    return new PaginatedList<GetAllEngineerRequestDto>(
+                        new List<GetAllEngineerRequestDto>(),
+                        0,
+                        filter.PageIndex,
+                        filter.PageSize);
+                }
+
+                var requests = await query
+                    .Skip((filter.PageIndex - 1) * filter.PageSize)
+                    .Take(filter.PageSize)
+                    .ToListAsync(cancellationToken);
+
+                var requestDtos = _mapper.Map<List<GetAllEngineerRequestDto>>(requests);
+
+                return new PaginatedList<GetAllEngineerRequestDto>(
+                    requestDtos,
+                    totalCount,
+                    filter.PageIndex,
+                    filter.PageSize);
             }
-            else
+            catch (Exception)
             {
-                query = query.OrderByDynamic(filter.Sort, filter.Descending);
+                return new PaginatedList<GetAllEngineerRequestDto>(
+                    new List<GetAllEngineerRequestDto>(),
+                    0,
+                    filter.PageIndex,
+                    filter.PageSize);
             }
-
-            var totalCount = await query.CountAsync(cancellationToken);
-
-            var requests = await query
-                .Skip((filter.PageIndex - 1) * filter.PageSize)
-                .Take(filter.PageSize)
-                .ToListAsync(cancellationToken);
-
-            var requestDtos = _mapper.Map<List<GetAllEngineerRequestDto>>(requests);
-
-            return new PaginatedList<GetAllEngineerRequestDto>(
-                requestDtos,
-                totalCount,
-                filter.PageIndex,
-                filter.PageSize);
         }
 
         // ---------------- GET REQUEST ACTIVITIES ----------------

@@ -120,58 +120,79 @@ namespace Contracting.Infrustructure.Features
 
         public async Task<PaginatedList<GetEngineerDto>> GetEngineerListAsync(Guid departmentId, BaseFilterDto filter)
         {
-            var query = _db.Engineers
-                .Include(x => x.Department)
-                .Include(x => x.ApplicationUser)
-                .Where(e => e.DepartmentId == departmentId)
-                .AsNoTracking();
-
-            if (string.IsNullOrWhiteSpace(filter.Sort))
+            try
             {
-                query = query.OrderBy(e => e.CreatedDate);
+                var query = _db.Engineers
+                    .Include(x => x.Department)
+                    .Include(x => x.ApplicationUser)
+                    .Where(e => e.DepartmentId == departmentId)
+                    .AsNoTracking();
+
+                if (string.IsNullOrWhiteSpace(filter.Sort))
+                {
+                    query = query.OrderBy(e => e.CreatedDate);
+                }
+                else
+                {
+                    query = query.OrderByDynamic(filter.Sort, filter.Descending);
+                }
+
+                var totalCount = await query.CountAsync();
+
+                if (totalCount == 0)
+                {
+                    return new PaginatedList<GetEngineerDto>(
+                        new List<GetEngineerDto>(),
+                        0,
+                        filter.PageIndex,
+                        filter.PageSize);
+                }
+
+                var engineers = await query
+                    .Skip((filter.PageIndex - 1) * filter.PageSize)
+                    .Take(filter.PageSize)
+                    .ToListAsync();
+
+                // Get all user IDs
+                var userIds = engineers.Select(e => e.ApplicationUserId).ToList();
+
+                // Get all roles for these users in one query
+                var userRolesDict = await _db.UserRoles
+                    .Where(ur => userIds.Contains(ur.UserId))
+                    .Join(_db.Roles,
+                        ur => ur.RoleId,
+                        r => r.Id,
+                        (ur, r) => new { ur.UserId, RoleId = r.Id, RoleName = r.Name })
+                    .GroupBy(x => x.UserId)
+                    .ToDictionaryAsync(
+                        g => g.Key,
+                        g => g.Select(x => new RoleDropDownDto { Id = x.RoleId, Name = x.RoleName }).ToList());
+
+                // Map to DTOs and assign roles
+                var engineerDtos = engineers.Select(engineer =>
+                {
+                    var dto = _mapper.Map<GetEngineerDto>(engineer);
+                    dto.Roles = userRolesDict.ContainsKey(engineer.ApplicationUserId)
+                        ? userRolesDict[engineer.ApplicationUserId]
+                        : new List<RoleDropDownDto>();
+                    return dto;
+                }).ToList();
+
+                return new PaginatedList<GetEngineerDto>(
+                    engineerDtos,
+                    totalCount,
+                    filter.PageIndex,
+                    filter.PageSize);
             }
-            else
+            catch (Exception)
             {
-                query = query.OrderByDynamic(filter.Sort, filter.Descending);
+                // Return empty list on error
+                return new PaginatedList<GetEngineerDto>(
+                    new List<GetEngineerDto>(),
+                    0,
+                    filter.PageIndex,
+                    filter.PageSize);
             }
-
-            var totalCount = await query.CountAsync();
-
-            var engineers = await query
-                .Skip((filter.PageIndex - 1) * filter.PageSize)
-                .Take(filter.PageSize)
-                .ToListAsync();
-
-            // Get all user IDs
-            var userIds = engineers.Select(e => e.ApplicationUserId).ToList();
-
-            // Get all roles for these users in one query
-            var userRolesDict = await _db.UserRoles
-                .Where(ur => userIds.Contains(ur.UserId))
-                .Join(_db.Roles,
-                    ur => ur.RoleId,
-                    r => r.Id,
-                    (ur, r) => new { ur.UserId, RoleId = r.Id, RoleName = r.Name })
-                .GroupBy(x => x.UserId)
-                .ToDictionaryAsync(
-                    g => g.Key,
-                    g => g.Select(x => new RoleDropDownDto { Id = x.RoleId, Name = x.RoleName }).ToList());
-
-            // Map to DTOs and assign roles
-            var engineerDtos = engineers.Select(engineer =>
-            {
-                var dto = _mapper.Map<GetEngineerDto>(engineer);
-                dto.Roles = userRolesDict.ContainsKey(engineer.ApplicationUserId)
-                    ? userRolesDict[engineer.ApplicationUserId]
-                    : new List<RoleDropDownDto>();
-                return dto;
-            }).ToList();
-
-            return new PaginatedList<GetEngineerDto>(
-                engineerDtos,
-                totalCount,
-                filter.PageIndex,
-                filter.PageSize);
         }
 
         public async Task<GetEngineerDto> GetEngineerByIdAsync(Guid engineerId)

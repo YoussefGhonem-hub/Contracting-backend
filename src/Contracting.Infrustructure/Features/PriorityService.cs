@@ -71,31 +71,51 @@ namespace Contracting.Infrustructure.Features
         // ---------------- GET ALL WITH PAGINATION ----------------
         public async Task<PaginatedList<GetDropDownPriorityDto>> GetAllPrioritiesAsync(BaseFilterDto filter, CancellationToken cancellationToken = default)
         {
-            var query = _db.Priorities.AsNoTracking();
-
-            if (string.IsNullOrWhiteSpace(filter.Sort))
+            try
             {
-                query = query.OrderBy(p => p.CreatedDate);
+                var query = _db.Priorities.AsNoTracking();
+
+                if (string.IsNullOrWhiteSpace(filter.Sort))
+                {
+                    query = query.OrderBy(p => p.CreatedDate);
+                }
+                else
+                {
+                    query = query.OrderByDynamic(filter.Sort, filter.Descending);
+                }
+
+                var totalCount = await query.CountAsync(cancellationToken);
+
+                if (totalCount == 0)
+                {
+                    return new PaginatedList<GetDropDownPriorityDto>(
+                        new List<GetDropDownPriorityDto>(),
+                        0,
+                        filter.PageIndex,
+                        filter.PageSize);
+                }
+
+                var priorities = await query
+                    .Skip((filter.PageIndex - 1) * filter.PageSize)
+                    .Take(filter.PageSize)
+                    .ToListAsync(cancellationToken);
+
+                var priorityDtos = _mapper.Map<List<GetDropDownPriorityDto>>(priorities);
+
+                return new PaginatedList<GetDropDownPriorityDto>(
+                    priorityDtos,
+                    totalCount,
+                    filter.PageIndex,
+                    filter.PageSize);
             }
-            else
+            catch (Exception)
             {
-                query = query.OrderByDynamic(filter.Sort, filter.Descending);
+                return new PaginatedList<GetDropDownPriorityDto>(
+                    new List<GetDropDownPriorityDto>(),
+                    0,
+                    filter.PageIndex,
+                    filter.PageSize);
             }
-
-            var totalCount = await query.CountAsync(cancellationToken);
-
-            var priorities = await query
-                .Skip((filter.PageIndex - 1) * filter.PageSize)
-                .Take(filter.PageSize)
-                .ToListAsync(cancellationToken);
-
-            var priorityDtos = _mapper.Map<List<GetDropDownPriorityDto>>(priorities);
-
-            return new PaginatedList<GetDropDownPriorityDto>(
-                priorityDtos,
-                totalCount,
-                filter.PageIndex,
-                filter.PageSize);
         }
 
         // ---------------- DROPDOWN ----------------

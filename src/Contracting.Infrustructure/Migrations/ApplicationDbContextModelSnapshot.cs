@@ -33,7 +33,8 @@ namespace Contracting.Infrustructure.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("DisplayName")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("Name")
                         .HasMaxLength(256)
@@ -50,7 +51,7 @@ namespace Contracting.Infrustructure.Migrations
                         .HasDatabaseName("RoleNameIndex")
                         .HasFilter("[NormalizedName] IS NOT NULL");
 
-                    b.ToTable("AspNetRoles", (string)null);
+                    b.ToTable("Roles", "security");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.ApplicationUser", b =>
@@ -63,7 +64,8 @@ namespace Contracting.Infrustructure.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("AvatarUrl")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
@@ -77,10 +79,13 @@ namespace Contracting.Infrustructure.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("FullName")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("bit");
@@ -125,7 +130,7 @@ namespace Contracting.Infrustructure.Migrations
                         .HasDatabaseName("UserNameIndex")
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
 
-                    b.ToTable("AspNetUsers", (string)null);
+                    b.ToTable("Users", "security");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.RefreshToken", b =>
@@ -178,7 +183,8 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.Property<string>("TokenHash")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
@@ -189,7 +195,7 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("RefreshTokens");
+                    b.ToTable("RefreshTokens", "security");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.business.EngineerRequest", b =>
@@ -214,7 +220,8 @@ namespace Contracting.Infrustructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Descreption")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<Guid?>("EngineerId")
                         .HasColumnType("uniqueidentifier");
@@ -265,7 +272,7 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.HasIndex("assignToId");
 
-                    b.ToTable("EngineerRequests");
+                    b.ToTable("EngineerRequests", "business");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.business.EngineerRequestActivite", b =>
@@ -275,7 +282,8 @@ namespace Contracting.Infrustructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("ActionType")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
 
                     b.Property<Guid>("CreatedBy")
                         .HasColumnType("uniqueidentifier");
@@ -317,7 +325,7 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.HasIndex("StatusId");
 
-                    b.ToTable("EngineerRequestActivites");
+                    b.ToTable("EngineerRequestActivites", "business");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.business.EngineerRequestNotes", b =>
@@ -354,7 +362,8 @@ namespace Contracting.Infrustructure.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("note")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
 
                     b.HasKey("Id");
 
@@ -364,7 +373,7 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.HasIndex("IsDeleted");
 
-                    b.ToTable("EngineerRequestNotes");
+                    b.ToTable("EngineerRequestNotes", "business");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.helper.UserDeviceToken", b =>
@@ -387,7 +396,8 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.Property<string>("FcmToken")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
@@ -405,7 +415,10 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.HasIndex("IsDeleted");
 
-                    b.ToTable("userDeviceTokens");
+                    b.HasIndex("UserId", "FcmToken")
+                        .IsUnique();
+
+                    b.ToTable("UserDeviceTokens", "security");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.master.Branch", b =>
@@ -442,16 +455,18 @@ namespace Contracting.Infrustructure.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("nameAr")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("nameEn")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("IsDeleted");
 
-                    b.ToTable("Branches");
+                    b.ToTable("Branches", "master");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.master.Department", b =>
@@ -485,10 +500,12 @@ namespace Contracting.Infrustructure.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("nameAr")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("nameEn")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.HasKey("Id");
 
@@ -496,7 +513,7 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.HasIndex("IsDeleted");
 
-                    b.ToTable("Departmentes");
+                    b.ToTable("Departments", "master");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.master.Engineer", b =>
@@ -539,10 +556,12 @@ namespace Contracting.Infrustructure.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("nameAr")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("nameEn")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("nationalId")
                         .HasColumnType("nvarchar(max)");
@@ -567,7 +586,7 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.HasIndex("IsDeleted");
 
-                    b.ToTable("Engineers");
+                    b.ToTable("Engineers", "master");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.master.Priority", b =>
@@ -601,16 +620,18 @@ namespace Contracting.Infrustructure.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("nameAr")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("nameEn")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("IsDeleted");
 
-                    b.ToTable("Priorities");
+                    b.ToTable("Priorities", "master");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.master.Project", b =>
@@ -650,10 +671,12 @@ namespace Contracting.Infrustructure.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("nameAr")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("nameEn")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.HasKey("Id");
 
@@ -661,7 +684,7 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.HasIndex("IsDeleted");
 
-                    b.ToTable("Projects");
+                    b.ToTable("Projects", "master");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.master.Status", b =>
@@ -695,10 +718,12 @@ namespace Contracting.Infrustructure.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("nameAr")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("nameEn")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<int>("orderNumber")
                         .HasColumnType("int");
@@ -707,7 +732,7 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.HasIndex("IsDeleted");
 
-                    b.ToTable("Statuses");
+                    b.ToTable("Statuses", "master");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -731,7 +756,7 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("AspNetRoleClaims", (string)null);
+                    b.ToTable("RoleClaims", "security");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
@@ -755,7 +780,7 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserClaims", (string)null);
+                    b.ToTable("UserClaims", "security");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
@@ -776,7 +801,7 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserLogins", (string)null);
+                    b.ToTable("UserLogins", "security");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<System.Guid>", b =>
@@ -791,7 +816,7 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("AspNetUserRoles", (string)null);
+                    b.ToTable("UserRoles", "security");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
@@ -810,7 +835,7 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.HasKey("UserId", "LoginProvider", "Name");
 
-                    b.ToTable("AspNetUserTokens", (string)null);
+                    b.ToTable("UserTokens", "security");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.RefreshToken", b =>

@@ -5,6 +5,7 @@ using Contracting.Domain.Entities.helper;
 using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Extensions;
 using Contracting.Shared.CurrentUser;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using System.Reflection;
@@ -31,8 +32,15 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     {
         base.OnModelCreating(modelBuilder);
 
+        // Configure Identity tables to use security schema without AspNet prefix
+        modelBuilder.Entity<IdentityUserRole<Guid>>().ToTable("UserRoles", "security");
+        modelBuilder.Entity<IdentityUserClaim<Guid>>().ToTable("UserClaims", "security");
+        modelBuilder.Entity<IdentityUserLogin<Guid>>().ToTable("UserLogins", "security");
+        modelBuilder.Entity<IdentityUserToken<Guid>>().ToTable("UserTokens", "security");
+        modelBuilder.Entity<IdentityRoleClaim<Guid>>().ToTable("RoleClaims", "security");
+
         modelBuilder.Entity<Engineer>()
-        .HasOne(e => e.ApplicationUser)
+        .HasOne(e => e.ApplicationUser) 
         .WithMany()
         .HasForeignKey(e => e.ApplicationUserId)
         .OnDelete(DeleteBehavior.Restrict);

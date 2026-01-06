@@ -91,18 +91,17 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 
-// Apply migrations and seed ONCE (remove EnsureCreated)
+// Apply migrations and seed ONCE
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     var db = services.GetRequiredService<ApplicationDbContext>();
-    await db.Database.MigrateAsync();
-
+    
     var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
     var roleManager = services.GetRequiredService<RoleManager<ApplicationRole>>();
-    var env = services.GetRequiredService<IWebHostEnvironment>(); // ADDED
+    var env = services.GetRequiredService<IWebHostEnvironment>();
 
-    await AppDbContextSeed.SeedAsync(db, userManager, roleManager, env); // CHANGED
+    await AppDbContextSeed.SeedAsync(db, userManager, roleManager, env);
 }
 
 app.UseSwagger();
