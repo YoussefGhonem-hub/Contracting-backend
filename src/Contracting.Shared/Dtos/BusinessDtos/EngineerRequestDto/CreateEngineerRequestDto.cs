@@ -1,4 +1,5 @@
 ﻿using Contracting.Shared.BusinessDtos.EngineerRequestNotesDtos;
+using Microsoft.AspNetCore.Http;
 
 namespace Contracting.Shared.BusinessDtos.EngineerRequestDto
 {
@@ -9,6 +10,7 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestDto
         public Guid? PriorityId { get; set; }
         public string? Descreption { get; set; }
         public ICollection<CrearteEngineerRequestNotesDto> EngineerRequestNotes { get; set; }
+        public ICollection<IFormFile>? Attachments { get; set; }
     }
 }
 

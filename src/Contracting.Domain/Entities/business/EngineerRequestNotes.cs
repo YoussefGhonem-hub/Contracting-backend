@@ -11,5 +11,7 @@ namespace Contracting.Domain.Entities.business
         public Guid? EngineerId { get; set; }
         public Engineer? Engineer { get; set; }
 
+        public ICollection<EngineerRequestAttachment> EngineerRequestAttachments { get; set; }
+
     }
 }

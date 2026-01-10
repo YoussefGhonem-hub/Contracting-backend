@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
-VisualStudioVersion = 18.1.11312.151 d18.0
+VisualStudioVersion = 18.1.11312.151
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Contracting.Application", "src\Contracting.Application\Contracting.Application.csproj", "{B606AF0D-FB7D-4286-B21E-ECA044329B0B}"
 EndProject
@@ -16,6 +16,10 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Contracting.Packages", "Contracting.Packages", "{3D9AA502-A91B-4494-8479-03CB80A9ADF7}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Logging.Serilog", "src\Logging.Serilog\Logging.Serilog.csproj", "{91435608-508E-4266-AB31-6AFAF88CC33E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Storage.AWS3", "src\Storage.AWS3\Storage.AWS3.csproj", "{C2B7E6D7-B5AB-D42E-5B6C-1E3E8D79759F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Emails.SendGrid", "src\Emails.SendGrid\Emails.SendGrid.csproj", "{45F23034-8370-412D-9F43-23CE5E25289E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -47,12 +51,22 @@ Global
 		{91435608-508E-4266-AB31-6AFAF88CC33E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{91435608-508E-4266-AB31-6AFAF88CC33E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{91435608-508E-4266-AB31-6AFAF88CC33E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C2B7E6D7-B5AB-D42E-5B6C-1E3E8D79759F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C2B7E6D7-B5AB-D42E-5B6C-1E3E8D79759F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C2B7E6D7-B5AB-D42E-5B6C-1E3E8D79759F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C2B7E6D7-B5AB-D42E-5B6C-1E3E8D79759F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{45F23034-8370-412D-9F43-23CE5E25289E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{45F23034-8370-412D-9F43-23CE5E25289E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{45F23034-8370-412D-9F43-23CE5E25289E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{45F23034-8370-412D-9F43-23CE5E25289E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{91435608-508E-4266-AB31-6AFAF88CC33E} = {3D9AA502-A91B-4494-8479-03CB80A9ADF7}
+		{C2B7E6D7-B5AB-D42E-5B6C-1E3E8D79759F} = {3D9AA502-A91B-4494-8479-03CB80A9ADF7}
+		{45F23034-8370-412D-9F43-23CE5E25289E} = {3D9AA502-A91B-4494-8479-03CB80A9ADF7}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {D32FAF8E-A9C5-40DF-A6B1-F1757B5A624E}

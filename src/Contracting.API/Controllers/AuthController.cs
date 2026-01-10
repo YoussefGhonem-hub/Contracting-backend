@@ -1,9 +1,11 @@
 using Contracting.API.Controllers.Shared;
 using Contracting.Application.Features.Users.Commands.FCMTokenNotification;
+using Contracting.Application.Features.Users.Commands.ForgotPasswordCommand;
 using Contracting.Application.Features.Users.Commands.LoginUserCommand;
 using Contracting.Application.Features.Users.Commands.RefreshTokenCommand;
 using Contracting.Application.Features.Users.Commands.RegisterUserCommand;
 using Contracting.Application.Features.Users.Commands.RemoveFCMTokenNotification;
+using Contracting.Application.Features.Users.Commands.ResetPasswordCommand;
 using Contracting.Application.Features.Users.Commands.RevokeRefreshTokenCommand;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -88,5 +90,29 @@ public class AuthController : APIBaseController
             value => Ok(value),
             errors => Problem(errors)
        );
+    }
+
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+    {
+        var command = new ForgotPasswordCommand(request);
+        var result = await _mediator.Send(command);
+        return result.Match(
+            value => Ok(new { Message = value }),
+            errors => Problem(errors)
+        );
+    }
+
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+    {
+        var command = new ResetPasswordCommand(request);
+        var result = await _mediator.Send(command);
+        return result.Match(
+            value => Ok(new { Message = value }),
+            errors => Problem(errors)
+        );
     }
 }

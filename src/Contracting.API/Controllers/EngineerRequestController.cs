@@ -29,7 +29,7 @@ namespace Contracting.API.Controllers
 
         // Create Engineer Request
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] CreateEngineerRequestDto dto)
+        public async Task<IActionResult> Create([FromForm] CreateEngineerRequestDto dto)
         {
             var command = new CreateEngineerRequestCommand(dto);
             var result = await _mediator.Send(command);
@@ -42,7 +42,7 @@ namespace Contracting.API.Controllers
 
         // Update Engineer Request
         [HttpPut]
-        public async Task<IActionResult> Update([FromBody] UpdateEngineerRequestDto dto)
+        public async Task<IActionResult> Update([FromForm] UpdateEngineerRequestDto dto)
         {
             var command = new UpdateEngineerRequestCommand(dto);
             var result = await _mediator.Send(command);
@@ -104,9 +104,10 @@ namespace Contracting.API.Controllers
         }
 
         [HttpPost("{requestId:guid}/action")]
+        [Consumes("multipart/form-data")]
         public async Task<IActionResult> TakeAction(
             Guid requestId,
-            [FromBody] TakeActionRequestDto dto)
+            [FromForm] TakeActionRequestDto dto)
         {
 
             var command = new TakeActionRequestCommand(requestId, dto);

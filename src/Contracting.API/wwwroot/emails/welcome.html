@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Contracting System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 20px;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            color: #333;
+            margin: 0;
+        }
+        .content {
+            color: #555;
+            line-height: 1.6;
+        }
+        .content p {
+            margin: 15px 0;
+        }
+        .footer {
+            text-align: center;
+            border-top: 2px solid #e0e0e0;
+            padding-top: 20px;
+            margin-top: 30px;
+            color: #999;
+            font-size: 12px;
+        }
+        .button {
+            display: inline-block;
+            background-color: #007bff;
+            color: #ffffff !important;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Welcome to Contracting System</h1>
+        </div>
+        <div class="content">
+            <p>Hello {{UserName}},</p>
+            <p>Welcome to the Contracting System! We're excited to have you on board.</p>
+            <p>Your account has been successfully created. You can now log in to access all features of our platform.</p>
+            <p>
+                <a href="{{LoginUrl}}" class="button">Login to Your Account</a>
+            </p>
+            <p>If you did not create this account, please ignore this email.</p>
+        </div>
+        <div class="footer">
+            <p>&copy; 2026 Contracting System. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
