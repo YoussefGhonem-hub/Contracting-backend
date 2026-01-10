@@ -1,4 +1,5 @@
 using Emails.SendGrid.Models;
+using Microsoft.AspNetCore.Hosting;
 using SendGrid;
 using SendGrid.Helpers.Mail;
 
@@ -8,9 +9,9 @@ public class SendGridEmailService : IEmailService
 {
     private readonly SendGridClient _sendGridClient;
     private readonly SendGridSettings _settings;
-    private readonly IWebHostEnvironment _webHostEnvironment;
+    private readonly Microsoft.AspNetCore.Hosting.IHostingEnvironment _webHostEnvironment;
 
-    public SendGridEmailService(SendGridSettings settings, IWebHostEnvironment webHostEnvironment)
+    public SendGridEmailService(SendGridSettings settings, Microsoft.AspNetCore.Hosting.IHostingEnvironment webHostEnvironment)
     {
         if (string.IsNullOrWhiteSpace(settings?.ApiKey))
             throw new ArgumentException("SendGrid API key is required", nameof(settings));
