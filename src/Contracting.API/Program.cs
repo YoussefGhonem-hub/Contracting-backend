@@ -15,13 +15,14 @@ using System.Text;
 using Logging.Serilog;
 using Hangfire;
 using Hangfire.MemoryStorage;
-using Hangfire.Dashboard;
+using Storage.AWS3;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddPresentation(builder.Configuration);
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddAmazonS3(builder.Configuration);
 
 // Hangfire configuration (requires Hangfire.AspNetCore and a storage provider)
 builder.Services.AddHangfire(configuration => configuration

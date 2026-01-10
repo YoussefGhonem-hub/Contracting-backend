@@ -23,6 +23,7 @@ namespace Contracting.Domain.Entities.business
         public DateTime? endDate { get; set; }
         public ICollection<EngineerRequestNotes> EngineerRequestNotes { get; set; }
         public ICollection<EngineerRequestActivite> EngineerRequestActivites { get; set; }
+        public ICollection<EngineerRequestAttachment> EngineerRequestAttachments { get; set; }
 
     }
 }

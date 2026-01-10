@@ -65,8 +65,11 @@ public static class MappingConfig
         config.NewConfig<UpdateEngineerRequestDto, EngineerRequest>();
 
         config.NewConfig<CrearteEngineerRequestNotesDto, EngineerRequestNotes>();
-        config.NewConfig<EngineerRequestNotes, GetEngineerRequestNotesDto>()
-              .Map(dest => dest.Engineer, src => src.Engineer);
+          config.NewConfig<EngineerRequestNotes, GetEngineerRequestNotesDto>()
+              .Map(dest => dest.Engineer, src => src.Engineer)
+              .Map(dest => dest.Attachments, src => src.EngineerRequestAttachments);
+
+          config.NewConfig<EngineerRequestAttachment, Contracting.Shared.Dtos.GetAttachmentDto>();
 
         config.NewConfig<Status, GetDropDownStatusDto>();
         
@@ -82,7 +85,8 @@ public static class MappingConfig
                     .Map(dest => dest.assignTo, src => src.assignTo)
                     .Map(dest => dest.Status, src => src.Status)
                     .Map(dest => dest.EngineerRequestNotes, src => src.EngineerRequestNotes)
-                    .Map(dest => dest.EngineerRequestActivites, src => src.EngineerRequestActivites);
+                    .Map(dest => dest.EngineerRequestActivites, src => src.EngineerRequestActivites)
+                    .Map(dest => dest.Attachments, src => src.EngineerRequestAttachments);
 
 
         config.NewConfig<CreateRoleDto, ApplicationRole>()

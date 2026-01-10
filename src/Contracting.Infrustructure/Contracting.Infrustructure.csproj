@@ -34,5 +34,6 @@
 	<ItemGroup>
 		<ProjectReference Include="..\Contracting.Domain\Contracting.Domain.csproj" />
 		<ProjectReference Include="..\Contracting.Shared\Contracting.Shared.csproj" />
+		<ProjectReference Include="..\Storage.AWS3\Storage.AWS3.csproj" />
 	</ItemGroup>
 </Project>

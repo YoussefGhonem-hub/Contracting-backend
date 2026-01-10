@@ -1,4 +1,5 @@
-﻿using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
+﻿using Contracting.Shared.Dtos;
+using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
 
 namespace Contracting.Shared.BusinessDtos.EngineerRequestNotesDtos
 {
@@ -9,6 +10,7 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestNotesDtos
         public Guid? EngineerId { get; set; }
         public GetEngineerDto? Engineer { get; set; }
         public DateTimeOffset CreatedDate { get; set; }
+        public ICollection<Contracting.Shared.Dtos.GetAttachmentDto>? Attachments { get; set; } = new List<GetAttachmentDto>();
 
     }
 }

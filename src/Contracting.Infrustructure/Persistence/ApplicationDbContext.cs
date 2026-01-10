@@ -26,6 +26,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<EngineerRequest> EngineerRequests => Set<EngineerRequest>();
     public DbSet<EngineerRequestNotes> EngineerRequestNotes => Set<EngineerRequestNotes>();
     public DbSet<EngineerRequestActivite> EngineerRequestActivites => Set<EngineerRequestActivite>();
+    public DbSet<EngineerRequestAttachment> EngineerRequestAttachments => Set<EngineerRequestAttachment>();
     public DbSet<UserDeviceToken> userDeviceTokens => Set<UserDeviceToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
