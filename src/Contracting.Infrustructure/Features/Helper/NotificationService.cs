@@ -105,13 +105,54 @@ namespace Contracting.Infrustructure.Features.Helper
                 Data = data
             };
 
+            var isSent = false;
+            var errorMessage = (string?)null;
+
             try
             {
                 await FirebaseMessaging.DefaultInstance.SendAsync(message);
+                isSent = true;
             }
             catch (Exception ex)
             {
+                errorMessage = ex.Message;
                 _logger.LogError(ex, "Failed to send Firebase notification");
+            }
+            finally
+            {
+                // Log the notification attempt
+                await LogNotificationAsync(notification, isSent, errorMessage);
+            }
+        }
+
+        private async Task LogNotificationAsync(PushNotificationDto notification, bool isSent, string? errorMessage)
+        {
+            try
+            {
+                var engineerId = string.IsNullOrEmpty(notification.EngineerId) ? (Guid?)null : Guid.Parse(notification.EngineerId);
+                var departmentId = string.IsNullOrEmpty(notification.DepartmentId) ? (Guid?)null : Guid.Parse(notification.DepartmentId);
+                var requestId = string.IsNullOrEmpty(notification.RequestId) ? (Guid?)null : Guid.Parse(notification.RequestId);
+
+                var notificationLog = new NotificationLog
+                {
+                    UserId = Guid.Parse(CurrentUser.UserId),
+                    Token = notification.Token,
+                    Title = notification.Title,
+                    Body = notification.Body,
+                    IsSent = isSent,
+                    ErrorMessage = errorMessage,
+                    EngineerId = engineerId,
+                    DepartmentId = departmentId,
+                    RequestId = requestId,
+                    SentAt = DateTimeOffset.UtcNow
+                };
+
+                _db.NotificationLogs.Add(notificationLog);
+                await _db.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log notification");
             }
         }
 
