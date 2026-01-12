@@ -62,7 +62,7 @@ namespace Contracting.API.Controllers
 
             var result = new PagedResult<ExceptionLogDto>
             {
-                Data = exceptions,
+                Items = exceptions,
                 PageNumber = pageNumber,
                 PageSize = pageSize,
                 TotalCount = totalCount
@@ -158,7 +158,7 @@ namespace Contracting.API.Controllers
 
             var result = new PagedResult<ExceptionLogDto>
             {
-                Data = exceptions,
+                Items = exceptions,
                 PageNumber = pageNumber,
                 PageSize = pageSize,
                 TotalCount = totalCount
@@ -217,7 +217,7 @@ namespace Contracting.API.Controllers
 
             var result = new PagedResult<ExceptionLogDto>
             {
-                Data = exceptions,
+                Items = exceptions,
                 PageNumber = pageNumber,
                 PageSize = pageSize,
                 TotalCount = totalCount
