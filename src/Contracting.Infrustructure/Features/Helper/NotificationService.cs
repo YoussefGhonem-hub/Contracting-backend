@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Builder.Extensions;
 using Hangfire;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using System.Data.Entity;
+using Microsoft.EntityFrameworkCore;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Contracting.Infrustructure.Features.Helper
@@ -78,7 +78,7 @@ namespace Contracting.Infrustructure.Features.Helper
             if (entity != null)
             {
                 _db.userDeviceTokens.Remove(entity);
-                _db.SaveChanges();
+                await _db.SaveChangesAsync();
                 return true;
             }
             return false;
