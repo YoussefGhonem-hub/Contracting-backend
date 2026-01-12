@@ -29,6 +29,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<EngineerRequestAttachment> EngineerRequestAttachments => Set<EngineerRequestAttachment>();
     public DbSet<UserDeviceToken> userDeviceTokens => Set<UserDeviceToken>();
     public DbSet<NotificationLog> NotificationLogs => Set<NotificationLog>();
+    public DbSet<ExceptionLog> ExceptionLogs => Set<ExceptionLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
