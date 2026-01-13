@@ -530,7 +530,27 @@ public class EngineerRequestService : IEngineerRequestService
     {
         try
         {
-            var engineer = _db.Engineers.Include(x => x.ApplicationUser).AsNoTracking().FirstOrDefault(x => x.ApplicationUserId == Guid.Parse(CurrentUser.UserId));
+            var engineer = await _db.Engineers
+                .Include(x => x.ApplicationUser)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.ApplicationUserId == Guid.Parse(CurrentUser.UserId));
+
+            if (engineer == null)
+            {
+                return new PaginatedList<GetAllEngineerRequestDto>(
+                    new List<GetAllEngineerRequestDto>(),
+                    0,
+                    filter.PageIndex,
+                    filter.PageSize);
+            }
+
+            // Check if user is a team lead
+            var isTeamLead = await (from eng in _db.Engineers
+                                   join userRole in _db.UserRoles on eng.ApplicationUserId equals userRole.UserId
+                                   join role in _db.Roles on userRole.RoleId equals role.Id
+                                   where eng.Id == engineer.Id && role.Name == RoleNames.Teamleadengineer
+                                   select eng.Id)
+                       .AnyAsync();
 
             var query = _db.EngineerRequests
                 .Include(r => r.Project)
@@ -546,8 +566,18 @@ public class EngineerRequestService : IEngineerRequestService
                     .ThenInclude(a => a.Engineer)
                 .Include(r => r.EngineerRequestActivites)
                     .ThenInclude(a => a.Status)
-                .Where(r => r.Engineer.ApplicationUser.Id == Guid.Parse(CurrentUser.UserId) || r.assignToId == engineer.Id)
                 .AsNoTracking();
+
+            // If team lead, get all requests in their department
+            if (isTeamLead && engineer.DepartmentId.HasValue)
+            {
+                query = query.Where(r => r.DepartmentId == engineer.DepartmentId.Value);
+            }
+            else
+            {
+                // If regular engineer, get only requests assigned to them
+                query = query.Where(r => r.assignToId == engineer.Id);
+            }
 
             if (string.IsNullOrWhiteSpace(filter.Sort))
             {
