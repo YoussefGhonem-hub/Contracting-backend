@@ -5,6 +5,7 @@ using Contracting.Application.Features.Master.Engineer.Command.UpdateEngineer;
 using Contracting.Application.Features.Master.Engineer.Query.GetEngineerById;
 using Contracting.Application.Features.Master.Engineer.Query.GetEngineerDropdown;
 using Contracting.Application.Features.Master.Engineer.Query.GetEngineerList;
+using Contracting.Application.Features.Business.EngineerRequest.Query.GetEngineerRequestCountByStatus;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
 using MediatR;
@@ -97,6 +98,19 @@ namespace Contracting.API.Controllers
 
             return result.Match(
                 engineers => Ok(engineers),
+                errors => Problem(errors)
+            );
+        }
+
+        // Get Engineer Request Count By Status
+        [HttpGet("{engineerId:guid}/request-count-by-status")]
+        public async Task<IActionResult> GetRequestCountByStatus(Guid engineerId)
+        {
+            var query = new GetEngineerRequestCountByStatusQuery(engineerId);
+            var result = await _mediator.Send(query);
+
+            return result.Match(
+                counts => Ok(counts),
                 errors => Problem(errors)
             );
         }

@@ -37,5 +37,8 @@ namespace Contracting.Infrustructure.Inteface.business
         
         // Get activities for a request
         Task<List<GetEngineerRequestActiviteDto>> GetRequestActivitiesAsync(Guid requestId);
+
+        // Get count of engineer requests by status
+        Task<List<GetEngineerRequestCountByStatusDto>> GetEngineerRequestCountByStatusAsync(Guid engineerId);
     }
 }

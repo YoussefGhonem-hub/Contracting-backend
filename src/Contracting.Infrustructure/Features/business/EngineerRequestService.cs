@@ -617,4 +617,23 @@ public class EngineerRequestService : IEngineerRequestService
 
         return activitiesDto;
     }
+
+    // ---------------- GET ENGINEER REQUEST COUNT BY STATUS ----------------
+    public async Task<List<GetEngineerRequestCountByStatusDto>> GetEngineerRequestCountByStatusAsync(Guid engineerId)
+    {
+        var requestCounts = await _db.EngineerRequests
+            .Where(er => er.EngineerId == engineerId || er.assignToId == engineerId)
+            .GroupBy(er => new { er.StatusId, er.Status.nameEn })
+            .Select(g => new GetEngineerRequestCountByStatusDto
+            {
+                StatusId = g.Key.StatusId,
+                StatusName = g.Key.nameEn,
+                Count = g.Count()
+            })
+            .OrderBy(x => x.StatusName)
+            .AsNoTracking()
+            .ToListAsync();
+
+        return requestCounts;
+    }
 }
