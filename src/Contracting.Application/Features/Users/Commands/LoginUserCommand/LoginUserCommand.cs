@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Options;
+using Microsoft.EntityFrameworkCore;
 
 namespace Contracting.Application.Features.Users.Commands.LoginUserCommand;
 
@@ -59,8 +60,15 @@ public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, ErrorOr
         if (!signInResult.Succeeded)
             return Error.Unauthorized("Auth.Unauthorized", _localizer[SharedResourcesKeys.InvalidCredentials]);
 
+        // Get department name from Engineer entity
+        var engineer = await _db.Engineers
+            .Include(e => e.Department)
+            .FirstOrDefaultAsync(e => e.ApplicationUserId == user.Id, cancellationToken);
+        
+        var departmentName = engineer?.Department?.nameEn;
+
         var roles = await _userManager.GetRolesAsync(user);
-        var accessToken = _tokenService.GenerateToken(user, roles);
+        var accessToken = _tokenService.GenerateToken(user, roles, departmentName);
         var accessExp = DateTime.UtcNow.AddMinutes(_jwt.DurationInMinutes);
 
         var ip = _http.HttpContext?.Connection.RemoteIpAddress?.ToString();

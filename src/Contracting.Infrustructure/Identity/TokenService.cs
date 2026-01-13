@@ -10,8 +10,8 @@ namespace Contracting.Infrustructure.Identity;
 
 public interface ITokenService
 {
-    string GenerateToken(ApplicationUser user, IList<string> roles);
-    (string AccessToken, DateTime ExpiresAtUtc) GenerateAccessToken(ApplicationUser user, IList<string> roles);
+    string GenerateToken(ApplicationUser user, IList<string> roles, string? departmentName = null);
+    (string AccessToken, DateTime ExpiresAtUtc) GenerateAccessToken(ApplicationUser user, IList<string> roles, string? departmentName = null);
 }
 
 public class TokenService : ITokenService
@@ -20,7 +20,7 @@ public class TokenService : ITokenService
 
     public TokenService(IOptions<JwtSettings> settings) => _settings = settings.Value;
 
-    public (string AccessToken, DateTime ExpiresAtUtc) GenerateAccessToken(ApplicationUser user, IList<string> roles)
+    public (string AccessToken, DateTime ExpiresAtUtc) GenerateAccessToken(ApplicationUser user, IList<string> roles, string? departmentName = null)
     {
         var now = DateTime.UtcNow;
         var expires = now.AddMinutes(_settings.DurationInMinutes);
@@ -37,6 +37,11 @@ public class TokenService : ITokenService
             new Claim("preferred_username", user.UserName ?? string.Empty),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N"))
         };
+
+        if (!string.IsNullOrWhiteSpace(departmentName))
+        {
+            claims.Add(new Claim("department", departmentName));
+        }
 
         foreach (var role in roles ?? Array.Empty<string>())
             claims.Add(new Claim(ClaimTypes.Role, role));
@@ -57,6 +62,6 @@ public class TokenService : ITokenService
         return (new JwtSecurityTokenHandler().WriteToken(token), expires);
     }
 
-    public string GenerateToken(ApplicationUser user, IList<string> roles)
-        => GenerateAccessToken(user, roles).AccessToken;
+    public string GenerateToken(ApplicationUser user, IList<string> roles, string? departmentName = null)
+        => GenerateAccessToken(user, roles, departmentName).AccessToken;
 }

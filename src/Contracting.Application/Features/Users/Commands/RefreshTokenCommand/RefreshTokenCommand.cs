@@ -3,10 +3,12 @@ using Contracting.Application.Features.Users.Commands.LoginUserCommand;
 using Contracting.Shared.Resources;
 using Contracting.Domain.Entities;
 using Contracting.Infrustructure.Identity;
+using Contracting.Infrustructure.Persistence;
 using ErrorOr;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 
 namespace Contracting.Application.Features.Users.Commands.RefreshTokenCommand;
@@ -19,6 +21,7 @@ public sealed class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCom
     private readonly ITokenService _tokens;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IHttpContextAccessor _http;
+    private readonly ApplicationDbContext _db;
     private readonly IStringLocalizer<SharedResources> _localizer;
 
 
@@ -27,12 +30,14 @@ public sealed class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCom
         ITokenService tokens,
         UserManager<ApplicationUser> userManager,
         IHttpContextAccessor http,
+        ApplicationDbContext db,
         IStringLocalizer<SharedResources> localizer)
     {
         _refreshTokens = refreshTokens;
         _tokens = tokens;
         _userManager = userManager;
         _http = http;
+        _db = db;
         _localizer = localizer;
     }
 
@@ -50,8 +55,15 @@ public sealed class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCom
         // Atomic rotate (no duplicate insert)
         var (newRefreshPlain, newRefreshExp) = await _refreshTokens.RotateAsync(currentToken, user, ip, ct);
 
+        // Get department name from Engineer entity
+        var engineer = await _db.Engineers
+            .Include(e => e.Department)
+            .FirstOrDefaultAsync(e => e.ApplicationUserId == user.Id, ct);
+        
+        var departmentName = engineer?.Department?.nameEn;
+
         var roles = await _userManager.GetRolesAsync(user);
-        var (access, accessExp) = _tokens.GenerateAccessToken(user, roles);
+        var (access, accessExp) = _tokens.GenerateAccessToken(user, roles, departmentName);
 
         var pair = new TokenPairResponse(access, accessExp, newRefreshPlain, newRefreshExp);
         return pair;
