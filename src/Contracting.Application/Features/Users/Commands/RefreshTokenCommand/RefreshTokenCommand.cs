@@ -60,7 +60,7 @@ public sealed class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCom
             .Include(e => e.Department)
             .FirstOrDefaultAsync(e => e.ApplicationUserId == user.Id, ct);
         
-        var departmentName = engineer?.Department?.nameEn;
+        var departmentName = engineer?.Department?.Id;
 
         var roles = await _userManager.GetRolesAsync(user);
         var (access, accessExp) = _tokens.GenerateAccessToken(user, roles, departmentName);
