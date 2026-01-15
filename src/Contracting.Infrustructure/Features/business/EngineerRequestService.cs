@@ -1,3 +1,5 @@
+    // Helper: Check if department has a team lead
+  
 using Contracting.Shared.Resources;
 using Contracting.Domain.Entities.business;
 using Contracting.Infrustructure.Extensions;
@@ -61,12 +63,12 @@ public class EngineerRequestService : IEngineerRequestService
         if (request.EngineerId == Guid.Empty) request.EngineerId = null;
 
         // Find the Team Lead for the selected department
-        var teamLead = await (from Engineer in _db.Engineers
-                              join userRole in _db.UserRoles on engineer.ApplicationUserId equals userRole.UserId
-                              join role in _db.Roles on userRole.RoleId equals role.Id
-                              where engineer.DepartmentId == request.DepartmentId && role.Name == RoleNames.Teamleadengineer
-                              select engineer.ApplicationUserId)
-                  .FirstOrDefaultAsync();
+        var teamLead = await (from eng in _db.Engineers
+                      join userRole in _db.UserRoles on eng.ApplicationUserId equals userRole.UserId
+                      join role in _db.Roles on userRole.RoleId equals role.Id
+                      where eng.DepartmentId == request.DepartmentId && role.Name == RoleNames.Teamleadengineer
+                      select eng.ApplicationUserId)
+              .FirstOrDefaultAsync();
 
         // Handle notes (and their attachments)
         if (dto.EngineerRequestNotes != null && dto.EngineerRequestNotes.Any())
@@ -123,13 +125,34 @@ public class EngineerRequestService : IEngineerRequestService
                             .AsNoTracking()
                             .FirstOrDefaultAsync(r => r.Id == request.Id);
 
-        // Send notification to the Team Lead
-        await _notificationService.SendNotificationToUserAsync(
-            teamLead,
-            "New Request Created",
-            $"A new request has been created for your department.",
-            request.Id,
-            request.DepartmentId);
+
+        if (teamLead == Guid.Empty)
+        {
+            // No team lead found, notify all engineers in the department
+            var departmentEngineers = await _db.Engineers
+                .Where(e => e.DepartmentId == request.DepartmentId)
+                .Select(e => e.ApplicationUserId)
+                .ToListAsync();
+            foreach (var engineerUserId in departmentEngineers)
+            {
+                await _notificationService.SendNotificationToUserAsync(
+                    engineerUserId,
+                    "New Request Created",
+                    $"A new request has been created for your department.",
+                    request.Id,
+                    request.DepartmentId);
+            }
+        }
+        else
+        {
+            // Notify only the team lead
+            await _notificationService.SendNotificationToUserAsync(
+                teamLead,
+                "New Request Created",
+                $"A new request has been created for your department.",
+                request.Id,
+                request.DepartmentId);
+        }
 
         return _mapper.Map<GetAllEngineerRequestDto>(createdRequest);
     }
@@ -396,6 +419,9 @@ public class EngineerRequestService : IEngineerRequestService
         if (!departmentId.HasValue)
             return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.RequestNoDepartment]);
 
+        // Check if department has a team lead
+        bool departmentHasTeamLead = await DepartmentHasTeamLeadAsync(departmentId.Value);
+
         var isManager = await (from eng in _db.Engineers
                                join userRole in _db.UserRoles on eng.ApplicationUserId equals userRole.UserId
                                join role in _db.Roles on userRole.RoleId equals role.Id
@@ -405,9 +431,35 @@ public class EngineerRequestService : IEngineerRequestService
 
         var isAssigned = request.assignToId.HasValue && request.assignToId.Value == currentUserId;
 
-        // Only manager or assigned engineer can take action
-        if (!isManager && !isAssigned)
-            return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.Unauthorized]);
+        // If assignToId is set
+        if (request.assignToId.HasValue && request.assignToId.Value != Guid.Empty)
+        {
+            if (departmentHasTeamLead)
+            {
+                // If department has a team lead, only assigned user or team lead can take action
+                if (!isManager && !isAssigned)
+                    return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.Unauthorized]);
+            }
+            else
+            {
+                // No team lead: only assigned user can take action
+                if (!isAssigned)
+                    return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.Unauthorized]);
+            }
+        }
+        else if (departmentHasTeamLead)
+        {
+            // If department has a team lead, only team lead can take action
+            if (!isManager)
+                return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.Unauthorized]);
+        }
+        else
+        {
+            // If no team lead and no assignment, allow any engineer in the department to take action
+            var isEngineerInDepartment = await _db.Engineers.AnyAsync(e => e.ApplicationUserId == currentUserId && e.DepartmentId == departmentId.Value);
+            if (!isEngineerInDepartment)
+                return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.Unauthorized]);
+        }
 
         // Track previous status for activity
         var previousStatusId = request.StatusId;
@@ -544,6 +596,7 @@ public class EngineerRequestService : IEngineerRequestService
                     filter.PageSize);
             }
 
+
             // Check if user is a team lead
             var isTeamLead = await (from eng in _db.Engineers
                                    join userRole in _db.UserRoles on eng.ApplicationUserId equals userRole.UserId
@@ -551,6 +604,13 @@ public class EngineerRequestService : IEngineerRequestService
                                    where eng.Id == engineer.Id && role.Name == RoleNames.Teamleadengineer
                                    select eng.Id)
                        .AnyAsync();
+
+            // Check if department has a team lead
+            bool departmentHasTeamLead = false;
+            if (engineer.DepartmentId.HasValue)
+            {
+                departmentHasTeamLead = await DepartmentHasTeamLeadAsync(engineer.DepartmentId.Value);
+            }
 
             var query = _db.EngineerRequests
                 .Include(r => r.Project)
@@ -568,14 +628,20 @@ public class EngineerRequestService : IEngineerRequestService
                     .ThenInclude(a => a.Status)
                 .AsNoTracking();
 
-            // If team lead, get all requests in their department
             if (isTeamLead && engineer.DepartmentId.HasValue)
             {
+                // Team lead: see all requests in their department
                 query = query.Where(r => r.DepartmentId == engineer.DepartmentId.Value);
+            }
+            else if (!departmentHasTeamLead && engineer.DepartmentId.HasValue)
+            {
+                // No team lead: show requests in department, but if assignToId is set, only assigned engineer can see
+                query = query.Where(r => r.DepartmentId == engineer.DepartmentId.Value && 
+                    (r.assignToId == null || r.assignToId == Guid.Empty || r.assignToId == engineer.Id));
             }
             else
             {
-                // If regular engineer, get only requests assigned to them
+                // Regular engineer: only requests assigned to them
                 query = query.Where(r => r.assignToId == engineer.Id);
             }
 
@@ -620,6 +686,14 @@ public class EngineerRequestService : IEngineerRequestService
                 filter.PageIndex,
                 filter.PageSize);
         }
+    }
+    private async Task<bool> DepartmentHasTeamLeadAsync(Guid departmentId)
+    {
+        return await (from eng in _db.Engineers
+                      join userRole in _db.UserRoles on eng.ApplicationUserId equals userRole.UserId
+                      join role in _db.Roles on userRole.RoleId equals role.Id
+                      where eng.DepartmentId == departmentId && role.Name == RoleNames.Teamleadengineer
+                      select eng.Id).AnyAsync();
     }
 
     // ---------------- GET REQUEST ACTIVITIES ----------------
