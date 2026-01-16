@@ -1,5 +1,3 @@
-    // Helper: Check if department has a team lead
-  
 using Contracting.Shared.Resources;
 using Contracting.Domain.Entities.business;
 using Contracting.Infrustructure.Extensions;
@@ -112,7 +110,7 @@ public class EngineerRequestService : IEngineerRequestService
         
         await _db.SaveChangesAsync();
 
-        // Reload with navigation properties
+        // Reload with navigation properties (including attachments)
         var createdRequest = await _db.EngineerRequests
                             .Include(r => r.Project)
                             .Include(r => r.Department)
@@ -121,6 +119,8 @@ public class EngineerRequestService : IEngineerRequestService
                             .Include(r => r.Engineer)
                                 .ThenInclude(e => e.Department)
                             .Include(r => r.EngineerRequestNotes)
+                                .ThenInclude(n => n.EngineerRequestAttachments)
+                            .Include(r => r.EngineerRequestAttachments)
                             .Include(r=>r.EngineerRequestActivites)
                             .AsNoTracking()
                             .FirstOrDefaultAsync(r => r.Id == request.Id);
@@ -269,7 +269,7 @@ public class EngineerRequestService : IEngineerRequestService
 
         await _db.SaveChangesAsync();
 
-        // Reload with navigation properties
+        // Reload with navigation properties (including attachments)
         var updatedRequest = await _db.EngineerRequests
             .Include(r => r.Project)
             .Include(r => r.Department)
@@ -277,6 +277,8 @@ public class EngineerRequestService : IEngineerRequestService
             .Include(r => r.Engineer)
                 .ThenInclude(e => e.Department)
             .Include(r => r.EngineerRequestNotes)
+                .ThenInclude(n => n.EngineerRequestAttachments)
+            .Include(r => r.EngineerRequestAttachments)
             .AsNoTracking()
             .FirstOrDefaultAsync(r => r.Id == request.Id);
 
@@ -318,6 +320,8 @@ public class EngineerRequestService : IEngineerRequestService
                 .Include(r => r.Engineer)
                     .ThenInclude(e => e.Department)
                 .Include(r => r.EngineerRequestNotes)
+                    .ThenInclude(n => n.EngineerRequestAttachments)
+                .Include(r => r.EngineerRequestAttachments)
                 .Include(r => r.EngineerRequestActivites)
                     .ThenInclude(a => a.Engineer)
                 .Include(r => r.EngineerRequestActivites)
@@ -379,6 +383,8 @@ public class EngineerRequestService : IEngineerRequestService
             .Include(r => r.Engineer)
                 .ThenInclude(e => e.Department)
             .Include(r => r.EngineerRequestNotes)
+                .ThenInclude(n => n.EngineerRequestAttachments)
+            .Include(r => r.EngineerRequestAttachments)
             .Include(r => r.EngineerRequestActivites)
                 .ThenInclude(a => a.Engineer)
             .Include(r => r.EngineerRequestActivites)
@@ -617,6 +623,7 @@ public class EngineerRequestService : IEngineerRequestService
                 .Include(r => r.Department)
                 .Include(r => r.Priority)
                 .Include(r => r.Status)
+                .Include(r => r.EngineerRequestAttachments)
                 .Include(r => r.Engineer)
                     .ThenInclude(e => e.Department)
                 .Include(r => r.Engineer)

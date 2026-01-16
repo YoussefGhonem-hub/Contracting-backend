@@ -86,7 +86,7 @@ public static class MappingConfig
                     .Map(dest => dest.Status, src => src.Status)
                     .Map(dest => dest.EngineerRequestNotes, src => src.EngineerRequestNotes)
                     .Map(dest => dest.EngineerRequestActivites, src => src.EngineerRequestActivites)
-                    .Map(dest => dest.Attachments, src => src.EngineerRequestAttachments);
+                    .Map(dest => dest.EngineerRequestAttachments, src => src.EngineerRequestAttachments);
 
 
         config.NewConfig<CreateRoleDto, ApplicationRole>()

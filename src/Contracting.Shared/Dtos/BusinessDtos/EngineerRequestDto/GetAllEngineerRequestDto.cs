@@ -30,6 +30,6 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestDto
         public DateTime? endDate { get; set; }
         public ICollection<GetEngineerRequestNotesDto> EngineerRequestNotes { get; set; } = new List<GetEngineerRequestNotesDto>();
         public ICollection<GetEngineerRequestActiviteDto> EngineerRequestActivites { get; set; } = new List<GetEngineerRequestActiviteDto>();
-        public ICollection<Contracting.Shared.Dtos.GetAttachmentDto>? Attachments { get; set; } = new List<GetAttachmentDto>();
+        public ICollection<Contracting.Shared.Dtos.GetAttachmentDto>? EngineerRequestAttachments { get; set; } = new List<GetAttachmentDto>();
     }
 }
