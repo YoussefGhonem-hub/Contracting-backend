@@ -10,8 +10,8 @@ namespace Contracting.Infrustructure.Identity;
 
 public interface ITokenService
 {
-    string GenerateToken(ApplicationUser user, IList<string> roles, string? departmentName = null);
-    (string AccessToken, DateTime ExpiresAtUtc) GenerateAccessToken(ApplicationUser user, IList<string> roles, string? departmentName = null);
+    string GenerateToken(ApplicationUser user, IList<string> roles, Guid? departmentId = null);
+    (string AccessToken, DateTime ExpiresAtUtc) GenerateAccessToken(ApplicationUser user, IList<string> roles, Guid? departmentId = null);
 }
 
 public class TokenService : ITokenService
@@ -20,7 +20,7 @@ public class TokenService : ITokenService
 
     public TokenService(IOptions<JwtSettings> settings) => _settings = settings.Value;
 
-    public (string AccessToken, DateTime ExpiresAtUtc) GenerateAccessToken(ApplicationUser user, IList<string> roles, string? departmentName = null)
+    public (string AccessToken, DateTime ExpiresAtUtc) GenerateAccessToken(ApplicationUser user, IList<string> roles, Guid? departmentId = null)
     {
         var now = DateTime.UtcNow;
         var expires = now.AddMinutes(_settings.DurationInMinutes);
@@ -38,9 +38,9 @@ public class TokenService : ITokenService
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N"))
         };
 
-        if (!string.IsNullOrWhiteSpace(departmentName))
+        if (departmentId != Guid.Empty && departmentId != null)
         {
-            claims.Add(new Claim("department", departmentName));
+            claims.Add(new Claim("departmentId", departmentId?.ToString()));
         }
 
         foreach (var role in roles ?? Array.Empty<string>())
@@ -62,6 +62,6 @@ public class TokenService : ITokenService
         return (new JwtSecurityTokenHandler().WriteToken(token), expires);
     }
 
-    public string GenerateToken(ApplicationUser user, IList<string> roles, string? departmentName = null)
-        => GenerateAccessToken(user, roles, departmentName).AccessToken;
+    public string GenerateToken(ApplicationUser user, IList<string> roles, Guid? departmentId = null)
+        => GenerateAccessToken(user, roles, departmentId).AccessToken;
 }
