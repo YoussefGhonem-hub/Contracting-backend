@@ -525,7 +525,7 @@ public class EngineerRequestService : IEngineerRequestService
         {
             request.timeDuration = actionDto.timeDuration.Value;
             request.startDate = actionDto.startDate.Value;
-            request.endDate = actionDto.startDate.Value.AddDays(actionDto.timeDuration.Value);
+           // request.endDate = actionDto.startDate.Value.AddDays(actionDto.timeDuration.Value);
         }                        
 
         if (actionDto.EngineerRequestNotes != null && actionDto.EngineerRequestNotes.Any())
