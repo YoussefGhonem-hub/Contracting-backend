@@ -1,9 +1,12 @@
 using Contracting.Shared.Resources;
 using Contracting.Domain.Entities;
+using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Inteface;
+using Contracting.Shared.Constants;
 using ErrorOr;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
 
@@ -13,23 +16,30 @@ namespace Contracting.Application.Features.Master.Engineer.Command.UpdateEnginee
     {
         private readonly IEngineerService _service;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly RoleManager<ApplicationRole> _roleManager;
         private readonly IStringLocalizer<SharedResources> _localizer;
 
-        public UpdateEngineerCommandHandler(IEngineerService service, UserManager<ApplicationUser> userManager, IStringLocalizer<SharedResources> localizer)
+        public UpdateEngineerCommandHandler(IEngineerService service, UserManager<ApplicationUser> userManager, RoleManager<ApplicationRole> roleManager, IStringLocalizer<SharedResources> localizer)
         {
             _service = service;
             _userManager = userManager;
+            _roleManager = roleManager;
             _localizer = localizer;
         }
 
         public async Task<ErrorOr<GetEngineerDto>> Handle(UpdateEngineerCommand request, CancellationToken cancellationToken)
         {
-            // Validate if the department already has a manager
-            if (request.Engineer.ChangeDepartmentId != null || request.Engineer.ChangeDepartmentId == Guid.Empty)
+            // Only when changing department and engineer has Teamlead role, ensure department has no existing manager
+            if (request.Engineer.ChangeDepartmentId.HasValue && request.Engineer.ChangeDepartmentId != Guid.Empty)
             {
-                var hasManager = await _service.CheckDepartmentHaveManagerAsync(request.Engineer.ChangeDepartmentId ?? Guid.Empty);
-                if (hasManager)
-                    return Error.Validation("Department.ManagerExists", "The selected department already has a manager.");
+                var teamleadRole = await _roleManager.Roles.FirstOrDefaultAsync(r => r.Name == RoleNames.Teamleadengineer, cancellationToken);
+
+                if (teamleadRole != null && request.Engineer.Roles != null && request.Engineer.Roles.Contains(teamleadRole.Id))
+                {
+                    var hasManager = await _service.CheckDepartmentHaveManagerAsync(request.Engineer.ChangeDepartmentId.Value);
+                    if (hasManager)
+                        return Error.Validation("Department.ManagerExists", "The selected department already has a manager.");
+                }
             }
 
             // Update the user details
