@@ -7,6 +7,7 @@ using Contracting.Application.Features.Users.Commands.RegisterUserCommand;
 using Contracting.Application.Features.Users.Commands.RemoveFCMTokenNotification;
 using Contracting.Application.Features.Users.Commands.ResetPasswordCommand;
 using Contracting.Application.Features.Users.Commands.RevokeRefreshTokenCommand;
+using Contracting.Application.Features.Users.Commands.VerifyResetCodeCommand;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -97,6 +98,18 @@ public class AuthController : APIBaseController
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
     {
         var command = new ForgotPasswordCommand(request);
+        var result = await _mediator.Send(command);
+        return result.Match(
+            value => Ok(new { Message = value }),
+            errors => Problem(errors)
+        );
+    }
+
+    [HttpPost("verify-reset-code")]
+    [AllowAnonymous]
+    public async Task<IActionResult> VerifyResetCode([FromBody] VerifyResetCodeRequest request)
+    {
+        var command = new VerifyResetCodeCommand(request);
         var result = await _mediator.Send(command);
         return result.Match(
             value => Ok(new { Message = value }),

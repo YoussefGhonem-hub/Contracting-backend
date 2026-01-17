@@ -30,6 +30,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<UserDeviceToken> userDeviceTokens => Set<UserDeviceToken>();
     public DbSet<NotificationLog> NotificationLogs => Set<NotificationLog>();
     public DbSet<ExceptionLog> ExceptionLogs => Set<ExceptionLog>();
+    public DbSet<PasswordResetCode> PasswordResetCodes => Set<PasswordResetCode>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

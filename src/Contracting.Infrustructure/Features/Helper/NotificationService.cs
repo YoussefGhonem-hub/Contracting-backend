@@ -54,7 +54,7 @@ namespace Contracting.Infrustructure.Features.Helper
         public async Task<bool> GenerateToken(string fcmToken)
         {
             var exists = await _db.userDeviceTokens
-                        .AnyAsync(t => t.UserId == Guid.Parse(CurrentUser.UserId) 
+                        .AnyAsync(t => t.UserId == Guid.Parse(CurrentUser.UserId)
                             && t.FcmToken == fcmToken);
 
             if (!exists)
@@ -167,7 +167,7 @@ namespace Contracting.Infrustructure.Features.Helper
                 .ToListAsync();
 
             // enqueue a background job per token
-            tokens.ContinueWith(tks =>
+            tokens.ContinueWith(async tks =>
             {
                 foreach (var token in tks.Result)
                 {
@@ -182,10 +182,12 @@ namespace Contracting.Infrustructure.Features.Helper
                     try
                     {
                         _backgroundJobClient.Enqueue<NotificationService>(svc => svc.SendAsync(notification));
+                        await LogNotificationAsync(notification, true, null);
                     }
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "Failed to enqueue notification job");
+                        await LogNotificationAsync(notification, false, ex.Message);
                     }
                 }
             });
