@@ -8,7 +8,7 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestDto
         public Guid? assignToId { get; set; }
         public int? timeDuration { get; set; }
         public DateTime? startDate { get; set; }
-        public ICollection<CrearteEngineerRequestNotesDto> EngineerRequestNotes { get; set; }
+        public ICollection<CrearteEngineerRequestNotesDto>? EngineerRequestNotes { get; set; }
 
     }
 }

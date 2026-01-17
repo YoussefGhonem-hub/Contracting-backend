@@ -534,6 +534,22 @@ public class EngineerRequestService : IEngineerRequestService
             {
                 var newNote = _mapper.Map<EngineerRequestNotes>(noteDto);
                 newNote.EngineerRequestId = request.Id;
+                newNote.EngineerId = currentEngineerId;
+
+                // Handle attachments for the new note
+                if (noteDto.Attachments != null && noteDto.Attachments.Any())
+                {
+                    var uploaded = await _storageService.UploadFiles(noteDto.Attachments.ToList());
+                    newNote.EngineerRequestAttachments = uploaded?.Select(f => new EngineerRequestAttachment
+                    {
+                        Key = f.Key,
+                        FileName = f.FileName,
+                        Extension = f.Extension,
+                        FileSize = f.FileSize,
+                        Url = f.Url
+                    }).ToList();
+                }
+
                 await _db.EngineerRequestNotes.AddAsync(newNote);
             }
         }
@@ -629,6 +645,7 @@ public class EngineerRequestService : IEngineerRequestService
                 .Include(r => r.Engineer)
                     .ThenInclude(e => e.ApplicationUser)
                 .Include(r => r.EngineerRequestNotes)
+                    .ThenInclude(n => n.EngineerRequestAttachments)
                 .Include(r => r.EngineerRequestActivites)
                     .ThenInclude(a => a.Engineer)
                 .Include(r => r.EngineerRequestActivites)
@@ -732,8 +749,31 @@ public class EngineerRequestService : IEngineerRequestService
     // ---------------- GET ENGINEER REQUEST COUNT BY STATUS ----------------
     public async Task<List<GetEngineerRequestCountByStatusDto>> GetEngineerRequestCountByStatusAsync(Guid engineerId)
     {
-        var requestCounts = await _db.EngineerRequests
-            .Where(er => er.EngineerId == engineerId || er.assignToId == engineerId)
+        // Load engineer to determine department and manager status
+        var engineer = await _db.Engineers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == engineerId);
+
+        bool isTeamLeadForDepartment = false;
+        if (engineer.DepartmentId.HasValue)
+        {
+            isTeamLeadForDepartment = await IsEngineerManagerOfDepartmentAsync(engineerId, engineer.DepartmentId.Value);
+        }
+
+        IQueryable<EngineerRequest> query = _db.EngineerRequests;
+
+        if (isTeamLeadForDepartment && engineer.DepartmentId.HasValue)
+        {
+            // Department manager: count all requests under their department
+            query = query.Where(er => er.DepartmentId == engineer.DepartmentId.Value);
+        }
+        else
+        {
+            // Regular engineer: count only own or assigned requests
+            query = query.Where(er => er.EngineerId == engineerId || er.assignToId == engineerId);
+        }
+
+        var requestCounts = await query
             .GroupBy(er => new { er.StatusId, er.Status.nameEn })
             .Select(g => new GetEngineerRequestCountByStatusDto
             {
