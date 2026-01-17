@@ -526,7 +526,7 @@ public class EngineerRequestService : IEngineerRequestService
         //    return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.TimeDurationMismatch]);
         //}
 
-        if (actionDto.timeDuration.HasValue)
+        if (actionDto.timeDuration.HasValue && actionDto.timeDuration != 0)
         {
             request.timeDuration = actionDto.timeDuration.Value;
             request.startDate = actionDto.startDate.Value;
