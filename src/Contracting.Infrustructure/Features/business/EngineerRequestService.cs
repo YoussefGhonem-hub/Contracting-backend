@@ -415,7 +415,14 @@ public class EngineerRequestService : IEngineerRequestService
         var request = await _db.EngineerRequests
             .Include(r => r.EngineerRequestNotes)
             .Include(x=>x.Engineer).ThenInclude(x=>x.ApplicationUser)
+            .Include(r => r.assignTo)
             .FirstOrDefaultAsync(r => r.Id == requestId);
+
+
+        var currentEngineerId = await _db.Engineers
+            .Where(e => e.ApplicationUserId == currentUserId)
+            .Select(e => e.Id)
+            .FirstOrDefaultAsync();
 
         if (request is null)
             return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.RequestNotFound]);
@@ -435,7 +442,7 @@ public class EngineerRequestService : IEngineerRequestService
                                select eng.Id)
                    .AnyAsync();
 
-        var isAssigned = request.assignToId.HasValue && request.assignToId.Value == currentUserId;
+        var isAssigned = request.assignToId.HasValue && request.assignToId.Value == currentEngineerId;
 
         // If assignToId is set
         if (request.assignToId.HasValue && request.assignToId.Value != Guid.Empty)
@@ -467,22 +474,20 @@ public class EngineerRequestService : IEngineerRequestService
                 return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.Unauthorized]);
         }
 
-        // Track previous status for activity
+        // Track previous status and assignment for activity
         var previousStatusId = request.StatusId;
-        var currentEngineerId = await _db.Engineers
-            .Where(e => e.ApplicationUserId == currentUserId)
-            .Select(e => e.Id)
-            .FirstOrDefaultAsync();
+        var previousAssignedId = request.assignToId;
+        bool assignmentChanged = false;
 
         // If manager, allow assignment
         if (isManager && actionDto.assignToId.HasValue)
         {
-            var previousAssignedId = request.assignToId;
             request.assignToId = actionDto.assignToId.Value;
             
             // Create activity for assignment
             if (previousAssignedId != actionDto.assignToId.Value)
             {
+                assignmentChanged = true;
                 var assignActivity = new EngineerRequestActivite
                 {
                     EngineerRequestId = request.Id,
@@ -494,7 +499,7 @@ public class EngineerRequestService : IEngineerRequestService
             }
         }
         // If assigned engineer, do not allow assignment change
-        else if (isAssigned && actionDto.assignToId.HasValue && actionDto.assignToId.Value != currentUserId)
+        else if (isAssigned && actionDto.assignToId.HasValue && actionDto.assignToId.Value != currentEngineerId)
         {
             // Assigned engineer cannot reassign
             return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.CannotReassign]);
@@ -516,16 +521,16 @@ public class EngineerRequestService : IEngineerRequestService
             await _db.EngineerRequestActivites.AddAsync(statusActivity);
         }
 
-        if (isAssigned && request.timeDuration != actionDto.timeDuration.Value)
-        {
-            return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.TimeDurationMismatch]);
-        }
+        //if (isAssigned && request.timeDuration != actionDto.timeDuration.Value)
+        //{
+        //    return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.TimeDurationMismatch]);
+        //}
 
         if (actionDto.timeDuration.HasValue)
         {
             request.timeDuration = actionDto.timeDuration.Value;
             request.startDate = actionDto.startDate.Value;
-           // request.endDate = actionDto.startDate.Value.AddDays(actionDto.timeDuration.Value);
+            request.endDate = actionDto.endDate;
         }                        
 
         if (actionDto.EngineerRequestNotes != null && actionDto.EngineerRequestNotes.Any())
@@ -567,7 +572,8 @@ public class EngineerRequestService : IEngineerRequestService
                 request.Id);
         }
 
-        if (request.assignToId.HasValue)
+        // Only notify when assignment actually changed (new assignment or reassignment)
+        if (assignmentChanged && request.assignToId.HasValue)
         {
             var assignEngineer = await _db.Engineers
             .FirstOrDefaultAsync(r => r.Id == request.assignToId);
@@ -654,19 +660,21 @@ public class EngineerRequestService : IEngineerRequestService
 
             if (isTeamLead && engineer.DepartmentId.HasValue)
             {
-                // Team lead: see all requests in their department
-                query = query.Where(r => r.DepartmentId == engineer.DepartmentId.Value);
+                // Team lead: see all requests in their department OR requests they created
+                query = query.Where(r => r.DepartmentId == engineer.DepartmentId.Value || r.EngineerId == engineer.Id);
             }
             else if (!departmentHasTeamLead && engineer.DepartmentId.HasValue)
             {
-                // No team lead: show requests in department, but if assignToId is set, only assigned engineer can see
-                query = query.Where(r => r.DepartmentId == engineer.DepartmentId.Value && 
-                    (r.assignToId == null || r.assignToId == Guid.Empty || r.assignToId == engineer.Id));
+                // No team lead: show requests in department (if assignToId is null/empty or assigned to them), OR requests they created
+                query = query.Where(r => 
+                    (r.DepartmentId == engineer.DepartmentId.Value && 
+                        (r.assignToId == null || r.assignToId == Guid.Empty || r.assignToId == engineer.Id)) 
+                    || r.EngineerId == engineer.Id);
             }
             else
             {
-                // Regular engineer: only requests assigned to them
-                query = query.Where(r => r.assignToId == engineer.Id);
+                // Regular engineer: requests assigned to them OR requests they created
+                query = query.Where(r => r.assignToId == engineer.Id || r.EngineerId == engineer.Id);
             }
 
             if (string.IsNullOrWhiteSpace(filter.Sort))
