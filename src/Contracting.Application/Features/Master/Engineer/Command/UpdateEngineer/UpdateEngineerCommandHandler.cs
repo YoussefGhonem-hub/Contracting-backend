@@ -36,7 +36,8 @@ namespace Contracting.Application.Features.Master.Engineer.Command.UpdateEnginee
 
                 if (teamleadRole != null && request.Engineer.Roles != null && request.Engineer.Roles.Contains(teamleadRole.Id))
                 {
-                    var hasManager = await _service.CheckDepartmentHaveManagerAsync(request.Engineer.ChangeDepartmentId.Value);
+                    // Exclude the current engineer from the check to allow updating their own data
+                    var hasManager = await _service.CheckDepartmentHaveManagerAsync(request.Engineer.ChangeDepartmentId.Value, request.Engineer.Id);
                     if (hasManager)
                         return Error.Validation("Department.ManagerExists", "The selected department already has a manager.");
                 }

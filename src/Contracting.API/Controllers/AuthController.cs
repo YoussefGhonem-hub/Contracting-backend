@@ -14,8 +14,13 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Contracting.API.Controllers;
 
+/// <summary>
+/// Controller for authentication and user account management.
+/// Handles user registration, login, password reset, and token management.
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
+[Produces("application/json")]
 public class AuthController : APIBaseController
 {
     private readonly IMediator _mediator;
@@ -25,7 +30,20 @@ public class AuthController : APIBaseController
         _mediator = mediator;
     }
 
+    /// <summary>
+    /// Registers a new user account.
+    /// </summary>
+    /// <remarks>
+    /// Creates a new user account with the provided credentials and profile information.
+    /// Returns authentication tokens upon successful registration.
+    /// </remarks>
+    /// <param name="request">The registration details including email, password, and profile info</param>
+    /// <returns>Authentication result with access token and refresh token</returns>
+    /// <response code="200">Registration successful - returns authentication tokens</response>
+    /// <response code="400">Invalid request - validation errors or email already exists</response>
     [HttpPost("register")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Register(RegisterRequest request)
     {
         var result = await _mediator.Send(new RegisterUserCommand(request));
@@ -36,7 +54,25 @@ public class AuthController : APIBaseController
         );
     }
 
+    /// <summary>
+    /// Authenticates a user and returns access tokens.
+    /// </summary>
+    /// <remarks>
+    /// Validates user credentials and returns JWT access token and refresh token.
+    /// The access token should be included in the Authorization header for subsequent requests.
+    /// 
+    /// Example usage:
+    /// ```
+    /// Authorization: Bearer {access_token}
+    /// ```
+    /// </remarks>
+    /// <param name="request">Login credentials (email and password)</param>
+    /// <returns>Authentication result with access token, refresh token, and user info</returns>
+    /// <response code="200">Login successful - returns authentication tokens</response>
+    /// <response code="400">Invalid credentials or account issues</response>
     [HttpPost("login")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         var result = await _mediator.Send(new LoginUserCommand(request));
@@ -46,9 +82,23 @@ public class AuthController : APIBaseController
         );
     }
 
-    // POST: api/auth/refresh
+    /// <summary>
+    /// Refreshes the access token using a valid refresh token.
+    /// </summary>
+    /// <remarks>
+    /// Use this endpoint when the access token expires. Provide the refresh token
+    /// to obtain a new access token without requiring the user to login again.
+    /// 
+    /// **Note:** Refresh tokens have a longer expiration than access tokens.
+    /// </remarks>
+    /// <param name="command">The refresh token request containing the current refresh token</param>
+    /// <returns>New access token and refresh token</returns>
+    /// <response code="200">Token refreshed successfully</response>
+    /// <response code="400">Invalid or expired refresh token</response>
     [HttpPost("refresh")]
     [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Refresh([FromBody] RefreshTokenCommand command)
     {
         var result = await _mediator.Send(command);
@@ -58,9 +108,25 @@ public class AuthController : APIBaseController
         );
     }
 
-    // POST: api/auth/revoke
+    /// <summary>
+    /// Revokes a refresh token to logout the user.
+    /// </summary>
+    /// <remarks>
+    /// Invalidates the specified refresh token, effectively logging out the user
+    /// from that session. Use this for secure logout functionality.
+    /// 
+    /// **Requires authentication.**
+    /// </remarks>
+    /// <param name="command">The refresh token to revoke</param>
+    /// <returns>Confirmation of token revocation</returns>
+    /// <response code="200">Token revoked successfully</response>
+    /// <response code="400">Invalid token</response>
+    /// <response code="401">Unauthorized - User not authenticated</response>
     [HttpPost("revoke")]
     [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Revoke([FromBody] RevokeRefreshTokenCommand command)
     {
         var result = await _mediator.Send(command);
@@ -71,8 +137,25 @@ public class AuthController : APIBaseController
        );
     }
 
+    /// <summary>
+    /// Saves Firebase Cloud Messaging (FCM) token for push notifications.
+    /// </summary>
+    /// <remarks>
+    /// Registers the device's FCM token to enable push notifications.
+    /// Call this after login or when the FCM token is refreshed.
+    /// 
+    /// **Requires authentication.**
+    /// </remarks>
+    /// <param name="fcmToken">The FCM token from the client device</param>
+    /// <returns>Confirmation of token registration</returns>
+    /// <response code="200">FCM token saved successfully</response>
+    /// <response code="400">Invalid token</response>
+    /// <response code="401">Unauthorized - User not authenticated</response>
     [HttpPost("fcm-token")]
     [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> SaveFcmToken([FromBody] string fcmToken)
     {
         var command = new FCMTokenNotificationCommand(fcmToken);
@@ -82,7 +165,21 @@ public class AuthController : APIBaseController
             errors => Problem(errors)
        );
     }
+
+    /// <summary>
+    /// Removes Firebase Cloud Messaging (FCM) token to disable push notifications.
+    /// </summary>
+    /// <remarks>
+    /// Unregisters the device's FCM token. Call this when the user logs out
+    /// or disables notifications to stop receiving push notifications on the device.
+    /// </remarks>
+    /// <param name="fcmToken">The FCM token to remove</param>
+    /// <returns>Confirmation of token removal</returns>
+    /// <response code="200">FCM token removed successfully</response>
+    /// <response code="400">Invalid token</response>
     [HttpDelete("fcm-token")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> DeleteFcmToken([FromBody] string fcmToken)
     {
         var command = new RemoveFCMTokenNotificationCommand(fcmToken);
@@ -93,8 +190,28 @@ public class AuthController : APIBaseController
        );
     }
 
+    /// <summary>
+    /// Initiates the forgot password flow by sending a reset code to user's email.
+    /// </summary>
+    /// <remarks>
+    /// **Step 1 of password reset flow.**
+    /// 
+    /// Sends a 6-digit verification code to the user's registered email address.
+    /// The code expires after a limited time (typically 15-30 minutes).
+    /// 
+    /// **Flow:**
+    /// 1. Call `forgot-password` with user's email → Receives verification code via email
+    /// 2. Call `verify-reset-code` with email and code → Validates the code
+    /// 3. Call `reset-password` with email, code, and new password → Completes reset
+    /// </remarks>
+    /// <param name="request">The email address of the account to reset</param>
+    /// <returns>Success message confirming email was sent</returns>
+    /// <response code="200">Reset code sent successfully to email</response>
+    /// <response code="400">Invalid email or user not found</response>
     [HttpPost("forgot-password")]
     [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
     {
         var command = new ForgotPasswordCommand(request);
@@ -105,8 +222,28 @@ public class AuthController : APIBaseController
         );
     }
 
+    /// <summary>
+    /// Verifies the password reset code sent to user's email.
+    /// </summary>
+    /// <remarks>
+    /// **Step 2 of password reset flow.**
+    /// 
+    /// Validates the 6-digit verification code that was sent to the user's email.
+    /// Call this before allowing the user to set a new password.
+    /// 
+    /// **Flow:**
+    /// 1. Call `forgot-password` with user's email → Receives verification code via email
+    /// 2. Call `verify-reset-code` with email and code → **Validates the code** ✓
+    /// 3. Call `reset-password` with email, code, and new password → Completes reset
+    /// </remarks>
+    /// <param name="request">Email and the 6-digit verification code</param>
+    /// <returns>Success message if code is valid</returns>
+    /// <response code="200">Code verified successfully - proceed to reset password</response>
+    /// <response code="400">Invalid or expired code</response>
     [HttpPost("verify-reset-code")]
     [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> VerifyResetCode([FromBody] VerifyResetCodeRequest request)
     {
         var command = new VerifyResetCodeCommand(request);
@@ -117,8 +254,35 @@ public class AuthController : APIBaseController
         );
     }
 
+    /// <summary>
+    /// Resets the user's password using the verified reset code.
+    /// </summary>
+    /// <remarks>
+    /// **Step 3 of password reset flow (Final step).**
+    /// 
+    /// Sets a new password for the user after the reset code has been verified.
+    /// The reset code must have been previously validated via `verify-reset-code`.
+    /// 
+    /// **Flow:**
+    /// 1. Call `forgot-password` with user's email → Receives verification code via email
+    /// 2. Call `verify-reset-code` with email and code → Validates the code
+    /// 3. Call `reset-password` with email, code, and new password → **Completes reset** ✓
+    /// 
+    /// **Password requirements:**
+    /// - Minimum 8 characters
+    /// - At least one uppercase letter
+    /// - At least one lowercase letter
+    /// - At least one number
+    /// - At least one special character
+    /// </remarks>
+    /// <param name="request">Email, verified reset code, and new password</param>
+    /// <returns>Success message confirming password was reset</returns>
+    /// <response code="200">Password reset successfully - user can now login with new password</response>
+    /// <response code="400">Invalid code, expired code, or password doesn't meet requirements</response>
     [HttpPost("reset-password")]
     [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
     {
         var command = new ResetPasswordCommand(request);

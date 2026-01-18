@@ -310,16 +310,21 @@ namespace Contracting.Infrustructure.Features
             return _mapper.Map<List<GetEngineerDropDownDto>>(engineers);
         }
 
-        public async Task<bool> CheckDepartmentHaveManagerAsync(Guid departmentId)
+        public async Task<bool> CheckDepartmentHaveManagerAsync(Guid departmentId, Guid? excludeEngineerId = null)
         {
-            var hasManager = await (from engineer in _db.Engineers
-                                    join userRole in _db.UserRoles on engineer.ApplicationUserId equals userRole.UserId
-                                    join role in _db.Roles on userRole.RoleId equals role.Id
-                                    where engineer.DepartmentId == departmentId && role.Name == RoleNames.Teamleadengineer
-                                    select engineer)
-                            .AnyAsync();
+            var query = from engineer in _db.Engineers
+                        join userRole in _db.UserRoles on engineer.ApplicationUserId equals userRole.UserId
+                        join role in _db.Roles on userRole.RoleId equals role.Id
+                        where engineer.DepartmentId == departmentId && role.Name == RoleNames.Teamleadengineer
+                        select engineer;
 
-            return hasManager;
+            // Exclude the current engineer being updated
+            if (excludeEngineerId.HasValue)
+            {
+                query = query.Where(e => e.Id != excludeEngineerId.Value);
+            }
+
+            return await query.AnyAsync();
         }
     }
 }

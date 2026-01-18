@@ -2,6 +2,7 @@
 using Contracting.Infrustructure.Inteface.business;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.BusinessDtos.EngineerRequestAnalysisDtos;
+using Contracting.Shared.Constants;
 using Contracting.Shared.CurrentUser;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -135,21 +136,17 @@ namespace Contracting.Infrustructure.Features.business
             };
         }
 
-        //ماذا يفعل هذا التقرير بالضبط؟
 
-        //هو يجاوب على الأسئلة دي:
 
         //هل الطلبات اتقفلت قبل الموعد؟
-
         //ولا في نفس يوم الموعد؟
-
         //ولا بعد الموعد(تأخير SLA)؟
-
         //أي قسم وأي أولوية أكثر التزامًا أو أكثر تأخيرًا؟
         public async Task<SlaBucketsReportDto> GetSlaBucketsByPriorityAndDepartmentAsync(CancellationToken cancellationToken = default)
         {
             var statusSets = await GetStatusSetsAsync(cancellationToken);
-            var items = await QueryRequestsDetailedAsync(statusSets.CompletedStatusIds, cancellationToken);
+            var filterContext = await GetUserFilterContextAsync(cancellationToken);
+            var items = await QueryRequestsDetailedWithFilterAsync(statusSets.CompletedStatusIds, filterContext, cancellationToken);
 
             var completedWithDeadline = items
                 .Where(i => statusSets.CompletedStatusIds.Contains(i.StatusId))
@@ -189,13 +186,14 @@ namespace Contracting.Infrustructure.Features.business
             };
         }
 
-        // هذا التقرير يقيس أعمار الطلبات المفتوحة (Requests)
+        // هذا  يقيس أعمار الطلبات المفتوحة (Requests)
         public async Task<AgingReportDto> GetAgingReportAsync(CancellationToken cancellationToken = default)
         {
             var statusSets = await GetStatusSetsAsync(cancellationToken);
+            var filterContext = await GetUserFilterContextAsync(cancellationToken);
             var now = DateTimeOffset.UtcNow;
 
-            var items = await QueryRequestsDetailedAsync(statusSets.CompletedStatusIds, cancellationToken);
+            var items = await QueryRequestsDetailedWithFilterAsync(statusSets.CompletedStatusIds, filterContext, cancellationToken);
             var openItems = items.Where(i => !statusSets.CompletedStatusIds.Contains(i.StatusId)).ToList();
 
             var buckets = new List<AgingBucketDto>
@@ -233,7 +231,8 @@ namespace Contracting.Infrustructure.Features.business
         public async Task<LeadCycleTimeDto> GetLeadAndCycleTimeAsync(CancellationToken cancellationToken = default)
         {
             var statusSets = await GetStatusSetsAsync(cancellationToken);
-            var items = await QueryRequestsDetailedAsync(statusSets.CompletedStatusIds, cancellationToken);
+            var filterContext = await GetUserFilterContextAsync(cancellationToken);
+            var items = await QueryRequestsDetailedWithFilterAsync(statusSets.CompletedStatusIds, filterContext, cancellationToken);
 
             var completed = items
                 .Where(i => statusSets.CompletedStatusIds.Contains(i.StatusId))
@@ -267,7 +266,8 @@ namespace Contracting.Infrustructure.Features.business
         public async Task<OverdueRiskDto> GetOverdueRiskAsync(CancellationToken cancellationToken = default)
         {
             var statusSets = await GetStatusSetsAsync(cancellationToken);
-            var items = await QueryRequestsDetailedAsync(statusSets.CompletedStatusIds, cancellationToken);
+            var filterContext = await GetUserFilterContextAsync(cancellationToken);
+            var items = await QueryRequestsDetailedWithFilterAsync(statusSets.CompletedStatusIds, filterContext, cancellationToken);
 
             var today = DateTime.UtcNow.Date;
             var riskLimit = today.AddDays(3);
@@ -294,7 +294,8 @@ namespace Contracting.Infrustructure.Features.business
         public async Task<AssigneePerformanceReportDto> GetAssigneePerformanceAsync(CancellationToken cancellationToken = default)
         {
             var statusSets = await GetStatusSetsAsync(cancellationToken);
-            var items = await QueryRequestsDetailedAsync(statusSets.CompletedStatusIds, cancellationToken);
+            var filterContext = await GetUserFilterContextAsync(cancellationToken);
+            var items = await QueryRequestsDetailedWithFilterAsync(statusSets.CompletedStatusIds, filterContext, cancellationToken);
 
             var assigneeGroups = items
                 .Where(i => i.AssignedEngineerId.HasValue)
@@ -348,11 +349,20 @@ namespace Contracting.Infrustructure.Features.business
         public async Task<ReworkRateDto> GetReworkRateAsync(CancellationToken cancellationToken = default)
         {
             var statusSets = await GetStatusSetsAsync(cancellationToken);
+            var filterContext = await GetUserFilterContextAsync(cancellationToken);
             var completedIds = statusSets.CompletedStatusIds.ToList();
+
+            // Get filtered request IDs based on role
+            var filteredRequestIds = await ApplyRoleFilter(
+                _db.EngineerRequests.AsNoTracking(), filterContext)
+                .Select(r => r.Id)
+                .ToListAsync(cancellationToken);
 
             var activities = await _db.EngineerRequestActivites
                 .AsNoTracking()
-                .Where(a => a.EngineerRequestId.HasValue && a.StatusId.HasValue)
+                .Where(a => a.EngineerRequestId.HasValue 
+                    && a.StatusId.HasValue
+                    && filteredRequestIds.Contains(a.EngineerRequestId.Value))
                 .OrderBy(a => a.CreatedDate)
                 .Select(a => new { a.EngineerRequestId, a.StatusId, a.CreatedDate })
                 .ToListAsync(cancellationToken);
@@ -524,6 +534,83 @@ namespace Contracting.Infrustructure.Features.business
                 .ToHashSet();
 
             return (completedIds, onHoldIds);
+        }
+
+        private sealed record UserFilterContext(
+            bool IsAdmin,
+            bool IsTeamLead,
+            bool IsOfficeEngineer,
+            Guid? UserId,
+            Guid? EngineerId,
+            Guid? DepartmentId);
+
+        private async Task<UserFilterContext> GetUserFilterContextAsync(CancellationToken cancellationToken)
+        {
+            var roles = CurrentUser.Roles;
+            var isAdmin = roles.Any(r => r.Equals(RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase)
+                                      || r.Equals(RoleNames.Admin, StringComparison.OrdinalIgnoreCase));
+            var isTeamLead = roles.Any(r => r.Equals(RoleNames.Teamleadengineer, StringComparison.OrdinalIgnoreCase));
+            var isOfficeEngineer = roles.Any(r => r.Equals(RoleNames.Officeengineer, StringComparison.OrdinalIgnoreCase));
+
+            var currentUserId = CurrentUser.Id;
+            Guid? engineerId = null;
+            Guid? departmentId = null;
+
+            if (currentUserId.HasValue && !isAdmin)
+            {
+                var engineer = await _db.Engineers
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId.Value, cancellationToken);
+
+                if (engineer != null)
+                {
+                    engineerId = engineer.Id;
+                    departmentId = engineer.DepartmentId;
+                }
+            }
+
+            return new UserFilterContext(isAdmin, isTeamLead, isOfficeEngineer, currentUserId, engineerId, departmentId);
+        }
+
+        private IQueryable<EngineerRequest> ApplyRoleFilter(IQueryable<EngineerRequest> query, UserFilterContext context)
+        {
+            // Admin/SuperAdmin: No filter - see all
+            if (context.IsAdmin)
+                return query;
+
+            // TeamLead: Filter by department
+            if (context.IsTeamLead && context.DepartmentId.HasValue)
+                return query.Where(r => r.DepartmentId == context.DepartmentId.Value);
+
+            // Office-engineer: Filter by assigned to them or they created
+            if (context.IsOfficeEngineer)
+            {
+                var userId = context.UserId;
+                var engineerId = context.EngineerId;
+                return query.Where(r => r.assignToId == userId 
+                                     || r.assignToId == engineerId
+                                     || r.EngineerId == engineerId);
+            }
+
+            // Default: No access (return empty)
+            return query.Where(r => false);
+        }
+
+        private async Task<List<RequestAnalysisItem>> QueryRequestsDetailedWithFilterAsync(
+            HashSet<Guid> completedStatusIds,
+            UserFilterContext filterContext,
+            CancellationToken cancellationToken)
+        {
+            var baseQuery = _db.EngineerRequests
+                .AsNoTracking()
+                .Include(r => r.Priority)
+                .Include(r => r.Department)
+                .Include(r => r.Engineer)
+                .Include(r => r.assignTo);
+
+            var filteredQuery = ApplyRoleFilter(baseQuery, filterContext);
+
+            return await QueryRequestsAsync(filteredQuery, completedStatusIds, cancellationToken);
         }
     }
 }

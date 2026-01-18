@@ -58,7 +58,17 @@ builder.Services.AddAuthentication(options =>
 });
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Contracting API", Version = "v1" });
+    c.SwaggerDoc("v1", new OpenApiInfo 
+    { 
+        Title = "Contracting API", 
+        Version = "v1",
+        Description = "API for Contracting Management System"
+    });
+
+    // Include XML comments for Swagger documentation
+    var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    c.IncludeXmlComments(xmlPath);
 
     // Security scheme (Authorization button)
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
