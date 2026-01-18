@@ -1,11 +1,9 @@
-﻿using Contracting.Domain.Entities.business;
+using Contracting.Domain.Entities.business;
 using Contracting.Infrustructure.Inteface.business;
 using Contracting.Infrustructure.Persistence;
-using Contracting.Shared.BusinessDtos.EngineerRequestAnalysisDtos;
 using Contracting.Shared.CurrentUser;
+using Contracting.Shared.Dtos.BusinessDtos.EngineerRequestAnalysisDtos;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using System.Timers;
 
 namespace Contracting.Infrustructure.Features.business
 {
@@ -135,282 +133,12 @@ namespace Contracting.Infrustructure.Features.business
             };
         }
 
-        //ماذا يفعل هذا التقرير بالضبط؟
-
-        //هو يجاوب على الأسئلة دي:
-
-        //هل الطلبات اتقفلت قبل الموعد؟
-
-        //ولا في نفس يوم الموعد؟
-
-        //ولا بعد الموعد(تأخير SLA)؟
-
-        //أي قسم وأي أولوية أكثر التزامًا أو أكثر تأخيرًا؟
-        public async Task<SlaBucketsReportDto> GetSlaBucketsByPriorityAndDepartmentAsync(CancellationToken cancellationToken = default)
-        {
-            var statusSets = await GetStatusSetsAsync(cancellationToken);
-            var items = await QueryRequestsDetailedAsync(statusSets.CompletedStatusIds, cancellationToken);
-
-            var completedWithDeadline = items
-                .Where(i => statusSets.CompletedStatusIds.Contains(i.StatusId))
-                .Where(i => i.EndDate.HasValue && i.CompletedAt.HasValue)
-                .ToList();
-
-            var buckets = completedWithDeadline
-                .GroupBy(i => new { i.DepartmentId, i.DepartmentName, i.PriorityId, i.PriorityName })
-                .Select(g =>
-                {
-                    var early = g.Count(i => i.CompletedAt!.Value.Date < i.EndDate!.Value.Date);
-                    var onTime = g.Count(i => i.CompletedAt!.Value.Date == i.EndDate!.Value.Date);
-                    var late = g.Count(i => i.CompletedAt!.Value.Date > i.EndDate!.Value.Date);
-                    var total = g.Count();
-                    return new SlaBucketByPriorityDepartmentDto
-                    {
-                        DepartmentId = g.Key.DepartmentId,
-                        DepartmentName = string.IsNullOrWhiteSpace(g.Key.DepartmentName) ? "Unspecified" : g.Key.DepartmentName,
-                        PriorityId = g.Key.PriorityId,
-                        PriorityName = string.IsNullOrWhiteSpace(g.Key.PriorityName) ? "Unspecified" : g.Key.PriorityName,
-                        CompletedCount = total,
-                        EarlyCount = early,
-                        OnTimeCount = onTime,
-                        LateCount = late,
-                        EarlyPercentage = total == 0 ? 0m : Math.Round((decimal)early / total * 100m, 2, MidpointRounding.AwayFromZero),
-                        OnTimePercentage = total == 0 ? 0m : Math.Round((decimal)onTime / total * 100m, 2, MidpointRounding.AwayFromZero),
-                        LatePercentage = total == 0 ? 0m : Math.Round((decimal)late / total * 100m, 2, MidpointRounding.AwayFromZero)
-                    };
-                })
-                .OrderByDescending(x => x.CompletedCount)
-                .ToList();
-
-            return new SlaBucketsReportDto
-            {
-                TotalCompletedWithDeadline = completedWithDeadline.Count,
-                Buckets = buckets
-            };
-        }
-
-        // هذا التقرير يقيس أعمار الطلبات المفتوحة (Requests)
-        public async Task<AgingReportDto> GetAgingReportAsync(CancellationToken cancellationToken = default)
-        {
-            var statusSets = await GetStatusSetsAsync(cancellationToken);
-            var now = DateTimeOffset.UtcNow;
-
-            var items = await QueryRequestsDetailedAsync(statusSets.CompletedStatusIds, cancellationToken);
-            var openItems = items.Where(i => !statusSets.CompletedStatusIds.Contains(i.StatusId)).ToList();
-
-            var buckets = new List<AgingBucketDto>
-            {
-                new() { RangeLabel = "0-2 days" },
-                new() { RangeLabel = "3-7 days" },
-                new() { RangeLabel = "8-14 days" },
-                new() { RangeLabel = "15+ days" }
-            };
-
-            foreach (var item in openItems)
-            {
-                var ageDays = (now - item.CreatedDate).TotalDays;
-                if (ageDays <= 2)
-                    buckets[0].Count++;
-                else if (ageDays <= 7)
-                    buckets[1].Count++;
-                else if (ageDays <= 14)
-                    buckets[2].Count++;
-                else
-                    buckets[3].Count++;
-            }
-
-            return new AgingReportDto
-            {
-                OpenRequests = openItems.Count,
-                Buckets = buckets
-            };
-        }
-
-        // تقرير يقيس متوسط زمن إنجاز الطلبات
-        // باستخدام Lead Time و Cycle Time 
-        // Lead Time	من إنشاء الطلب حتى إغلاقه
-        // Cycle Time  من بدء التنفيذ حتى الإغلاق
-        public async Task<LeadCycleTimeDto> GetLeadAndCycleTimeAsync(CancellationToken cancellationToken = default)
-        {
-            var statusSets = await GetStatusSetsAsync(cancellationToken);
-            var items = await QueryRequestsDetailedAsync(statusSets.CompletedStatusIds, cancellationToken);
-
-            var completed = items
-                .Where(i => statusSets.CompletedStatusIds.Contains(i.StatusId))
-                .Where(i => i.CompletedAt.HasValue)
-                .ToList();
-
-            var leadTimes = completed
-                .Select(i => (i.CompletedAt!.Value - i.CreatedDate).TotalDays)
-                .Where(d => d >= 0)
-                .ToList();
-
-            var cycleTimes = completed
-                .Where(i => i.StartDate.HasValue)
-                .Select(i => (i.CompletedAt!.Value - new DateTimeOffset(i.StartDate!.Value)).TotalDays)
-                .Where(d => d >= 0)
-                .ToList();
-
-            var avgLead = leadTimes.Count == 0 ? 0m : Math.Round((decimal)leadTimes.Average(), 2, MidpointRounding.AwayFromZero);
-            var avgCycle = cycleTimes.Count == 0 ? 0m : Math.Round((decimal)cycleTimes.Average(), 2, MidpointRounding.AwayFromZero);
-
-            return new LeadCycleTimeDto
-            {
-                CompletedRequests = completed.Count,
-                AverageLeadTimeDays = avgLead,
-                AverageCycleTimeDays = avgCycle
-            };
-        }
-
-        // تقرير يحدد الطلبات المفتوحة المعرضة للتأخير قريبًا
-        // 3 day set at riskLimit
-        public async Task<OverdueRiskDto> GetOverdueRiskAsync(CancellationToken cancellationToken = default)
-        {
-            var statusSets = await GetStatusSetsAsync(cancellationToken);
-            var items = await QueryRequestsDetailedAsync(statusSets.CompletedStatusIds, cancellationToken);
-
-            var today = DateTime.UtcNow.Date;
-            var riskLimit = today.AddDays(3);
-
-            var openWithDeadline = items
-                .Where(i => !statusSets.CompletedStatusIds.Contains(i.StatusId))
-                .Where(i => i.EndDate.HasValue)
-                .ToList();
-
-            var atRisk = openWithDeadline.Count(i => i.EndDate!.Value.Date >= today && i.EndDate!.Value.Date <= riskLimit);
-
-            var percentage = openWithDeadline.Count == 0
-                ? 0m
-                : Math.Round((decimal)atRisk / openWithDeadline.Count * 100m, 2, MidpointRounding.AwayFromZero);
-
-            return new OverdueRiskDto
-            {
-                OpenRequestsWithDeadline = openWithDeadline.Count,
-                AtRiskCount = atRisk,
-                AtRiskPercentage = percentage
-            };
-        }
-
-        public async Task<AssigneePerformanceReportDto> GetAssigneePerformanceAsync(CancellationToken cancellationToken = default)
-        {
-            var statusSets = await GetStatusSetsAsync(cancellationToken);
-            var items = await QueryRequestsDetailedAsync(statusSets.CompletedStatusIds, cancellationToken);
-
-            var assigneeGroups = items
-                .Where(i => i.AssignedEngineerId.HasValue)
-                .GroupBy(i => new { i.AssignedEngineerId, i.AssignedEngineerName })
-                .Select(g =>
-                {
-                    var total = g.Count();
-                    var completed = g.Count(i => statusSets.CompletedStatusIds.Contains(i.StatusId));
-                    var completionRate = total == 0 ? 0m : Math.Round((decimal)completed / total * 100m, 2, MidpointRounding.AwayFromZero);
-
-                    var avgCompletionDays = g
-                        .Where(i => statusSets.CompletedStatusIds.Contains(i.StatusId) && i.CompletedAt.HasValue)
-                        .Select(i =>
-                        {
-                            var start = i.StartDate.HasValue
-                                ? new DateTimeOffset(i.StartDate.Value)
-                                : i.CreatedDate;
-                            return (i.CompletedAt!.Value - start).TotalDays;
-                        })
-                        .Where(d => d >= 0)
-                        .ToList();
-
-                    var avg = avgCompletionDays.Count == 0
-                        ? 0m
-                        : Math.Round((decimal)avgCompletionDays.Average(), 2, MidpointRounding.AwayFromZero);
-                    var deparmentId = g.Select(s => s.DepartmentId).FirstOrDefault();
-                    var deparmentName = g.Select(s => s.DepartmentName).FirstOrDefault();
-
-                    return new AssigneePerformanceDto
-                    {
-                        EngineerId = g.Key.AssignedEngineerId,
-                        EngineerName = string.IsNullOrWhiteSpace(g.Key.AssignedEngineerName) ? "Unspecified" : g.Key.AssignedEngineerName,
-                        DepartmentId = deparmentId,
-                        DepartmentName = string.IsNullOrEmpty(deparmentName)?"": deparmentName,
-                        TotalAssigned = total,
-                        CompletedAssigned = completed,
-                        CompletionRate = completionRate,
-                        AverageCompletionDays = avg
-                    };
-                })
-                .OrderByDescending(x => x.TotalAssigned)
-                .ToList();
-
-            return new AssigneePerformanceReportDto
-            {
-                TotalAssignedRequests = assigneeGroups.Sum(x => x.TotalAssigned),
-                Assignees = assigneeGroups
-            };
-        }
-
-        public async Task<ReworkRateDto> GetReworkRateAsync(CancellationToken cancellationToken = default)
-        {
-            var statusSets = await GetStatusSetsAsync(cancellationToken);
-            var completedIds = statusSets.CompletedStatusIds.ToList();
-
-            var activities = await _db.EngineerRequestActivites
-                .AsNoTracking()
-                .Where(a => a.EngineerRequestId.HasValue && a.StatusId.HasValue)
-                .OrderBy(a => a.CreatedDate)
-                .Select(a => new { a.EngineerRequestId, a.StatusId, a.CreatedDate })
-                .ToListAsync(cancellationToken);
-
-            var grouped = activities
-                .GroupBy(a => a.EngineerRequestId!.Value)
-                .ToList();
-
-            var requestsWithCompletion = 0;
-            var reworked = 0;
-
-            foreach (var group in grouped)
-            {
-                var ordered = group.OrderBy(a => a.CreatedDate).ToList();
-                var seenCompleted = false;
-                var hasCompleted = ordered.Any(a => completedIds.Contains(a.StatusId!.Value));
-                if (hasCompleted) requestsWithCompletion++;
-
-                foreach (var activity in ordered)
-                {
-                    if (completedIds.Contains(activity.StatusId!.Value))
-                    {
-                        seenCompleted = true;
-                        continue;
-                    }
-
-                    if (seenCompleted)
-                    {
-                        reworked++;
-                        break;
-                    }
-                }
-            }
-
-            var percentage = requestsWithCompletion == 0
-                ? 0m
-                : Math.Round((decimal)reworked / requestsWithCompletion * 100m, 2, MidpointRounding.AwayFromZero);
-
-            return new ReworkRateDto
-            {
-                RequestsWithCompletion = requestsWithCompletion,
-                ReworkedRequests = reworked,
-                ReworkPercentage = percentage
-            };
-        }
-
         private sealed record RequestAnalysisItem(
             Guid Id,
             Guid StatusId,
             Guid? PriorityId,
             string? PriorityName,
-            Guid? DepartmentId,
-            string? DepartmentName,
             DateTime? EndDate,
-            DateTime? StartDate,
-            DateTimeOffset CreatedDate,
-            Guid? AssignedEngineerId,
-            string? AssignedEngineerName,
             DateTimeOffset? CompletedAt);
 
         private async Task<List<RequestAnalysisItem>> QueryRequestsAsync(
@@ -426,15 +154,7 @@ namespace Contracting.Infrustructure.Features.business
                     r.StatusId,
                     r.PriorityId,
                     r.Priority != null ? r.Priority.nameEn : null,
-                    r.DepartmentId,
-                    r.Department != null ? r.Department.nameEn : null,
                     r.endDate,
-                    r.startDate,
-                    r.CreatedDate,
-                    r.assignToId ?? r.EngineerId,
-                    r.assignTo != null
-                        ? r.assignTo.nameEn
-                        : r.Engineer != null ? r.Engineer.nameEn : null,
                     completedIds.Count == 0
                         ? null
                         : _db.EngineerRequestActivites
@@ -446,21 +166,6 @@ namespace Contracting.Infrustructure.Features.business
                             .FirstOrDefault()
                 ))
                 .ToListAsync(cancellationToken);
-        }
-
-        private async Task<List<RequestAnalysisItem>> QueryRequestsDetailedAsync(
-            HashSet<Guid> completedStatusIds,
-            CancellationToken cancellationToken)
-        {
-            return await QueryRequestsAsync(
-                _db.EngineerRequests
-                    .AsNoTracking()
-                    .Include(r => r.Priority)
-                    .Include(r => r.Department)
-                    .Include(r => r.Engineer)
-                    .Include(r => r.assignTo),
-                completedStatusIds,
-                cancellationToken);
         }
 
         private static (int CompletedOnTime, int CompletedOverDeadline) CalculateCompletionTotals(

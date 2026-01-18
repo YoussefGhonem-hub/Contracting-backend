@@ -1,4 +1,4 @@
-using Contracting.Shared.BusinessDtos.EngineerRequestAnalysisDtos;
+using Contracting.Shared.Dtos.BusinessDtos.EngineerRequestAnalysisDtos;
 using ErrorOr;
 using MediatR;
 
