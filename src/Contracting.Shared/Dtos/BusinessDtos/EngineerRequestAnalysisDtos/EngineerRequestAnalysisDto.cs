@@ -1,4 +1,4 @@
-namespace Contracting.Shared.Dtos.BusinessDtos.EngineerRequestAnalysisDtos
+namespace Contracting.Shared.BusinessDtos.EngineerRequestAnalysisDtos
 {
     public class PriorityCountDto
     {
@@ -31,5 +31,77 @@ namespace Contracting.Shared.Dtos.BusinessDtos.EngineerRequestAnalysisDtos
         public int CompletedOverDeadline { get; set; }
         public int OnHoldCount { get; set; }
         public int NotFinishedCount { get; set; }
+    }
+
+    public class SlaBucketByPriorityDepartmentDto
+    {
+        public Guid? DepartmentId { get; set; }
+        public string DepartmentName { get; set; } = string.Empty;
+        public Guid? PriorityId { get; set; }
+        public string PriorityName { get; set; } = string.Empty;
+        public int CompletedCount { get; set; }
+        public int EarlyCount { get; set; }
+        public int OnTimeCount { get; set; }
+        public int LateCount { get; set; }
+        public decimal EarlyPercentage { get; set; }
+        public decimal OnTimePercentage { get; set; }
+        public decimal LatePercentage { get; set; }
+    }
+
+    public class SlaBucketsReportDto
+    {
+        public int TotalCompletedWithDeadline { get; set; }
+        public List<SlaBucketByPriorityDepartmentDto> Buckets { get; set; } = new();
+    }
+
+    public class AgingBucketDto
+    {
+        public string RangeLabel { get; set; } = string.Empty;
+        public int Count { get; set; }
+    }
+
+    public class AgingReportDto
+    {
+        public int OpenRequests { get; set; }
+        public List<AgingBucketDto> Buckets { get; set; } = new();
+    }
+
+    public class LeadCycleTimeDto
+    {
+        public int CompletedRequests { get; set; }
+        public decimal AverageLeadTimeDays { get; set; }
+        public decimal AverageCycleTimeDays { get; set; }
+    }
+
+    public class OverdueRiskDto
+    {
+        public int OpenRequestsWithDeadline { get; set; }
+        public int AtRiskCount { get; set; }
+        public decimal AtRiskPercentage { get; set; }
+    }
+
+    public class AssigneePerformanceDto
+    {
+        public Guid? EngineerId { get; set; }
+        public string EngineerName { get; set; } = string.Empty;
+        public Guid? DepartmentId { get; set; }
+        public string DepartmentName { get; set; } = string.Empty;
+        public int TotalAssigned { get; set; }
+        public int CompletedAssigned { get; set; }
+        public decimal CompletionRate { get; set; }
+        public decimal AverageCompletionDays { get; set; }
+    }
+
+    public class AssigneePerformanceReportDto
+    {
+        public int TotalAssignedRequests { get; set; }
+        public List<AssigneePerformanceDto> Assignees { get; set; } = new();
+    }
+
+    public class ReworkRateDto
+    {
+        public int RequestsWithCompletion { get; set; }
+        public int ReworkedRequests { get; set; }
+        public decimal ReworkPercentage { get; set; }
     }
 }

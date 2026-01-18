@@ -1,5 +1,5 @@
 using Contracting.Infrustructure.Inteface.business;
-using Contracting.Shared.Dtos.BusinessDtos.EngineerRequestAnalysisDtos;
+using Contracting.Shared.BusinessDtos.EngineerRequestAnalysisDtos;
 using ErrorOr;
 using MediatR;
 
