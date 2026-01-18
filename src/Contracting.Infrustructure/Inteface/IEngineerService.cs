@@ -20,6 +20,9 @@ namespace Contracting.Infrustructure.Inteface
         // Get a list of engineers (optionally paginated)
         Task<PaginatedList<GetEngineerDto>> GetEngineerListAsync(Guid DepartmentId, BaseFilterDto filter);
 
+        // Get all engineers (optionally paginated)
+        Task<PaginatedList<GetEngineerDto>> GetAllEngineersAsync(BaseFilterDto filter);
+
         // Get a single engineer by Id
         Task<GetEngineerDto> GetEngineerByIdAsync(Guid engineerId);
 

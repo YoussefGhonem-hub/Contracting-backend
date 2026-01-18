@@ -13,9 +13,11 @@ public class ResetPasswordRequestValidator : AbstractValidator<ResetPasswordRequ
             .EmailAddress()
             .WithMessage("Valid email address is required");
 
-        RuleFor(x => x.Token)
+        RuleFor(x => x.Code)
             .NotEmpty()
-            .WithMessage("Reset token is required");
+            .WithMessage("Verification code is required")
+            .Length(6)
+            .WithMessage("Verification code must be 6 digits");
 
         RuleFor(x => x.NewPassword)
             .NotEmpty()

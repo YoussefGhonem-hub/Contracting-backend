@@ -66,9 +66,10 @@ public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, ErrorOr
             .FirstOrDefaultAsync(e => e.ApplicationUserId == user.Id, cancellationToken);
         
         var departmentId = engineer?.Department?.Id;
+        var engineerId = engineer?.Id;
 
         var roles = await _userManager.GetRolesAsync(user);
-        var accessToken = _tokenService.GenerateToken(user, roles, departmentId);
+        var accessToken = _tokenService.GenerateToken(user, roles, departmentId, engineerId);
         var accessExp = DateTime.UtcNow.AddMinutes(_jwt.DurationInMinutes);
 
         var ip = _http.HttpContext?.Connection.RemoteIpAddress?.ToString();

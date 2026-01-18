@@ -5,6 +5,7 @@ using Contracting.Application.Features.Master.Engineer.Command.UpdateEngineer;
 using Contracting.Application.Features.Master.Engineer.Query.GetEngineerById;
 using Contracting.Application.Features.Master.Engineer.Query.GetEngineerDropdown;
 using Contracting.Application.Features.Master.Engineer.Query.GetEngineerList;
+using Contracting.Application.Features.Master.Engineer.Query.GetEngineerListByBranch;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetEngineerRequestCountByStatus;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
@@ -68,6 +69,19 @@ namespace Contracting.API.Controllers
         public async Task<IActionResult> GetList([FromQuery] Guid departmentId, [FromQuery] BaseFilterDto filter)
         {
             var query = new GetEngineerListQuery(departmentId, filter);
+            var result = await _mediator.Send(query);
+
+            return result.Match(
+                engineers => Ok(engineers),
+                errors => Problem(errors)
+            );
+        }
+
+        // Get All Engineers (with filter)
+        [HttpGet("GetAll")]
+        public async Task<IActionResult> GetAllEngineers([FromQuery] BaseFilterDto filter)
+        {
+            var query = new GetEngineerListByBranchQuery(filter);
             var result = await _mediator.Send(query);
 
             return result.Match(

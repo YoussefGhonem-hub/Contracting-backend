@@ -61,12 +61,12 @@ public class EngineerRequestService : IEngineerRequestService
         if (request.EngineerId == Guid.Empty) request.EngineerId = null;
 
         // Find the Team Lead for the selected department
-        var teamLead = await (from Engineer in _db.Engineers
-                              join userRole in _db.UserRoles on engineer.ApplicationUserId equals userRole.UserId
-                              join role in _db.Roles on userRole.RoleId equals role.Id
-                              where engineer.DepartmentId == request.DepartmentId && role.Name == RoleNames.Teamleadengineer
-                              select engineer.ApplicationUserId)
-                  .FirstOrDefaultAsync();
+        var teamLead = await (from eng in _db.Engineers
+                      join userRole in _db.UserRoles on eng.ApplicationUserId equals userRole.UserId
+                      join role in _db.Roles on userRole.RoleId equals role.Id
+                      where eng.DepartmentId == request.DepartmentId && role.Name == RoleNames.Teamleadengineer
+                      select eng.ApplicationUserId)
+              .FirstOrDefaultAsync();
 
         // Handle notes (and their attachments)
         if (dto.EngineerRequestNotes != null && dto.EngineerRequestNotes.Any())
@@ -110,7 +110,7 @@ public class EngineerRequestService : IEngineerRequestService
         
         await _db.SaveChangesAsync();
 
-        // Reload with navigation properties
+        // Reload with navigation properties (including attachments)
         var createdRequest = await _db.EngineerRequests
                             .Include(r => r.Project)
                             .Include(r => r.Department)
@@ -119,17 +119,40 @@ public class EngineerRequestService : IEngineerRequestService
                             .Include(r => r.Engineer)
                                 .ThenInclude(e => e.Department)
                             .Include(r => r.EngineerRequestNotes)
+                                .ThenInclude(n => n.EngineerRequestAttachments)
+                            .Include(r => r.EngineerRequestAttachments)
                             .Include(r=>r.EngineerRequestActivites)
                             .AsNoTracking()
                             .FirstOrDefaultAsync(r => r.Id == request.Id);
 
-        // Send notification to the Team Lead
-        await _notificationService.SendNotificationToUserAsync(
-            teamLead,
-            "New Request Created",
-            $"A new request has been created for your department.",
-            request.Id,
-            request.DepartmentId);
+
+        if (teamLead == Guid.Empty)
+        {
+            // No team lead found, notify all engineers in the department
+            var departmentEngineers = await _db.Engineers
+                .Where(e => e.DepartmentId == request.DepartmentId)
+                .Select(e => e.ApplicationUserId)
+                .ToListAsync();
+            foreach (var engineerUserId in departmentEngineers)
+            {
+                await _notificationService.SendNotificationToUserAsync(
+                    engineerUserId,
+                    "New Request Created",
+                    $"A new request has been created for your department.",
+                    request.Id,
+                    request.DepartmentId);
+            }
+        }
+        else
+        {
+            // Notify only the team lead
+            await _notificationService.SendNotificationToUserAsync(
+                teamLead,
+                "New Request Created",
+                $"A new request has been created for your department.",
+                request.Id,
+                request.DepartmentId);
+        }
 
         return _mapper.Map<GetAllEngineerRequestDto>(createdRequest);
     }
@@ -246,7 +269,7 @@ public class EngineerRequestService : IEngineerRequestService
 
         await _db.SaveChangesAsync();
 
-        // Reload with navigation properties
+        // Reload with navigation properties (including attachments)
         var updatedRequest = await _db.EngineerRequests
             .Include(r => r.Project)
             .Include(r => r.Department)
@@ -254,6 +277,8 @@ public class EngineerRequestService : IEngineerRequestService
             .Include(r => r.Engineer)
                 .ThenInclude(e => e.Department)
             .Include(r => r.EngineerRequestNotes)
+                .ThenInclude(n => n.EngineerRequestAttachments)
+            .Include(r => r.EngineerRequestAttachments)
             .AsNoTracking()
             .FirstOrDefaultAsync(r => r.Id == request.Id);
 
@@ -295,6 +320,8 @@ public class EngineerRequestService : IEngineerRequestService
                 .Include(r => r.Engineer)
                     .ThenInclude(e => e.Department)
                 .Include(r => r.EngineerRequestNotes)
+                    .ThenInclude(n => n.EngineerRequestAttachments)
+                .Include(r => r.EngineerRequestAttachments)
                 .Include(r => r.EngineerRequestActivites)
                     .ThenInclude(a => a.Engineer)
                 .Include(r => r.EngineerRequestActivites)
@@ -356,6 +383,8 @@ public class EngineerRequestService : IEngineerRequestService
             .Include(r => r.Engineer)
                 .ThenInclude(e => e.Department)
             .Include(r => r.EngineerRequestNotes)
+                .ThenInclude(n => n.EngineerRequestAttachments)
+            .Include(r => r.EngineerRequestAttachments)
             .Include(r => r.EngineerRequestActivites)
                 .ThenInclude(a => a.Engineer)
             .Include(r => r.EngineerRequestActivites)
@@ -386,7 +415,14 @@ public class EngineerRequestService : IEngineerRequestService
         var request = await _db.EngineerRequests
             .Include(r => r.EngineerRequestNotes)
             .Include(x=>x.Engineer).ThenInclude(x=>x.ApplicationUser)
+            .Include(r => r.assignTo)
             .FirstOrDefaultAsync(r => r.Id == requestId);
+
+
+        var currentEngineerId = await _db.Engineers
+            .Where(e => e.ApplicationUserId == currentUserId)
+            .Select(e => e.Id)
+            .FirstOrDefaultAsync();
 
         if (request is null)
             return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.RequestNotFound]);
@@ -396,6 +432,9 @@ public class EngineerRequestService : IEngineerRequestService
         if (!departmentId.HasValue)
             return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.RequestNoDepartment]);
 
+        // Check if department has a team lead
+        bool departmentHasTeamLead = await DepartmentHasTeamLeadAsync(departmentId.Value);
+
         var isManager = await (from eng in _db.Engineers
                                join userRole in _db.UserRoles on eng.ApplicationUserId equals userRole.UserId
                                join role in _db.Roles on userRole.RoleId equals role.Id
@@ -403,28 +442,52 @@ public class EngineerRequestService : IEngineerRequestService
                                select eng.Id)
                    .AnyAsync();
 
-        var isAssigned = request.assignToId.HasValue && request.assignToId.Value == currentUserId;
+        var isAssigned = request.assignToId.HasValue && request.assignToId.Value == currentEngineerId;
 
-        // Only manager or assigned engineer can take action
-        if (!isManager && !isAssigned)
-            return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.Unauthorized]);
+        // If assignToId is set
+        if (request.assignToId.HasValue && request.assignToId.Value != Guid.Empty)
+        {
+            if (departmentHasTeamLead)
+            {
+                // If department has a team lead, only assigned user or team lead can take action
+                if (!isManager && !isAssigned)
+                    return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.Unauthorized]);
+            }
+            else
+            {
+                // No team lead: only assigned user can take action
+                if (!isAssigned)
+                    return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.Unauthorized]);
+            }
+        }
+        else if (departmentHasTeamLead)
+        {
+            // If department has a team lead, only team lead can take action
+            if (!isManager)
+                return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.Unauthorized]);
+        }
+        else
+        {
+            // If no team lead and no assignment, allow any engineer in the department to take action
+            var isEngineerInDepartment = await _db.Engineers.AnyAsync(e => e.ApplicationUserId == currentUserId && e.DepartmentId == departmentId.Value);
+            if (!isEngineerInDepartment)
+                return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.Unauthorized]);
+        }
 
-        // Track previous status for activity
+        // Track previous status and assignment for activity
         var previousStatusId = request.StatusId;
-        var currentEngineerId = await _db.Engineers
-            .Where(e => e.ApplicationUserId == currentUserId)
-            .Select(e => e.Id)
-            .FirstOrDefaultAsync();
+        var previousAssignedId = request.assignToId;
+        bool assignmentChanged = false;
 
         // If manager, allow assignment
         if (isManager && actionDto.assignToId.HasValue)
         {
-            var previousAssignedId = request.assignToId;
             request.assignToId = actionDto.assignToId.Value;
             
             // Create activity for assignment
             if (previousAssignedId != actionDto.assignToId.Value)
             {
+                assignmentChanged = true;
                 var assignActivity = new EngineerRequestActivite
                 {
                     EngineerRequestId = request.Id,
@@ -436,7 +499,7 @@ public class EngineerRequestService : IEngineerRequestService
             }
         }
         // If assigned engineer, do not allow assignment change
-        else if (isAssigned && actionDto.assignToId.HasValue && actionDto.assignToId.Value != currentUserId)
+        else if (isAssigned && actionDto.assignToId.HasValue && actionDto.assignToId.Value != currentEngineerId)
         {
             // Assigned engineer cannot reassign
             return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.CannotReassign]);
@@ -458,16 +521,16 @@ public class EngineerRequestService : IEngineerRequestService
             await _db.EngineerRequestActivites.AddAsync(statusActivity);
         }
 
-        if (isAssigned && request.timeDuration != actionDto.timeDuration.Value)
-        {
-            return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.TimeDurationMismatch]);
-        }
+        //if (isAssigned && request.timeDuration != actionDto.timeDuration.Value)
+        //{
+        //    return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.TimeDurationMismatch]);
+        //}
 
-        if (actionDto.timeDuration.HasValue)
+        if (actionDto.timeDuration.HasValue && actionDto.timeDuration != 0)
         {
             request.timeDuration = actionDto.timeDuration.Value;
             request.startDate = actionDto.startDate.Value;
-            request.endDate = actionDto.startDate.Value.AddDays(actionDto.timeDuration.Value);
+            request.endDate = actionDto.endDate;
         }                        
 
         if (actionDto.EngineerRequestNotes != null && actionDto.EngineerRequestNotes.Any())
@@ -476,6 +539,22 @@ public class EngineerRequestService : IEngineerRequestService
             {
                 var newNote = _mapper.Map<EngineerRequestNotes>(noteDto);
                 newNote.EngineerRequestId = request.Id;
+                newNote.EngineerId = currentEngineerId;
+
+                // Handle attachments for the new note
+                if (noteDto.Attachments != null && noteDto.Attachments.Any())
+                {
+                    var uploaded = await _storageService.UploadFiles(noteDto.Attachments.ToList());
+                    newNote.EngineerRequestAttachments = uploaded?.Select(f => new EngineerRequestAttachment
+                    {
+                        Key = f.Key,
+                        FileName = f.FileName,
+                        Extension = f.Extension,
+                        FileSize = f.FileSize,
+                        Url = f.Url
+                    }).ToList();
+                }
+
                 await _db.EngineerRequestNotes.AddAsync(newNote);
             }
         }
@@ -493,7 +572,8 @@ public class EngineerRequestService : IEngineerRequestService
                 request.Id);
         }
 
-        if (request.assignToId.HasValue)
+        // Only notify when assignment actually changed (new assignment or reassignment)
+        if (assignmentChanged && request.assignToId.HasValue)
         {
             var assignEngineer = await _db.Engineers
             .FirstOrDefaultAsync(r => r.Id == request.assignToId);
@@ -544,6 +624,7 @@ public class EngineerRequestService : IEngineerRequestService
                     filter.PageSize);
             }
 
+
             // Check if user is a team lead
             var isTeamLead = await (from eng in _db.Engineers
                                    join userRole in _db.UserRoles on eng.ApplicationUserId equals userRole.UserId
@@ -552,31 +633,48 @@ public class EngineerRequestService : IEngineerRequestService
                                    select eng.Id)
                        .AnyAsync();
 
+            // Check if department has a team lead
+            bool departmentHasTeamLead = false;
+            if (engineer.DepartmentId.HasValue)
+            {
+                departmentHasTeamLead = await DepartmentHasTeamLeadAsync(engineer.DepartmentId.Value);
+            }
+
             var query = _db.EngineerRequests
                 .Include(r => r.Project)
                 .Include(r => r.Department)
                 .Include(r => r.Priority)
                 .Include(r => r.Status)
+                .Include(r => r.EngineerRequestAttachments)
                 .Include(r => r.Engineer)
                     .ThenInclude(e => e.Department)
                 .Include(r => r.Engineer)
                     .ThenInclude(e => e.ApplicationUser)
                 .Include(r => r.EngineerRequestNotes)
+                    .ThenInclude(n => n.EngineerRequestAttachments)
                 .Include(r => r.EngineerRequestActivites)
                     .ThenInclude(a => a.Engineer)
                 .Include(r => r.EngineerRequestActivites)
                     .ThenInclude(a => a.Status)
                 .AsNoTracking();
 
-            // If team lead, get all requests in their department
             if (isTeamLead && engineer.DepartmentId.HasValue)
             {
-                query = query.Where(r => r.DepartmentId == engineer.DepartmentId.Value);
+                // Team lead: see all requests in their department OR requests they created
+                query = query.Where(r => r.DepartmentId == engineer.DepartmentId.Value || r.EngineerId == engineer.Id);
+            }
+            else if (!departmentHasTeamLead && engineer.DepartmentId.HasValue)
+            {
+                // No team lead: show requests in department (if assignToId is null/empty or assigned to them), OR requests they created
+                query = query.Where(r => 
+                    (r.DepartmentId == engineer.DepartmentId.Value && 
+                        (r.assignToId == null || r.assignToId == Guid.Empty || r.assignToId == engineer.Id)) 
+                    || r.EngineerId == engineer.Id);
             }
             else
             {
-                // If regular engineer, get only requests assigned to them
-                query = query.Where(r => r.assignToId == engineer.Id);
+                // Regular engineer: requests assigned to them OR requests they created
+                query = query.Where(r => r.assignToId == engineer.Id || r.EngineerId == engineer.Id);
             }
 
             if (string.IsNullOrWhiteSpace(filter.Sort))
@@ -621,6 +719,14 @@ public class EngineerRequestService : IEngineerRequestService
                 filter.PageSize);
         }
     }
+    private async Task<bool> DepartmentHasTeamLeadAsync(Guid departmentId)
+    {
+        return await (from eng in _db.Engineers
+                      join userRole in _db.UserRoles on eng.ApplicationUserId equals userRole.UserId
+                      join role in _db.Roles on userRole.RoleId equals role.Id
+                      where eng.DepartmentId == departmentId && role.Name == RoleNames.Teamleadengineer
+                      select eng.Id).AnyAsync();
+    }
 
     // ---------------- GET REQUEST ACTIVITIES ----------------
     public async Task<List<GetEngineerRequestActiviteDto>> GetRequestActivitiesAsync(Guid requestId)
@@ -651,8 +757,31 @@ public class EngineerRequestService : IEngineerRequestService
     // ---------------- GET ENGINEER REQUEST COUNT BY STATUS ----------------
     public async Task<List<GetEngineerRequestCountByStatusDto>> GetEngineerRequestCountByStatusAsync(Guid engineerId)
     {
-        var requestCounts = await _db.EngineerRequests
-            .Where(er => er.EngineerId == engineerId || er.assignToId == engineerId)
+        // Load engineer to determine department and manager status
+        var engineer = await _db.Engineers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == engineerId);
+
+        bool isTeamLeadForDepartment = false;
+        if (engineer.DepartmentId.HasValue)
+        {
+            isTeamLeadForDepartment = await IsEngineerManagerOfDepartmentAsync(engineerId, engineer.DepartmentId.Value);
+        }
+
+        IQueryable<EngineerRequest> query = _db.EngineerRequests;
+
+        if (isTeamLeadForDepartment && engineer.DepartmentId.HasValue)
+        {
+            // Department manager: count all requests under their department
+            query = query.Where(er => er.DepartmentId == engineer.DepartmentId.Value);
+        }
+        else
+        {
+            // Regular engineer: count only own or assigned requests
+            query = query.Where(er => er.EngineerId == engineerId || er.assignToId == engineerId);
+        }
+
+        var requestCounts = await query
             .GroupBy(er => new { er.StatusId, er.Status.nameEn })
             .Select(g => new GetEngineerRequestCountByStatusDto
             {
