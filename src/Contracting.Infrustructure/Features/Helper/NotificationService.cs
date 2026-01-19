@@ -156,43 +156,38 @@ namespace Contracting.Infrustructure.Features.Helper
             }
         }
 
-        public Task SendNotificationToUserAsync(Guid userId, string title, string body, Guid? requestId = null, Guid? departmentId = null)
+        public async Task SendNotificationToUserAsync(Guid userId, string title, string body, Guid? requestId = null, Guid? departmentId = null)
         {
             if (userId == Guid.Empty)
-                return Task.CompletedTask;
+                return;
 
-            var tokens = _db.userDeviceTokens
+            var tokens = await _db.userDeviceTokens
                 .Where(t => t.UserId == userId)
                 .Select(t => t.FcmToken)
                 .ToListAsync();
 
             // enqueue a background job per token
-            tokens.ContinueWith(async tks =>
+            foreach (var token in tokens)
             {
-                foreach (var token in tks.Result)
+                var notification = new PushNotificationDto
                 {
-                    var notification = new PushNotificationDto
-                    {
-                        Token = token,
-                        Title = title,
-                        Body = body,
-                        RequestId = requestId?.ToString(),
-                        DepartmentId = departmentId?.ToString()
-                    };
-                    try
-                    {
-                        _backgroundJobClient.Enqueue<NotificationService>(svc => svc.SendAsync(notification));
-                        await LogNotificationAsync(notification, true, null);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to enqueue notification job");
-                        await LogNotificationAsync(notification, false, ex.Message);
-                    }
+                    Token = token,
+                    Title = title,
+                    Body = body,
+                    RequestId = requestId?.ToString(),
+                    DepartmentId = departmentId?.ToString()
+                };
+                try
+                {
+                    _backgroundJobClient.Enqueue<NotificationService>(svc => svc.SendAsync(notification));
+                    await LogNotificationAsync(notification, true, null);
                 }
-            });
-
-            return Task.CompletedTask;
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to enqueue notification job");
+                    await LogNotificationAsync(notification, false, ex.Message);
+                }
+            }
         }
 
     }
