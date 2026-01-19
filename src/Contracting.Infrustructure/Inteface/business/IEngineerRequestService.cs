@@ -40,5 +40,7 @@ namespace Contracting.Infrustructure.Inteface.business
 
         // Get count of engineer requests by status
         Task<List<GetEngineerRequestCountByStatusDto>> GetEngineerRequestCountByStatusAsync(Guid engineerId);
+        Task<bool> DepartmentHasTeamLeadAsync(Guid departmentId);
+
     }
 }

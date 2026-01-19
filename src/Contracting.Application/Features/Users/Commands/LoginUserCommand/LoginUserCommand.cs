@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Options;
 using Microsoft.EntityFrameworkCore;
+using Contracting.Infrustructure.Inteface.business;
 
 namespace Contracting.Application.Features.Users.Commands.LoginUserCommand;
 
@@ -24,7 +25,7 @@ public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, ErrorOr
     private readonly JwtSettings _jwt;
     private readonly ApplicationDbContext _db;
     private readonly IStringLocalizer<SharedResources> _localizer;
-
+    private readonly IEngineerRequestService _engineerRequest;
 
     public LoginUserCommandHandler(
         UserManager<ApplicationUser> userManager,
@@ -34,7 +35,9 @@ public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, ErrorOr
         IHttpContextAccessor http,
         IOptions<JwtSettings> jwtOptions,
         ApplicationDbContext db,
-        IStringLocalizer<SharedResources> localizer = null)
+        IEngineerRequestService engineerRequest,
+        IStringLocalizer<SharedResources> localizer = null
+         )
     {
         _userManager = userManager;
         _signInManager = signInManager;
@@ -44,6 +47,7 @@ public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, ErrorOr
         _jwt = jwtOptions.Value;
         _db = db;
         _localizer = localizer;
+        _engineerRequest = engineerRequest;
     }
 
     public async Task<ErrorOr<TokenPairResponse>> Handle(LoginUserCommand request, CancellationToken cancellationToken)
@@ -67,9 +71,14 @@ public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, ErrorOr
         
         var departmentId = engineer?.Department?.Id;
         var engineerId = engineer?.Id;
+        bool departmentHaveTeamLeadOrNot = false;
+        if (departmentId != Guid.Empty && departmentId !=null)
+        {
+            departmentHaveTeamLeadOrNot = await _engineerRequest.DepartmentHasTeamLeadAsync(departmentId??Guid.Empty);
+        }
 
         var roles = await _userManager.GetRolesAsync(user);
-        var accessToken = _tokenService.GenerateToken(user, roles, departmentId, engineerId);
+        var accessToken = _tokenService.GenerateToken(user, roles, departmentId, engineerId, departmentHaveTeamLeadOrNot);
         var accessExp = DateTime.UtcNow.AddMinutes(_jwt.DurationInMinutes);
 
         var ip = _http.HttpContext?.Connection.RemoteIpAddress?.ToString();

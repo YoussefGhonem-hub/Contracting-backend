@@ -10,8 +10,8 @@ namespace Contracting.Infrustructure.Identity;
 
 public interface ITokenService
 {
-    string GenerateToken(ApplicationUser user, IList<string> roles, Guid? departmentId = null, Guid? engineerId = null);
-    (string AccessToken, DateTime ExpiresAtUtc) GenerateAccessToken(ApplicationUser user, IList<string> roles, Guid? departmentId = null, Guid? engineerId = null);
+    string GenerateToken(ApplicationUser user, IList<string> roles, Guid? departmentId = null, Guid? engineerId = null, bool departmentHaveTeamLeadOrNot = false);
+    (string AccessToken, DateTime ExpiresAtUtc) GenerateAccessToken(ApplicationUser user, IList<string> roles, Guid? departmentId = null, Guid? engineerId = null, bool departmentHaveTeamLeadOrNot = false);
 }
 
 public class TokenService : ITokenService
@@ -20,7 +20,7 @@ public class TokenService : ITokenService
 
     public TokenService(IOptions<JwtSettings> settings) => _settings = settings.Value;
 
-    public (string AccessToken, DateTime ExpiresAtUtc) GenerateAccessToken(ApplicationUser user, IList<string> roles, Guid? departmentId = null, Guid? engineerId = null)
+    public (string AccessToken, DateTime ExpiresAtUtc) GenerateAccessToken(ApplicationUser user, IList<string> roles, Guid? departmentId = null, Guid? engineerId = null, bool departmentHaveTeamLeadOrNot = false)
     {
         var now = DateTime.UtcNow;
         var expires = now.AddMinutes(_settings.DurationInMinutes);
@@ -52,6 +52,9 @@ public class TokenService : ITokenService
 
         claims.Add(new Claim("roles", JsonSerializer.Serialize(roles ?? Array.Empty<string>())));
 
+        claims.Add(new Claim("departmentHaveTeamLeadOrNot", departmentHaveTeamLeadOrNot.ToString()));
+
+
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.Key));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
@@ -66,6 +69,6 @@ public class TokenService : ITokenService
         return (new JwtSecurityTokenHandler().WriteToken(token), expires);
     }
 
-    public string GenerateToken(ApplicationUser user, IList<string> roles, Guid? departmentId = null, Guid? engineerId = null)
-        => GenerateAccessToken(user, roles, departmentId, engineerId).AccessToken;
+    public string GenerateToken(ApplicationUser user, IList<string> roles, Guid? departmentId = null, Guid? engineerId = null, bool departmentHaveTeamLeadOrNot = false)
+        => GenerateAccessToken(user, roles, departmentId, engineerId, departmentHaveTeamLeadOrNot).AccessToken;
 }

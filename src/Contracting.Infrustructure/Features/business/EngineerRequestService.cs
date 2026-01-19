@@ -719,7 +719,7 @@ public class EngineerRequestService : IEngineerRequestService
                 filter.PageSize);
         }
     }
-    private async Task<bool> DepartmentHasTeamLeadAsync(Guid departmentId)
+    public async Task<bool> DepartmentHasTeamLeadAsync(Guid departmentId)
     {
         return await (from eng in _db.Engineers
                       join userRole in _db.UserRoles on eng.ApplicationUserId equals userRole.UserId
