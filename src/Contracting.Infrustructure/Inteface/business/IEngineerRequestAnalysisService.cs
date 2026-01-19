@@ -12,6 +12,7 @@ namespace Contracting.Infrustructure.Inteface.business
         Task<LeadCycleTimeDto> GetLeadAndCycleTimeAsync(CancellationToken cancellationToken = default);
         Task<OverdueRiskDto> GetOverdueRiskAsync(CancellationToken cancellationToken = default);
         Task<AssigneePerformanceReportDto> GetAssigneePerformanceAsync(CancellationToken cancellationToken = default);
+        Task<AssigneePerformanceReportDto> GetAssigneePerformanceByEngineerIdAsync(Guid engineerId, CancellationToken cancellationToken = default);
         Task<ReworkRateDto> GetReworkRateAsync(CancellationToken cancellationToken = default);
     }
 }

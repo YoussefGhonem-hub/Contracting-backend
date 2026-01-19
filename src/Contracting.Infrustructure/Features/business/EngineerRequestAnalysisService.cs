@@ -346,6 +346,64 @@ namespace Contracting.Infrustructure.Features.business
             };
         }
 
+        public async Task<AssigneePerformanceReportDto> GetAssigneePerformanceByEngineerIdAsync(Guid engineerId, CancellationToken cancellationToken = default)
+        {
+            var statusSets = await GetStatusSetsAsync(cancellationToken);
+            var filterContext = await GetUserFilterContextAsync(cancellationToken);
+            var items = await QueryRequestsDetailedWithFilterAsync(statusSets.CompletedStatusIds, filterContext, cancellationToken);
+
+            var filteredItems = items
+                .Where(i => i.AssignedEngineerId.HasValue && i.AssignedEngineerId.Value == engineerId)
+                .ToList();
+
+            var assigneeGroups = filteredItems
+                .GroupBy(i => new { i.AssignedEngineerId, i.AssignedEngineerName })
+                .Select(g =>
+                {
+                    var total = g.Count();
+                    var completed = g.Count(i => statusSets.CompletedStatusIds.Contains(i.StatusId));
+                    var completionRate = total == 0 ? 0m : Math.Round((decimal)completed / total * 100m, 2, MidpointRounding.AwayFromZero);
+
+                    var avgCompletionDays = g
+                        .Where(i => statusSets.CompletedStatusIds.Contains(i.StatusId) && i.CompletedAt.HasValue)
+                        .Select(i =>
+                        {
+                            var start = i.StartDate.HasValue
+                                ? new DateTimeOffset(i.StartDate.Value)
+                                : i.CreatedDate;
+                            return (i.CompletedAt!.Value - start).TotalDays;
+                        })
+                        .Where(d => d >= 0)
+                        .ToList();
+
+                    var avg = avgCompletionDays.Count == 0
+                        ? 0m
+                        : Math.Round((decimal)avgCompletionDays.Average(), 2, MidpointRounding.AwayFromZero);
+                    var deparmentId = g.Select(s => s.DepartmentId).FirstOrDefault();
+                    var deparmentName = g.Select(s => s.DepartmentName).FirstOrDefault();
+
+                    return new AssigneePerformanceDto
+                    {
+                        EngineerId = g.Key.AssignedEngineerId,
+                        EngineerName = string.IsNullOrWhiteSpace(g.Key.AssignedEngineerName) ? "Unspecified" : g.Key.AssignedEngineerName,
+                        DepartmentId = deparmentId,
+                        DepartmentName = string.IsNullOrEmpty(deparmentName) ? "" : deparmentName,
+                        TotalAssigned = total,
+                        CompletedAssigned = completed,
+                        CompletionRate = completionRate,
+                        AverageCompletionDays = avg
+                    };
+                })
+                .OrderByDescending(x => x.TotalAssigned)
+                .ToList();
+
+            return new AssigneePerformanceReportDto
+            {
+                TotalAssignedRequests = assigneeGroups.Sum(x => x.TotalAssigned),
+                Assignees = assigneeGroups
+            };
+        }
+
         public async Task<ReworkRateDto> GetReworkRateAsync(CancellationToken cancellationToken = default)
         {
             var statusSets = await GetStatusSetsAsync(cancellationToken);

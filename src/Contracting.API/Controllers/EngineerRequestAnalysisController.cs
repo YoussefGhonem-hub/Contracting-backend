@@ -1,5 +1,6 @@
 using Contracting.API.Controllers.Shared;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetAssigneePerformance;
+using Contracting.Application.Features.Business.EngineerRequest.Query.GetAssigneePerformanceByEngineerId;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetAgingReport;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetLeadCycleTime;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetOfficeEngineerAnalysis;
@@ -215,6 +216,31 @@ namespace Contracting.API.Controllers
         public async Task<IActionResult> GetAssigneePerformance()
         {
             var query = new GetAssigneePerformanceQuery();
+            var result = await _mediator.Send(query);
+
+            return result.Match(
+                data => Ok(data),
+                errors => Problem(errors)
+            );
+        }
+
+        /// <summary>
+        /// Retrieves assignee performance metrics for a specific engineer.
+        /// </summary>
+        /// <remarks>
+        /// Returns performance data for the specified engineer, including completed requests,
+        /// average completion time, and workload distribution.
+        /// </remarks>
+        /// <param name="engineerId">Engineer ID to filter by</param>
+        /// <returns>Assignee performance metrics for the engineer</returns>
+        /// <response code="200">Returns the assignee performance data</response>
+        /// <response code="401">Unauthorized - User is not authenticated</response>
+        [HttpGet("assignee-performance/{engineerId:guid}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> GetAssigneePerformanceByEngineerId(Guid engineerId)
+        {
+            var query = new GetAssigneePerformanceByEngineerIdQuery(engineerId);
             var result = await _mediator.Send(query);
 
             return result.Match(
