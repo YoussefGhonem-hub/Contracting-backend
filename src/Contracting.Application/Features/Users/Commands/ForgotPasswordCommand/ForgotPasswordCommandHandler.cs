@@ -81,12 +81,17 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
         // Send verification code email
         try
         {
-            await _emailService.SendEmailAsync(
+            var sendOnot = await _emailService.SendEmailAsync(
                 user.Email!,
                 "Password Reset Verification Code - Contracting System",
                 "reset-password-code.html",
                 replacements,
                 cancellationToken);
+
+            if (!sendOnot)
+            {
+                return Error.Failure("Falied","Failed to send verification code. Please try again later.");
+            }
         }
         catch (Exception ex)
         {
