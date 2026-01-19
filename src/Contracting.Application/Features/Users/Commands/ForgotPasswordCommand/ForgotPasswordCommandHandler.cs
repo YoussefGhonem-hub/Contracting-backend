@@ -41,7 +41,7 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
         if (user == null)
         {
             // Return success even if user doesn't exist (security best practice - don't reveal if email exists)
-            return "If the email exists in our system, a verification code has been sent.";
+            return Error.NotFound("Not-Found", "If the email exists in our system, a verification code has been sent.");
         }
 
         // Invalidate any existing unused codes for this user
