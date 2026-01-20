@@ -18,6 +18,12 @@ public static class DependencyInjection
         if (string.IsNullOrWhiteSpace(sendGridSettings.ApiKey))
             throw new InvalidOperationException("SendGrid API key is not configured. Please add 'SendGridSettings:ApiKey' to configuration.");
 
+        if (string.IsNullOrWhiteSpace(sendGridSettings.FromEmail))
+            throw new InvalidOperationException("SendGrid FromEmail is not configured. Please add 'SendGridSettings:FromEmail' to configuration. Note: This email must be verified in your SendGrid account.");
+
+        if (string.IsNullOrWhiteSpace(sendGridSettings.FromName))
+            throw new InvalidOperationException("SendGrid FromName is not configured. Please add 'SendGridSettings:FromName' to configuration.");
+
         services.AddSingleton(sendGridSettings);
         services.AddScoped<IEmailService, SendGridEmailService>();
 
