@@ -34,6 +34,7 @@ namespace Contracting.Infrustructure.Inteface.business
 
         // Action on request (approve/reject) - creates entry in action table
         Task<GenericResponse> TakeActionOnRequestAsync(Guid requestId, Guid currentUserId, TakeActionRequestDto actionDto);
+        Task<GenericResponse> ReassignEngineerRequestAsync(Guid requestId, Guid currentUserId, ReassignEngineerRequestDto dto);
         
         // Get activities for a request
         Task<List<GetEngineerRequestActiviteDto>> GetRequestActivitiesAsync(Guid requestId);

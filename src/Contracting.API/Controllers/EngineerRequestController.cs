@@ -1,6 +1,7 @@
 using Contracting.API.Controllers.Shared;
 using Contracting.Application.Features.Business.EngineerRequest.Command.CreateEngineerRequest;
 using Contracting.Application.Features.Business.EngineerRequest.Command.DeleteEngineerRequest;
+using Contracting.Application.Features.Business.EngineerRequest.Command.ReassignEngineerRequest;
 using Contracting.Application.Features.Business.EngineerRequest.Command.TakeActionOnRequest;
 using Contracting.Application.Features.Business.EngineerRequest.Command.UpdateEngineerRequest;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetAllRequestsByDepartment;
@@ -115,6 +116,21 @@ namespace Contracting.API.Controllers
 
             return result.Match(
                 success => Ok(new { Message = "Request approved successfully" }),
+                errors => Problem(errors)
+            );
+        }
+
+        [HttpPost("{requestId:guid}/reassign")]
+        [Consumes("application/json")]
+        public async Task<IActionResult> Reassign(
+            Guid requestId,
+            [FromBody] ReassignEngineerRequestDto dto)
+        {
+            var command = new ReassignEngineerRequestCommand(requestId, dto);
+            var result = await _mediator.Send(command);
+
+            return result.Match(
+                success => Ok(success),
                 errors => Problem(errors)
             );
         }

@@ -96,6 +96,20 @@ public class EngineerRequestService : IEngineerRequestService
             }
         }
 
+        // Handle request-level attachments
+        if (dto.Attachments != null && dto.Attachments.Any())
+        {
+            var uploaded = await _storageService.UploadFiles(dto.Attachments.ToList());
+            request.EngineerRequestAttachments = uploaded?.Select(f => new EngineerRequestAttachment
+            {
+                Key = f.Key,
+                FileName = f.FileName,
+                Extension = f.Extension,
+                FileSize = f.FileSize,
+                Url = f.Url
+            }).ToList();
+        }
+
         await _db.EngineerRequests.AddAsync(request);
         
         // Create initial activity for request creation
@@ -604,6 +618,85 @@ public class EngineerRequestService : IEngineerRequestService
         return GenericResponse.SuccessResult(_localizer[SharedResourcesKeys.ActionTakenSuccess]);
     }
 
+    // ---------------- REASSIGN REQUEST ----------------
+    public async Task<GenericResponse> ReassignEngineerRequestAsync(Guid requestId, Guid currentUserId, ReassignEngineerRequestDto dto)
+    {
+        if (dto == null || dto.assignToId == Guid.Empty)
+            return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.CannotReassign]);
+
+        var request = await _db.EngineerRequests
+            .Include(r => r.Engineer)
+            .Include(r => r.assignTo)
+            .FirstOrDefaultAsync(r => r.Id == requestId);
+
+        if (request is null)
+            return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.RequestNotFound]);
+
+        if (!request.assignToId.HasValue || request.assignToId.Value == Guid.Empty)
+            return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.CannotReassign]);
+
+        var departmentId = request.DepartmentId;
+        if (!departmentId.HasValue)
+            return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.RequestNoDepartment]);
+
+        var departmentHasTeamLead = await DepartmentHasTeamLeadAsync(departmentId.Value);
+
+        var currentEngineerId = await _db.Engineers
+            .Where(e => e.ApplicationUserId == currentUserId)
+            .Select(e => e.Id)
+            .FirstOrDefaultAsync();
+
+        var isManager = await (from eng in _db.Engineers
+                               join userRole in _db.UserRoles on eng.ApplicationUserId equals userRole.UserId
+                               join role in _db.Roles on userRole.RoleId equals role.Id
+                               where eng.DepartmentId == departmentId.Value && role.Name == RoleNames.Teamleadengineer && eng.ApplicationUserId == currentUserId
+                               select eng.Id)
+                   .AnyAsync();
+
+        var isAssigned = request.assignToId.Value == currentEngineerId;
+
+        if (departmentHasTeamLead)
+        {
+            if (!isManager)
+                return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.Unauthorized]);
+        }
+        else
+        {
+            if (!isAssigned)
+                return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.Unauthorized]);
+        }
+
+        if (request.assignToId.Value == dto.assignToId)
+            return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.CannotReassign]);
+
+        request.assignToId = dto.assignToId;
+
+        var reassignActivity = new EngineerRequestActivite
+        {
+            EngineerRequestId = request.Id,
+            EngineerId = currentEngineerId,
+            StatusId = request.StatusId,
+            ActionType = "Reassigned"
+        };
+        await _db.EngineerRequestActivites.AddAsync(reassignActivity);
+
+        await _db.SaveChangesAsync();
+
+        var assignEngineer = await _db.Engineers
+            .FirstOrDefaultAsync(r => r.Id == request.assignToId);
+
+        if (assignEngineer?.ApplicationUserId != null && assignEngineer.ApplicationUserId != Guid.Empty)
+        {
+            await _notificationService.SendNotificationToUserAsync(
+                assignEngineer.ApplicationUserId,
+                "You Have Been Reassigned a Request",
+                "A request has been reassigned to you.",
+                request.Id);
+        }
+
+        return GenericResponse.SuccessResult(_localizer[SharedResourcesKeys.ActionTakenSuccess]);
+    }
+
 
 
     public async Task<PaginatedList<GetAllEngineerRequestDto>> GetCreatedRequestOrapplaied(BaseFilterDto filter, CancellationToken cancellationToken = default)
@@ -649,6 +742,10 @@ public class EngineerRequestService : IEngineerRequestService
                 .Include(r => r.Engineer)
                     .ThenInclude(e => e.Department)
                 .Include(r => r.Engineer)
+                    .ThenInclude(e => e.ApplicationUser)
+                .Include(r => r.assignTo)
+                    .ThenInclude(e => e.Department)
+                .Include(r => r.assignTo)
                     .ThenInclude(e => e.ApplicationUser)
                 .Include(r => r.EngineerRequestNotes)
                     .ThenInclude(n => n.EngineerRequestAttachments)
