@@ -27,7 +27,7 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\Contracting.Application\Contracting.Application.csproj" />
-		<ProjectReference Include="..\Emails.Mailersend\Emails.Mailersend.csproj" />
+		<ProjectReference Include="..\Emails.Mailerlite\Emails.Mailerlite.csproj" />
 		<ProjectReference Include="..\Logging.Serilog\Logging.Serilog.csproj" />
 	</ItemGroup>
 

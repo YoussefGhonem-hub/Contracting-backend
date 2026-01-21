@@ -1,4 +1,4 @@
-using Emails.Mailersend.Services;
+using Emails.Mailerlite.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -21,7 +21,7 @@ public class EmailTestController : ControllerBase
     }
 
     /// <summary>
-    /// Test endpoint to verify MailerSend configuration and email sending
+    /// Test endpoint to verify MailerLite configuration and email sending
     /// </summary>
     /// <param name="testEmail">Email address to send test email to</param>
     /// <returns>Success or error message</returns>
@@ -47,7 +47,7 @@ public class EmailTestController : ControllerBase
 
             var result = await _emailService.SendEmailAsync(
                 testEmail,
-                "Test Email - MailerSend Configuration Test",
+                "Test Email - MailerLite Configuration Test",
                 "reset-password-code.html",
                 replacements);
 
@@ -57,19 +57,19 @@ public class EmailTestController : ControllerBase
                 return Ok(new
                 {
                     success = true,
-                    message = $"✅ MailerSend successfully sent email to {testEmail}",
+                    message = $"✅ MailerLite successfully sent email to {testEmail}",
                     important = new[]
                     {
                         "Email sent successfully!",
                         $"Check {testEmail} inbox (including spam/junk folder)",
-                        "Check MailerSend Activity: https://app.mailersend.com/activity",
-                        "Verify your FromEmail is verified in MailerSend"
+                        "Check MailerLite Activity: https://app.mailerlite.com/",
+                        "Verify your FromEmail is verified in MailerLite"
                     },
                     nextSteps = new[]
                     {
                         "1. Check the application logs for detailed status",
-                        "2. Go to https://app.mailersend.com/activity to see delivery status",
-                        "3. If email not received, verify sender email in MailerSend"
+                        "2. Go to https://app.mailerlite.com/ to see delivery status",
+                        "3. If email not received, verify sender email in MailerLite"
                     }
                 });
             }
@@ -82,8 +82,8 @@ public class EmailTestController : ControllerBase
                     message = "Failed to send email. Check the application logs for details.",
                     troubleshooting = new[]
                     {
-                        "1. Verify your FromEmail is verified in MailerSend",
-                        "2. Check your MailerSend API token is correct",
+                        "1. Verify your FromEmail is verified in MailerLite",
+                        "2. Check your MailerLite API token is correct",
                         "3. Check application logs for detailed error messages"
                     }
                 });
@@ -126,7 +126,7 @@ public class EmailTestController : ControllerBase
     /// </summary>
     [HttpGet("configuration-check")]
     [AllowAnonymous] // Remove this in production
-    public IActionResult CheckConfiguration([FromServices] Emails.Mailersend.Models.MailerSendSettings settings)
+    public IActionResult CheckConfiguration([FromServices] Emails.Mailerlite.Models.MailerLiteSettings settings)
     {
         try
         {
@@ -152,7 +152,7 @@ public class EmailTestController : ControllerBase
                 return Ok(new
                 {
                     success = false,
-                    message = "MailerSend configuration has issues",
+                    message = "MailerLite configuration has issues",
                     issues = issues,
                     configuration = new
                     {
@@ -167,7 +167,7 @@ public class EmailTestController : ControllerBase
             return Ok(new
             {
                 success = true,
-                message = "✅ MailerSend configuration loaded successfully",
+                message = "✅ MailerLite configuration loaded successfully",
                 configuration = new
                 {
                     ApiTokenPrefix = settings.ApiToken?.Substring(0, Math.Min(15, settings.ApiToken?.Length ?? 0)) + "***",
@@ -177,10 +177,10 @@ public class EmailTestController : ControllerBase
                 },
                 nextSteps = new[]
                 {
-                    "1. Make sure FromEmail is verified in MailerSend dashboard",
+                    "1. Make sure FromEmail is verified in MailerLite dashboard",
                     "2. Use POST /api/EmailTest/send-test?testEmail=your@email.com to test",
                     "3. Check application logs for detailed error information",
-                    "4. Verify domain or email at: https://app.mailersend.com/email-verification"
+                    "4. Verify domain or email at: https://app.mailerlite.com/"
                 }
             });
         }
@@ -189,7 +189,7 @@ public class EmailTestController : ControllerBase
             return StatusCode(500, new
             {
                 success = false,
-                message = "MailerSend configuration error",
+                message = "MailerLite configuration error",
                 error = ex.Message
             });
         }
