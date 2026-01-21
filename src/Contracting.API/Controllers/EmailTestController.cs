@@ -1,4 +1,4 @@
-using Emails.SendGrid.Services;
+using Emails.Mailersend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -21,7 +21,7 @@ public class EmailTestController : ControllerBase
     }
 
     /// <summary>
-    /// Test endpoint to verify SendGrid configuration and email sending
+    /// Test endpoint to verify MailerSend configuration and email sending
     /// </summary>
     /// <param name="testEmail">Email address to send test email to</param>
     /// <returns>Success or error message</returns>
@@ -47,7 +47,7 @@ public class EmailTestController : ControllerBase
 
             var result = await _emailService.SendEmailAsync(
                 testEmail,
-                "Test Email - SendGrid Configuration Test",
+                "Test Email - MailerSend Configuration Test",
                 "reset-password-code.html",
                 replacements);
 
@@ -57,21 +57,19 @@ public class EmailTestController : ControllerBase
                 return Ok(new
                 {
                     success = true,
-                    message = $"SendGrid ACCEPTED the email to {testEmail}",
+                    message = $"✅ MailerSend successfully sent email to {testEmail}",
                     important = new[]
                     {
-                        "⚠️ ACCEPTED does NOT mean DELIVERED!",
-                        "SendGrid accepted the request but may not deliver if sender is not verified.",
-                        $"Check if email arrived at {testEmail} (including spam/junk folder)",
-                        "Check SendGrid Activity: https://app.sendgrid.com/email_activity",
-                        "If not delivered: Verify 'noreply@contracting.app' in SendGrid > Settings > Sender Authentication"
+                        "Email sent successfully!",
+                        $"Check {testEmail} inbox (including spam/junk folder)",
+                        "Check MailerSend Activity: https://app.mailersend.com/activity",
+                        "Verify your FromEmail is verified in MailerSend"
                     },
                     nextSteps = new[]
                     {
-                        "1. Check the application logs for SendGrid Message ID",
-                        "2. Go to https://app.sendgrid.com/email_activity and search for the message",
-                        "3. Look for delivery status, bounces, or blocks",
-                        "4. Verify sender email if status shows 'not authenticated'"
+                        "1. Check the application logs for detailed status",
+                        "2. Go to https://app.mailersend.com/activity to see delivery status",
+                        "3. If email not received, verify sender email in MailerSend"
                     }
                 });
             }
@@ -81,7 +79,13 @@ public class EmailTestController : ControllerBase
                 return StatusCode(500, new
                 {
                     success = false,
-                    message = "Failed to send email. Check the application logs for details."
+                    message = "Failed to send email. Check the application logs for details.",
+                    troubleshooting = new[]
+                    {
+                        "1. Verify your FromEmail is verified in MailerSend",
+                        "2. Check your MailerSend API token is correct",
+                        "3. Check application logs for detailed error messages"
+                    }
                 });
             }
         }
@@ -122,16 +126,16 @@ public class EmailTestController : ControllerBase
     /// </summary>
     [HttpGet("configuration-check")]
     [AllowAnonymous] // Remove this in production
-    public IActionResult CheckConfiguration([FromServices] Emails.SendGrid.Models.SendGridSettings settings)
+    public IActionResult CheckConfiguration([FromServices] Emails.Mailersend.Models.MailerSendSettings settings)
     {
         try
         {
             var issues = new List<string>();
             
-            if (string.IsNullOrWhiteSpace(settings.ApiKey))
-                issues.Add("ApiKey is missing");
-            else if (settings.ApiKey.Length < 20)
-                issues.Add("ApiKey appears to be invalid (too short)");
+            if (string.IsNullOrWhiteSpace(settings.ApiToken))
+                issues.Add("ApiToken is missing");
+            else if (settings.ApiToken.Length < 20)
+                issues.Add("ApiToken appears to be invalid (too short)");
                 
             if (string.IsNullOrWhiteSpace(settings.FromEmail))
                 issues.Add("FromEmail is missing");
@@ -143,25 +147,19 @@ public class EmailTestController : ControllerBase
             if (string.IsNullOrWhiteSpace(settings.FromName))
                 issues.Add("FromName is missing");
 
-            // Check for exact match with verified sender
-            var verifiedSender = "youssef.fcih@gmail.com";
-            var exactMatch = settings.FromEmail?.Equals(verifiedSender, StringComparison.Ordinal) ?? false;
-
             if (issues.Any())
             {
                 return Ok(new
                 {
                     success = false,
-                    message = "SendGrid configuration has issues",
+                    message = "MailerSend configuration has issues",
                     issues = issues,
                     configuration = new
                     {
-                        ApiKeyPrefix = settings.ApiKey?.Substring(0, Math.Min(15, settings.ApiKey?.Length ?? 0)) + "***",
+                        ApiTokenPrefix = settings.ApiToken?.Substring(0, Math.Min(15, settings.ApiToken?.Length ?? 0)) + "***",
                         FromEmail = settings.FromEmail,
                         FromEmailLength = settings.FromEmail?.Length ?? 0,
-                        FromName = settings.FromName,
-                        ExactMatchWithVerified = exactMatch,
-                        VerifiedSenderInSendGrid = verifiedSender
+                        FromName = settings.FromName
                     }
                 });
             }
@@ -169,27 +167,20 @@ public class EmailTestController : ControllerBase
             return Ok(new
             {
                 success = true,
-                message = exactMatch 
-                    ? "✅ Configuration matches verified sender!" 
-                    : "⚠️ Configuration loaded but FromEmail may not match verified sender",
+                message = "✅ MailerSend configuration loaded successfully",
                 configuration = new
                 {
-                    ApiKeyPrefix = settings.ApiKey?.Substring(0, Math.Min(15, settings.ApiKey?.Length ?? 0)) + "***",
+                    ApiTokenPrefix = settings.ApiToken?.Substring(0, Math.Min(15, settings.ApiToken?.Length ?? 0)) + "***",
                     FromEmail = settings.FromEmail,
                     FromEmailLength = settings.FromEmail?.Length ?? 0,
-                    FromName = settings.FromName,
-                    ExactMatchWithVerified = exactMatch,
-                    VerifiedSenderInSendGrid = verifiedSender,
-                    CharComparison = exactMatch ? "✅ Exact match" : $"❌ '{settings.FromEmail}' != '{verifiedSender}'"
+                    FromName = settings.FromName
                 },
                 nextSteps = new[]
                 {
-                    exactMatch 
-                        ? "✅ FromEmail matches verified sender - should work!" 
-                        : $"❌ Update FromEmail in appsettings.json to exactly: {verifiedSender}",
-                    "1. Restart the application after config changes",
+                    "1. Make sure FromEmail is verified in MailerSend dashboard",
                     "2. Use POST /api/EmailTest/send-test?testEmail=your@email.com to test",
-                    "3. Check application logs for detailed 403 error information"
+                    "3. Check application logs for detailed error information",
+                    "4. Verify domain or email at: https://app.mailersend.com/email-verification"
                 }
             });
         }
@@ -198,7 +189,7 @@ public class EmailTestController : ControllerBase
             return StatusCode(500, new
             {
                 success = false,
-                message = "SendGrid configuration error",
+                message = "MailerSend configuration error",
                 error = ex.Message
             });
         }

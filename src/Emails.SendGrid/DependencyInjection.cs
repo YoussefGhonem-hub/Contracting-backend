@@ -29,22 +29,4 @@ public static class DependencyInjection
 
         return services;
     }
-
-    /// <summary>
-    /// Registers SendGrid email service with explicit API key and settings
-    /// </summary>
-    public static IServiceCollection AddSendGridEmail(this IServiceCollection services, string apiKey, string? fromEmail = null, string? fromName = null)
-    {
-        var sendGridSettings = new SendGridSettings
-        {
-            ApiKey = apiKey,
-            FromEmail = fromEmail ?? "noreply@contracting.app",
-            FromName = fromName ?? "Contracting System"
-        };
-
-        services.AddSingleton(sendGridSettings);
-        services.AddScoped<IEmailService, SendGridEmailService>();
-
-        return services;
-    }
 }

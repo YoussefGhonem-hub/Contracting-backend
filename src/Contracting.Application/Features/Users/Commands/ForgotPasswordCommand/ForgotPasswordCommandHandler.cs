@@ -2,7 +2,7 @@ using Contracting.Domain.Entities;
 using Contracting.Domain.Entities.helper;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.Resources;
-using Emails.SendGrid.Services;
+using Emails.Mailersend.Services;
 using ErrorOr;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
