@@ -1,30 +1,35 @@
-using Emails.SendGrid.Models;
+using Emails.Mailersend.Models;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Logging;
-using SendGrid;
-using SendGrid.Helpers.Mail;
+using Newtonsoft.Json;
+using RestSharp;
 
-namespace Emails.SendGrid.Services;
+namespace Emails.Mailersend.Services;
 
-public class SendGridEmailService : IEmailService
+public class MailerSendEmailService : IEmailService
 {
-    private readonly SendGridClient _sendGridClient;
-    private readonly SendGridSettings _settings;
+    private readonly MailerSendSettings _settings;
     private readonly Microsoft.AspNetCore.Hosting.IHostingEnvironment _webHostEnvironment;
-    private readonly ILogger<SendGridEmailService> _logger;
+    private readonly ILogger<MailerSendEmailService> _logger;
+    private readonly RestClient _client;
 
-    public SendGridEmailService(SendGridSettings settings, Microsoft.AspNetCore.Hosting.IHostingEnvironment webHostEnvironment, ILogger<SendGridEmailService> logger)
+    public MailerSendEmailService(
+        MailerSendSettings settings,
+        Microsoft.AspNetCore.Hosting.IHostingEnvironment webHostEnvironment,
+        ILogger<MailerSendEmailService> logger)
     {
-        if (string.IsNullOrWhiteSpace(settings?.ApiKey))
-            throw new ArgumentException("SendGrid API key is required", nameof(settings));
+        if (string.IsNullOrWhiteSpace(settings?.ApiToken))
+            throw new ArgumentException("MailerSend API token is required", nameof(settings));
 
         if (string.IsNullOrWhiteSpace(settings?.FromEmail))
-            throw new ArgumentException("SendGrid FromEmail is required and must be verified in your SendGrid account", nameof(settings));
+            throw new ArgumentException("MailerSend FromEmail is required", nameof(settings));
 
         _settings = settings;
-        _sendGridClient = new SendGridClient(settings.ApiKey);
         _webHostEnvironment = webHostEnvironment;
         _logger = logger;
+        
+        var options = new RestClientOptions("https://api.mailersend.com/v1");
+        _client = new RestClient(options);
     }
 
     /// <summary>
@@ -95,94 +100,95 @@ public class SendGridEmailService : IEmailService
     }
 
     /// <summary>
-    /// Internal method to send email via SendGrid
+    /// Internal method to send email via MailerSend API
     /// </summary>
     private async Task<bool> SendEmailInternalAsync(string to, List<string>? cc, string subject, string htmlContent, CancellationToken cancellationToken = default)
     {
         try
         {
-            _logger.LogWarning("🔍 DIAGNOSTIC - About to send email:");
-            _logger.LogWarning("   From: '{FromEmail}' (Name: '{FromName}')", _settings.FromEmail, _settings.FromName);
-            _logger.LogWarning("   To: '{To}'", to);
-            _logger.LogWarning("   Subject: '{Subject}'", subject);
-            _logger.LogWarning("   API Key Prefix: {ApiKeyPrefix}***", _settings.ApiKey?.Substring(0, Math.Min(15, _settings.ApiKey?.Length ?? 0)));
+            _logger.LogInformation("Sending email via MailerSend - From: {FromEmail} ({FromName}), To: {To}, Subject: {Subject}",
+                _settings.FromEmail, _settings.FromName ?? "Support", to, subject);
 
-            var from = new EmailAddress(_settings.FromEmail, _settings.FromName ?? "Support");
-            var toEmail = new EmailAddress(to);
+            var request = new RestRequest("/email", Method.Post);
+            request.AddHeader("Authorization", $"Bearer {_settings.ApiToken}");
+            request.AddHeader("Content-Type", "application/json");
 
-            var msg = new SendGridMessage()
-            {
-                From = from,
-                Subject = subject,
-                HtmlContent = htmlContent
-            };
-
-            msg.AddTo(toEmail);
-
+            // Build the email payload according to MailerSend API documentation
+            object payload;
+            
             if (cc != null && cc.Any())
             {
-                foreach (var ccEmail in cc)
+                payload = new
                 {
-                    msg.AddCc(new EmailAddress(ccEmail));
-                }
-            }
-
-            var response = await _sendGridClient.SendEmailAsync(msg, cancellationToken);
-            var isSuccess = response.StatusCode == System.Net.HttpStatusCode.Accepted || response.StatusCode == System.Net.HttpStatusCode.OK;
-            var responseBody = await response.Body.ReadAsStringAsync();
-
-            // Extract SendGrid Message ID from headers
-            string? messageId = null;
-            if (response.Headers.TryGetValues("X-Message-Id", out var messageIds))
-            {
-                messageId = messageIds.FirstOrDefault();
-            }
-
-            if (!isSuccess)
-            {
-                // Special handling for common errors
-                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-                {
-                    _logger.LogError("UNAUTHORIZED (401) - SendGrid API Key is invalid or expired. " +
-                        "Please verify your API key in appsettings.json. " +
-                        "Current FromEmail: {FromEmail}, Response: {Response}",
-                        _settings.FromEmail, responseBody);
-                }
-                else if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
-                {
-                    _logger.LogError("❌ FORBIDDEN (403) ERROR - SendGrid is BLOCKING your email!");
-                    _logger.LogError("   FromEmail being used: '{FromEmail}'", _settings.FromEmail);
-                    _logger.LogError("   Verified senders in SendGrid: Check https://app.sendgrid.com/settings/sender_auth/senders");
-                    _logger.LogError("   Response from SendGrid: {Response}", responseBody);
-                    _logger.LogError("");
-                    _logger.LogError("🔧 SOLUTIONS:");
-                    _logger.LogError("   1. Make sure '{FromEmail}' is EXACTLY verified in SendGrid (case-sensitive, no extra spaces)", _settings.FromEmail);
-                    _logger.LogError("   2. Check if you need Domain Authentication instead of Single Sender");
-                    _logger.LogError("   3. Verify your SendGrid account is not suspended or restricted");
-                    _logger.LogError("   4. Try using the EXACT email from your verified sender: youssef.fcih@gmail.com");
-                }
-                else
-                {
-                    _logger.LogError("SendGrid email failed. Status: {StatusCode}, To: {To}, Subject: {Subject}, FromEmail: {FromEmail}, Response: {Response}",
-                        response.StatusCode, to, subject, _settings.FromEmail, responseBody);
-                }
+                    from = new
+                    {
+                        email = _settings.FromEmail,
+                        name = _settings.FromName ?? "Support"
+                    },
+                    to = new[]
+                    {
+                        new { email = to }
+                    },
+                    cc = cc.Select(email => new { email }).ToArray(),
+                    subject = subject,
+                    html = htmlContent
+                };
             }
             else
             {
-                _logger.LogWarning("⚠️ SendGrid ACCEPTED request (Status: {StatusCode}) for email to {To}. " +
-                    "MessageId: {MessageId}. " +
-                    "⚠️ IMPORTANT: This does NOT mean the email was delivered! " +
-                    "Check SendGrid Activity (https://app.sendgrid.com/email_activity) to verify delivery. " +
-                    "Common reasons for non-delivery: FromEmail '{FromEmail}' not verified, recipient blocked you, spam filters.",
-                    response.StatusCode, to, messageId ?? "N/A", _settings.FromEmail);
+                payload = new
+                {
+                    from = new
+                    {
+                        email = _settings.FromEmail,
+                        name = _settings.FromName ?? "Support"
+                    },
+                    to = new[]
+                    {
+                        new { email = to }
+                    },
+                    subject = subject,
+                    html = htmlContent
+                };
             }
 
-            return isSuccess;
+            var jsonPayload = JsonConvert.SerializeObject(payload);
+            request.AddStringBody(jsonPayload, ContentType.Json);
+
+            var response = await _client.ExecuteAsync(request, cancellationToken);
+
+            if (response.IsSuccessful)
+            {
+                _logger.LogInformation("✅ MailerSend email sent successfully to {To}. Status: {StatusCode}",
+                    to, response.StatusCode);
+                return true;
+            }
+            else
+            {
+                _logger.LogError("❌ MailerSend email failed. Status: {StatusCode}, To: {To}, Subject: {Subject}, Error: {Error}",
+                    response.StatusCode, to, subject, response.Content);
+
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    _logger.LogError("UNAUTHORIZED (401) - MailerSend API token is invalid or expired. Please verify your API token in appsettings.json.");
+                }
+                else if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+                {
+                    _logger.LogError("FORBIDDEN (403) - Your MailerSend account might not have permission to send from {FromEmail}. " +
+                        "Make sure the domain is verified in your MailerSend account.", _settings.FromEmail);
+                }
+                else if (response.StatusCode == System.Net.HttpStatusCode.UnprocessableEntity)
+                {
+                    _logger.LogError("UNPROCESSABLE ENTITY (422) - The email request is invalid. Make sure FromEmail ({FromEmail}) is verified and formatted correctly.", 
+                        _settings.FromEmail);
+                }
+
+                return false;
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Exception sending email to {To} with subject '{Subject}'. From: {FromEmail}, ApiKey: {ApiKeyPrefix}***", 
-                to, subject, _settings.FromEmail, _settings.ApiKey?.Substring(0, Math.Min(10, _settings.ApiKey?.Length ?? 0)));
+            _logger.LogError(ex, "Exception sending email via MailerSend to {To} with subject '{Subject}'", to, subject);
             return false;
         }
     }
