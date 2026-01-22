@@ -124,6 +124,7 @@ namespace Contracting.Infrustructure.Features
             {
                 var query = _db.Engineers
                     .Include(x => x.Department)
+                    .ThenInclude(x => x.Branch)
                     .Include(x => x.ApplicationUser)
                     .Where(e => e.DepartmentId == departmentId)
                     .AsNoTracking();
@@ -201,6 +202,7 @@ namespace Contracting.Infrustructure.Features
             {
                 var query = _db.Engineers
                     .Include(x => x.Department)
+                    .ThenInclude(x=>x.Branch)
                     .Include(x => x.ApplicationUser)
                     .AsNoTracking();
 
@@ -275,6 +277,7 @@ namespace Contracting.Infrustructure.Features
         {
             var engineer = await _db.Engineers
                 .Include(e => e.Department)
+                .ThenInclude(e => e.Branch)
                 .Include(e=>e.ApplicationUser)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(e => e.Id == engineerId);
@@ -303,7 +306,8 @@ namespace Contracting.Infrustructure.Features
         public async Task<List<GetEngineerDropDownDto>> GetEngineerDropdownAsync(Guid departmentId)
         {
             var engineers = await _db.Engineers.Where(x=>x.DepartmentId == departmentId)
-               .Include(e => e.Department) // Ensure Department is eagerly loaded
+               .Include(e => e.Department)
+                   .ThenInclude(e => e.Branch) // Ensure Department.Branch is eagerly loaded
                .AsNoTracking()
                .ToListAsync();
 
