@@ -22,6 +22,9 @@ namespace Contracting.Infrustructure.Inteface.business
             Guid departmentId,
             BaseFilterDto filter,
             CancellationToken cancellationToken = default);
+        Task<PaginatedList<GetAllEngineerRequestDto>> FilterEngineerRequestsAsync(
+            EngineerRequestFilterDto filter,
+            CancellationToken cancellationToken = default);
         Task<PaginatedList<GetAllEngineerRequestDto>> GetCreatedRequestOrapplaied(
             BaseFilterDto filter,
             CancellationToken cancellationToken = default);

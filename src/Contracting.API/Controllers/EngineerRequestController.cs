@@ -5,6 +5,7 @@ using Contracting.Application.Features.Business.EngineerRequest.Command.Reassign
 using Contracting.Application.Features.Business.EngineerRequest.Command.TakeActionOnRequest;
 using Contracting.Application.Features.Business.EngineerRequest.Command.UpdateEngineerRequest;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetAllRequestsByDepartment;
+using Contracting.Application.Features.Business.EngineerRequest.Query.GetEngineerRequestsByFilter;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequestActivities;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequestById;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequestCreatedOrApplyToEngineer;
@@ -72,6 +73,19 @@ namespace Contracting.API.Controllers
         public async Task<IActionResult> GetAllByDepartment(Guid departmentId, [FromQuery] BaseFilterDto filter)
         {
             var query = new GetAllRequestsByDepartmentQuery(departmentId, filter);
+            var result = await _mediator.Send(query);
+
+            return result.Match(
+                requests => Ok(requests),
+                errors => Problem(errors)
+            );
+        }
+
+        // Filter Engineer Requests
+        [HttpGet("filter")]
+        public async Task<IActionResult> Filter([FromQuery] EngineerRequestFilterDto filter)
+        {
+            var query = new GetEngineerRequestsByFilterQuery(filter);
             var result = await _mediator.Send(query);
 
             return result.Match(

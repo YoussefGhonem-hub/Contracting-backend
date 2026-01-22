@@ -386,6 +386,98 @@ public class EngineerRequestService : IEngineerRequestService
         }
     }
 
+    // ---------------- FILTER ENGINEER REQUESTS ----------------
+    public async Task<PaginatedList<GetAllEngineerRequestDto>> FilterEngineerRequestsAsync(
+        EngineerRequestFilterDto filter,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var query = _db.EngineerRequests
+                .Include(r => r.Project)
+                .Include(r => r.Department)
+                .Include(r => r.Priority)
+                .Include(r => r.Status)
+                .Include(r => r.EngineerRequestAttachments)
+                .Include(r => r.Engineer)
+                    .ThenInclude(e => e.Department)
+                .Include(r => r.Engineer)
+                    .ThenInclude(e => e.ApplicationUser)
+                .Include(r => r.assignTo)
+                    .ThenInclude(e => e.Department)
+                .Include(r => r.assignTo)
+                    .ThenInclude(e => e.ApplicationUser)
+                .Include(r => r.EngineerRequestNotes)
+                    .ThenInclude(n => n.EngineerRequestAttachments)
+                .Include(r => r.EngineerRequestActivites)
+                    .ThenInclude(a => a.Engineer)
+                .Include(r => r.EngineerRequestActivites)
+                    .ThenInclude(a => a.Status)
+                .AsNoTracking();
+
+            if (filter.DepartmentId.HasValue && filter.DepartmentId.Value != Guid.Empty)
+            {
+                query = query.Where(r => r.DepartmentId == filter.DepartmentId.Value);
+            }
+
+            if (filter.StatusId.HasValue && filter.StatusId.Value != Guid.Empty)
+            {
+                query = query.Where(r => r.StatusId == filter.StatusId.Value);
+            }
+
+            if (filter.FromDate.HasValue)
+            {
+                query = query.Where(r => r.startDate.HasValue && r.startDate.Value >= filter.FromDate.Value);
+            }
+
+            if (filter.ToDate.HasValue)
+            {
+                query = query.Where(r => r.endDate.HasValue && r.endDate.Value <= filter.ToDate.Value);
+            }
+
+            if (string.IsNullOrWhiteSpace(filter.Sort))
+            {
+                query = query.OrderByDescending(r => r.CreatedDate);
+            }
+            else
+            {
+                query = query.OrderByDynamic(filter.Sort, filter.Descending);
+            }
+
+            var totalCount = await query.CountAsync(cancellationToken);
+
+            if (totalCount == 0)
+            {
+                return new PaginatedList<GetAllEngineerRequestDto>(
+                    new List<GetAllEngineerRequestDto>(),
+                    0,
+                    filter.PageIndex,
+                    filter.PageSize);
+            }
+
+            var requests = await query
+                .Skip((filter.PageIndex - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .ToListAsync(cancellationToken);
+
+            var requestDtos = _mapper.Map<List<GetAllEngineerRequestDto>>(requests);
+
+            return new PaginatedList<GetAllEngineerRequestDto>(
+                requestDtos,
+                totalCount,
+                filter.PageIndex,
+                filter.PageSize);
+        }
+        catch (Exception)
+        {
+            return new PaginatedList<GetAllEngineerRequestDto>(
+                new List<GetAllEngineerRequestDto>(),
+                0,
+                filter.PageIndex,
+                filter.PageSize);
+        }
+    }
+
     // ---------------- GET BY ID ----------------
     public async Task<GetAllEngineerRequestDto> GetEngineerRequestByIdAsync(Guid requestId)
     {
