@@ -425,6 +425,11 @@ public class EngineerRequestService : IEngineerRequestService
                 query = query.Where(r => r.StatusId == filter.StatusId.Value);
             }
 
+            if (filter.EngineerId.HasValue && filter.EngineerId.Value != Guid.Empty)
+            {
+                query = query.Where(r => r.assignToId == filter.EngineerId.Value);
+            }
+
             if (filter.FromDate.HasValue)
             {
                 query = query.Where(r => r.startDate.HasValue && r.startDate.Value >= filter.FromDate.Value);

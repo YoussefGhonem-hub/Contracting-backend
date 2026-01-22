@@ -6,5 +6,6 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestDto
         public DateTime? ToDate { get; set; }
         public Guid? DepartmentId { get; set; }
         public Guid? StatusId { get; set; }
+        public Guid? EngineerId { get; set; }
     }
 }
