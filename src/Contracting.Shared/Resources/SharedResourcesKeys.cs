@@ -57,6 +57,29 @@
         public const string TimeDurationMismatch = "TimeDurationMismatch";
         public const string ActionTakenSuccess = "ActionTakenSuccess";
 
+        // Engineer site report
+        public const string EngineerSiteReportCreateFailed = "EngineerSiteReportCreateFailed";
+        public const string EngineerSiteReportNotFound = "EngineerSiteReportNotFound";
+
+        // Survey questions
+        public const string SurveyQuestionCreateFailed = "SurveyQuestionCreateFailed";
+        public const string SurveyQuestionNotFound = "SurveyQuestionNotFound";
+
+        // Authorization
+        public const string SiteEngineerOnlyCreateRequest = "SiteEngineerOnlyCreateRequest";
+
+        // Notifications
+        public const string NotificationNewRequestTitle = "NotificationNewRequestTitle";
+        public const string NotificationNewRequestBody = "NotificationNewRequestBody";
+        public const string NotificationRequestUpdatedTitle = "NotificationRequestUpdatedTitle";
+        public const string NotificationRequestUpdatedBody = "NotificationRequestUpdatedBody";
+        public const string NotificationAssignedTitle = "NotificationAssignedTitle";
+        public const string NotificationAssignedBody = "NotificationAssignedBody";
+        public const string NotificationAssignedUpdateTitle = "NotificationAssignedUpdateTitle";
+        public const string NotificationAssignedUpdateBody = "NotificationAssignedUpdateBody";
+        public const string NotificationReassignedTitle = "NotificationReassignedTitle";
+        public const string NotificationReassignedBody = "NotificationReassignedBody";
+
         // Validation messages - Field specific
         public const string NameEnRequired = "NameEnRequired";
         public const string NameArRequired = "NameArRequired";

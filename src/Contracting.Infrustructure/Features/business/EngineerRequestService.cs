@@ -41,6 +41,11 @@ public class EngineerRequestService : IEngineerRequestService
     // ---------------- CREATE ----------------
     public async Task<GetAllEngineerRequestDto> CreateEngineerRequestAsync(CreateEngineerRequestDto dto)
     {
+        var roles = CurrentUser.Roles;
+        var isSiteEngineer = roles.Any(r => r.Equals(RoleNames.Siteengineer, StringComparison.OrdinalIgnoreCase));
+        if (!isSiteEngineer)
+            return null!;
+
         var engineer = await _db.Engineers
             .AsNoTracking()
             .FirstOrDefaultAsync(e => e.ApplicationUserId == Guid.Parse(CurrentUser.UserId));
@@ -151,8 +156,8 @@ public class EngineerRequestService : IEngineerRequestService
             {
                 await _notificationService.SendNotificationToUserAsync(
                     engineerUserId,
-                    "New Request Created",
-                    $"A new request has been created for your department.",
+                    _localizer[SharedResourcesKeys.NotificationNewRequestTitle],
+                    _localizer[SharedResourcesKeys.NotificationNewRequestBody],
                     request.Id,
                     request.DepartmentId);
             }
@@ -162,8 +167,8 @@ public class EngineerRequestService : IEngineerRequestService
             // Notify only the team lead
             await _notificationService.SendNotificationToUserAsync(
                 teamLead,
-                "New Request Created",
-                $"A new request has been created for your department.",
+                _localizer[SharedResourcesKeys.NotificationNewRequestTitle],
+                _localizer[SharedResourcesKeys.NotificationNewRequestBody],
                 request.Id,
                 request.DepartmentId);
         }
@@ -678,8 +683,8 @@ public class EngineerRequestService : IEngineerRequestService
             // Notify the request creator that team lead took action
             await _notificationService.SendNotificationToUserAsync(
                 request.Engineer.ApplicationUserId,
-                "Your Request Was Updated",
-                "The team lead has taken action on your request.",
+                _localizer[SharedResourcesKeys.NotificationRequestUpdatedTitle],
+                _localizer[SharedResourcesKeys.NotificationRequestUpdatedBody],
                 request.Id);
         }
 
@@ -691,8 +696,8 @@ public class EngineerRequestService : IEngineerRequestService
             // Notify the engineer who was assigned
             await _notificationService.SendNotificationToUserAsync(
                 assignEngineer.ApplicationUserId,
-                "You Have Been Assigned a Request",
-                "A request has been assigned to you.",
+                _localizer[SharedResourcesKeys.NotificationAssignedTitle],
+                _localizer[SharedResourcesKeys.NotificationAssignedBody],
                 request.Id);
         }
 
@@ -707,8 +712,8 @@ public class EngineerRequestService : IEngineerRequestService
             // Notify the request creator that assigned engineer took action
             await _notificationService.SendNotificationToUserAsync(
                 creator,
-                "Update on Your Request",
-                "The assigned engineer has taken action on your request.",
+                _localizer[SharedResourcesKeys.NotificationAssignedUpdateTitle],
+                _localizer[SharedResourcesKeys.NotificationAssignedUpdateBody],
                 request.Id);
         }
 
@@ -786,8 +791,8 @@ public class EngineerRequestService : IEngineerRequestService
         {
             await _notificationService.SendNotificationToUserAsync(
                 assignEngineer.ApplicationUserId,
-                "You Have Been Reassigned a Request",
-                "A request has been reassigned to you.",
+                _localizer[SharedResourcesKeys.NotificationReassignedTitle],
+                _localizer[SharedResourcesKeys.NotificationReassignedBody],
                 request.Id);
         }
 

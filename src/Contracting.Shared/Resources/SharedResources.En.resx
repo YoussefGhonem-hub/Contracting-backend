@@ -315,4 +315,49 @@
   <data name="PageSizeMustBeLessThan100" xml:space="preserve">
     <value>Page size must be less than or equal to 100</value>
   </data>
+  <data name="EngineerSiteReportCreateFailed" xml:space="preserve">
+    <value>Could not create engineer site report.</value>
+  </data>
+  <data name="EngineerSiteReportNotFound" xml:space="preserve">
+    <value>Engineer site report not found.</value>
+  </data>
+  <data name="SurveyQuestionCreateFailed" xml:space="preserve">
+    <value>Could not create survey question.</value>
+  </data>
+  <data name="SurveyQuestionNotFound" xml:space="preserve">
+    <value>Survey question not found.</value>
+  </data>
+  <data name="SiteEngineerOnlyCreateRequest" xml:space="preserve">
+    <value>Only Site-engineer role can create request.</value>
+  </data>
+  <data name="NotificationNewRequestTitle" xml:space="preserve">
+    <value>New Request Created</value>
+  </data>
+  <data name="NotificationNewRequestBody" xml:space="preserve">
+    <value>A new request has been created for your department.</value>
+  </data>
+  <data name="NotificationRequestUpdatedTitle" xml:space="preserve">
+    <value>Your Request Was Updated</value>
+  </data>
+  <data name="NotificationRequestUpdatedBody" xml:space="preserve">
+    <value>The team lead has taken action on your request.</value>
+  </data>
+  <data name="NotificationAssignedTitle" xml:space="preserve">
+    <value>You Have Been Assigned a Request</value>
+  </data>
+  <data name="NotificationAssignedBody" xml:space="preserve">
+    <value>A request has been assigned to you.</value>
+  </data>
+  <data name="NotificationAssignedUpdateTitle" xml:space="preserve">
+    <value>Update on Your Request</value>
+  </data>
+  <data name="NotificationAssignedUpdateBody" xml:space="preserve">
+    <value>The assigned engineer has taken action on your request.</value>
+  </data>
+  <data name="NotificationReassignedTitle" xml:space="preserve">
+    <value>You Have Been Reassigned a Request</value>
+  </data>
+  <data name="NotificationReassignedBody" xml:space="preserve">
+    <value>A request has been reassigned to you.</value>
+  </data>
 </root>

@@ -314,4 +314,49 @@
   <data name="PageSizeMustBeLessThan100" xml:space="preserve">
     <value>حجم الصفحة يجب أن يكون أقل من أو يساوي 100</value>
   </data>
+  <data name="EngineerSiteReportCreateFailed" xml:space="preserve">
+    <value>تعذر إنشاء تقرير الموقع</value>
+  </data>
+  <data name="EngineerSiteReportNotFound" xml:space="preserve">
+    <value>تقرير الموقع غير موجود</value>
+  </data>
+  <data name="SurveyQuestionCreateFailed" xml:space="preserve">
+    <value>تعذر إنشاء سؤال الاستبيان</value>
+  </data>
+  <data name="SurveyQuestionNotFound" xml:space="preserve">
+    <value>سؤال الاستبيان غير موجود</value>
+  </data>
+  <data name="SiteEngineerOnlyCreateRequest" xml:space="preserve">
+    <value>يجب أن تكون لديك صلاحية مهندس موقع لإنشاء الطلب</value>
+  </data>
+  <data name="NotificationNewRequestTitle" xml:space="preserve">
+    <value>تم إنشاء طلب جديد</value>
+  </data>
+  <data name="NotificationNewRequestBody" xml:space="preserve">
+    <value>تم إنشاء طلب جديد لقسمك.</value>
+  </data>
+  <data name="NotificationRequestUpdatedTitle" xml:space="preserve">
+    <value>تم تحديث طلبك</value>
+  </data>
+  <data name="NotificationRequestUpdatedBody" xml:space="preserve">
+    <value>قام قائد الفريق باتخاذ إجراء على طلبك.</value>
+  </data>
+  <data name="NotificationAssignedTitle" xml:space="preserve">
+    <value>تم إسناد طلب لك</value>
+  </data>
+  <data name="NotificationAssignedBody" xml:space="preserve">
+    <value>تم إسناد طلب إليك.</value>
+  </data>
+  <data name="NotificationAssignedUpdateTitle" xml:space="preserve">
+    <value>تحديث على طلبك</value>
+  </data>
+  <data name="NotificationAssignedUpdateBody" xml:space="preserve">
+    <value>قام المهندس المعيّن باتخاذ إجراء على طلبك.</value>
+  </data>
+  <data name="NotificationReassignedTitle" xml:space="preserve">
+    <value>تمت إعادة إسناد طلب لك</value>
+  </data>
+  <data name="NotificationReassignedBody" xml:space="preserve">
+    <value>تمت إعادة إسناد طلب إليك.</value>
+  </data>
 </root>

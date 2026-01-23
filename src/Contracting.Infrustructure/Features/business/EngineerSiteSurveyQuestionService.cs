@@ -8,6 +8,8 @@ using Contracting.Shared.Common;
 using Contracting.Shared.Dtos;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
+using Contracting.Shared.Resources;
 
 namespace Contracting.Infrustructure.Features.business
 {
@@ -15,11 +17,13 @@ namespace Contracting.Infrustructure.Features.business
     {
         private readonly ApplicationDbContext _db;
         private readonly IMapper _mapper;
+        private readonly IStringLocalizer<SharedResources> _localizer;
 
-        public EngineerSiteSurveyQuestionService(ApplicationDbContext db, IMapper mapper)
+        public EngineerSiteSurveyQuestionService(ApplicationDbContext db, IMapper mapper, IStringLocalizer<SharedResources> localizer)
         {
             _db = db;
             _mapper = mapper;
+            _localizer = localizer;
         }
 
         public async Task<List<GetEngineerSiteSurveyQuestionTemplateDto>> GetActiveQuestionsAsync(CancellationToken cancellationToken = default)
@@ -109,12 +113,12 @@ namespace Contracting.Infrustructure.Features.business
                 .FirstOrDefaultAsync(q => q.Id == id, cancellationToken);
 
             if (entity is null)
-                return GenericResponse.FailureResult("Question not found");
+                return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.SurveyQuestionNotFound]);
 
             _db.EngineerSiteSurveyQuestionTemplates.Remove(entity);
             await _db.SaveChangesAsync(cancellationToken);
 
-            return GenericResponse.SuccessResult("Deleted successfully");
+            return GenericResponse.SuccessResult(_localizer[SharedResourcesKeys.DeleteSuccess]);
         }
     }
 }
