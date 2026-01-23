@@ -4,6 +4,7 @@ using Contracting.Infrustructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Contracting.Infrustructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260123121619_Reprots")]
+    partial class Reprots
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -657,9 +660,6 @@ namespace Contracting.Infrustructure.Migrations
                     b.Property<DateTimeOffset?>("ModifiedDate")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<Guid?>("TemplateId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<string>("answer")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
@@ -677,8 +677,6 @@ namespace Contracting.Infrustructure.Migrations
                     b.HasIndex("EngineerSiteReportId");
 
                     b.HasIndex("IsDeleted");
-
-                    b.HasIndex("TemplateId");
 
                     b.ToTable("EngineerSiteSurveyQuestions", "business");
                 });
@@ -1694,14 +1692,7 @@ namespace Contracting.Infrustructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Contracting.Domain.Entities.business.EngineerSiteSurveyQuestionTemplate", "Template")
-                        .WithMany()
-                        .HasForeignKey("TemplateId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.Navigation("EngineerSiteReport");
-
-                    b.Navigation("Template");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.business.EngineerSiteWorkLog", b =>

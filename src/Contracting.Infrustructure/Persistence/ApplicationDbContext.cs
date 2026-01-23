@@ -27,6 +27,13 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<EngineerRequestNotes> EngineerRequestNotes => Set<EngineerRequestNotes>();
     public DbSet<EngineerRequestActivite> EngineerRequestActivites => Set<EngineerRequestActivite>();
     public DbSet<EngineerRequestAttachment> EngineerRequestAttachments => Set<EngineerRequestAttachment>();
+    public DbSet<EngineerSiteReport> EngineerSiteReports => Set<EngineerSiteReport>();
+    public DbSet<EngineerSiteWorkLog> EngineerSiteWorkLogs => Set<EngineerSiteWorkLog>();
+    public DbSet<EngineerSiteWorkLogAttachment> EngineerSiteWorkLogAttachments => Set<EngineerSiteWorkLogAttachment>();
+    public DbSet<EngineerSiteMaterial> EngineerSiteMaterials => Set<EngineerSiteMaterial>();
+    public DbSet<EngineerSiteEquipment> EngineerSiteEquipments => Set<EngineerSiteEquipment>();
+    public DbSet<EngineerSiteSurveyQuestion> EngineerSiteSurveyQuestions => Set<EngineerSiteSurveyQuestion>();
+    public DbSet<EngineerSiteSurveyQuestionTemplate> EngineerSiteSurveyQuestionTemplates => Set<EngineerSiteSurveyQuestionTemplate>();
     public DbSet<UserDeviceToken> userDeviceTokens => Set<UserDeviceToken>();
     public DbSet<NotificationLog> NotificationLogs => Set<NotificationLog>();
     public DbSet<ExceptionLog> ExceptionLogs => Set<ExceptionLog>();

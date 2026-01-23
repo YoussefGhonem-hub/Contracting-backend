@@ -4,6 +4,7 @@ using Contracting.Domain.Entities.master;
 using Contracting.Shared.BusinessDtos.EngineerRequestActiviteDto;
 using Contracting.Shared.BusinessDtos.EngineerRequestDto;
 using Contracting.Shared.BusinessDtos.EngineerRequestNotesDtos;
+using Contracting.Shared.BusinessDtos.EngineerSiteReportDto;
 using Contracting.Shared.Dtos.MasterDtos.BranchDto;
 using Contracting.Shared.Dtos.MasterDtos.DepartmentDtos;
 using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
@@ -70,6 +71,23 @@ public static class MappingConfig
               .Map(dest => dest.Attachments, src => src.EngineerRequestAttachments);
 
           config.NewConfig<EngineerRequestAttachment, Contracting.Shared.Dtos.GetAttachmentDto>();
+
+        config.NewConfig<EngineerSiteWorkLogAttachment, Contracting.Shared.Dtos.GetAttachmentDto>();
+
+        config.NewConfig<EngineerSiteWorkLog, GetEngineerSiteWorkLogDto>()
+            .Map(dest => dest.Attachments, src => src.Attachments);
+        config.NewConfig<EngineerSiteMaterial, GetEngineerSiteMaterialDto>();
+        config.NewConfig<EngineerSiteEquipment, GetEngineerSiteEquipmentDto>();
+        config.NewConfig<EngineerSiteSurveyQuestion, GetEngineerSiteSurveyQuestionDto>();
+        config.NewConfig<EngineerSiteSurveyQuestionTemplate, GetEngineerSiteSurveyQuestionTemplateDto>();
+
+        config.NewConfig<EngineerSiteReport, GetEngineerSiteReportDto>()
+            .Map(dest => dest.Project, src => src.Project)
+            .Map(dest => dest.Engineer, src => src.Engineer)
+            .Map(dest => dest.WorkLogs, src => src.WorkLogs)
+            .Map(dest => dest.Materials, src => src.Materials)
+            .Map(dest => dest.Equipments, src => src.Equipments)
+            .Map(dest => dest.SurveyQuestions, src => src.SurveyQuestions);
 
         config.NewConfig<Status, GetDropDownStatusDto>();
         
