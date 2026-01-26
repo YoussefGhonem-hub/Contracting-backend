@@ -15,7 +15,7 @@ public class LocalFileStorage : IFileStorage
 
     public async Task<string> SaveAsync(IFormFile file, string subFolder, CancellationToken ct)
     {
-        var wwwroot = _env.WebRootPath ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");
+        var wwwroot = GetWebRoot();
         var folder = Path.Combine(wwwroot, subFolder);
         Directory.CreateDirectory(folder);
 
@@ -37,7 +37,7 @@ public class LocalFileStorage : IFileStorage
     {
         if (string.IsNullOrWhiteSpace(relativePath)) return Task.CompletedTask;
 
-        var root = _env.WebRootPath ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");
+        var root = GetWebRoot();
         var fullPath = Path.Combine(root, relativePath.TrimStart('/', '\\'));
 
         if (File.Exists(fullPath))
@@ -54,7 +54,8 @@ public class LocalFileStorage : IFileStorage
     }
     public async Task<string> SaveUserAvatarAsync(Guid userId, Stream stream, string fileName, string contentType, CancellationToken ct = default)
     {
-        var uploadsRoot = Path.Combine(_env.WebRootPath, "uploads", "users", userId.ToString("N"));
+        var userFolder = userId.ToString("N");
+        var uploadsRoot = Path.Combine(GetWebRoot(), "uploads", "users", userFolder);
         Directory.CreateDirectory(uploadsRoot);
 
         var ext = Path.GetExtension(fileName);
@@ -64,13 +65,43 @@ public class LocalFileStorage : IFileStorage
         var finalName = $"avatar{ext}".ToLowerInvariant();
         var fullPath = Path.Combine(uploadsRoot, finalName);
 
-        using (var fs = new FileStream(fullPath, FileMode.Create, FileAccess.Write, FileShare.None))
+        await using var fs = new FileStream(fullPath, FileMode.Create, FileAccess.Write, FileShare.None);
+        await stream.CopyToAsync(fs, ct);
+
+        var relative = $"/uploads/users/{userFolder}/{finalName}";
+        return relative;
+    }
+
+    public async Task<string> SaveUserSignatureAsync(Guid userId, Stream stream, string fileName, string contentType, CancellationToken ct = default)
+    {
+        var userFolder = userId.ToString("N");
+        var uploadsRoot = Path.Combine(GetWebRoot(), "uploads", "users", userFolder, "signatures");
+        Directory.CreateDirectory(uploadsRoot);
+
+        var ext = Path.GetExtension(fileName);
+        if (string.IsNullOrWhiteSpace(ext))
+            ext = GuessExtension(contentType);
+
+        var finalName = $"signature-{Guid.NewGuid():N}{ext}".ToLowerInvariant();
+        var fullPath = Path.Combine(uploadsRoot, finalName);
+
+        await using var fs = new FileStream(fullPath, FileMode.Create, FileAccess.Write, FileShare.None);
+        await stream.CopyToAsync(fs, ct);
+
+        var relative = $"/uploads/users/{userFolder}/signatures/{finalName}";
+        return relative;
+    }
+
+    private string GetWebRoot()
+    {
+        var root = _env.WebRootPath;
+        if (string.IsNullOrWhiteSpace(root))
         {
-            await stream.CopyToAsync(fs, ct);
+            root = Path.Combine(AppContext.BaseDirectory, "wwwroot");
         }
 
-        var relative = $"/uploads/users/{userId.ToString("N")}/{finalName}";
-        return relative;
+        Directory.CreateDirectory(root);
+        return root;
     }
 
     private static string GuessExtension(string contentType)

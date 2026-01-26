@@ -38,6 +38,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<NotificationLog> NotificationLogs => Set<NotificationLog>();
     public DbSet<ExceptionLog> ExceptionLogs => Set<ExceptionLog>();
     public DbSet<PasswordResetCode> PasswordResetCodes => Set<PasswordResetCode>();
+    public DbSet<UserSignature> UserSignatures => Set<UserSignature>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
