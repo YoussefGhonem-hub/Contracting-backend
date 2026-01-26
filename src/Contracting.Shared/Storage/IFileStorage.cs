@@ -8,4 +8,5 @@ public interface IFileStorage
     Task DeleteAsync(string relativePath, CancellationToken ct);
     Task DeleteManyAsync(IEnumerable<string> relativePaths, CancellationToken ct);
     Task<string> SaveUserAvatarAsync(Guid userId, Stream stream, string fileName, string contentType, CancellationToken ct = default);
+    Task<string> SaveUserSignatureAsync(Guid userId, Stream stream, string fileName, string contentType, CancellationToken ct = default);
 }
