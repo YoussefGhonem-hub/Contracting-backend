@@ -27,7 +27,7 @@ public class MailerLiteEmailService : IEmailService
         _settings = settings;
         _webHostEnvironment = webHostEnvironment;
         _logger = logger;
-        
+
         // MailerLite API base URL (API v2)
         var options = new RestClientOptions("https://connect.mailerlite.com/api");
         _client = new RestClient(options);
@@ -111,7 +111,15 @@ public class MailerLiteEmailService : IEmailService
                 _settings.FromEmail, _settings.FromName ?? "Support", to, subject);
 
             // MailerLite API structure: Add subscriber to group then send campaign
-            // Step 1: Add or update subscriber
+            // Step 1: Get or create a transactional email group
+            string transactionalGroupId = await GetOrCreateTransactionalGroupAsync(cancellationToken);
+            if (string.IsNullOrEmpty(transactionalGroupId))
+            {
+                _logger.LogError("Failed to get or create transactional email group");
+                return false;
+            }
+
+            // Step 2: Add or update subscriber
             var subscriberRequest = new RestRequest("/subscribers", Method.Post);
             subscriberRequest.AddHeader("Authorization", $"Bearer {_settings.ApiToken}");
             subscriberRequest.AddHeader("Content-Type", "application/json");
@@ -125,9 +133,9 @@ public class MailerLiteEmailService : IEmailService
             };
 
             subscriberRequest.AddStringBody(JsonConvert.SerializeObject(subscriberPayload), ContentType.Json);
-            
+
             var subscriberResponse = await _client.ExecuteAsync(subscriberRequest, cancellationToken);
-            
+
             if (!subscriberResponse.IsSuccessful && subscriberResponse.StatusCode != System.Net.HttpStatusCode.Conflict)
             {
                 _logger.LogError("Failed to add/update subscriber. Status: {StatusCode}, Error: {Error}",
@@ -135,7 +143,20 @@ public class MailerLiteEmailService : IEmailService
                 return false;
             }
 
-            // Step 2: Create and send a campaign
+            // Extract subscriber ID from response
+            dynamic? subscriberData = JsonConvert.DeserializeObject<dynamic>(subscriberResponse.Content ?? "{}");
+            string? subscriberId = subscriberData?.data?.id?.ToString();
+
+            // Step 3: Assign subscriber to group
+            if (!string.IsNullOrEmpty(subscriberId))
+            {
+                var assignRequest = new RestRequest($"/subscribers/{subscriberId}/groups/{transactionalGroupId}", Method.Post);
+                assignRequest.AddHeader("Authorization", $"Bearer {_settings.ApiToken}");
+                assignRequest.AddHeader("Accept", "application/json");
+                await _client.ExecuteAsync(assignRequest, cancellationToken);
+            }
+
+            // Step 4: Create campaign with group filter
             var request = new RestRequest("/campaigns", Method.Post);
             request.AddHeader("Authorization", $"Bearer {_settings.ApiToken}");
             request.AddHeader("Content-Type", "application/json");
@@ -143,8 +164,9 @@ public class MailerLiteEmailService : IEmailService
 
             var payload = new
             {
-                name = $"{subject} - {DateTime.UtcNow:yyyyMMddHHmmss}",
+                name = $"{subject} - {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}",
                 type = "regular",
+                groups = new[] { transactionalGroupId },
                 emails = new[]
                 {
                     new
@@ -178,7 +200,7 @@ public class MailerLiteEmailService : IEmailService
                 }
                 else if (response.StatusCode == System.Net.HttpStatusCode.UnprocessableEntity)
                 {
-                    _logger.LogError("UNPROCESSABLE ENTITY (422) - The email request is invalid. Make sure FromEmail ({FromEmail}) is verified and formatted correctly.", 
+                    _logger.LogError("UNPROCESSABLE ENTITY (422) - The email request is invalid. Make sure FromEmail ({FromEmail}) is verified and formatted correctly.",
                         _settings.FromEmail);
                 }
 
@@ -197,15 +219,15 @@ public class MailerLiteEmailService : IEmailService
 
             _logger.LogInformation("✅ Campaign created successfully. ID: {CampaignId}. Now scheduling to send...", campaignId);
 
-            // Step 3: Schedule/Send the campaign immediately
-            // Use the 'actions' endpoint to send the campaign
-            var sendRequest = new RestRequest($"/campaigns/{campaignId}/actions/send", Method.Post);
+            // Step 5: Schedule/Send the campaign immediately using correct endpoint
+            var sendRequest = new RestRequest($"/campaigns/{campaignId}/schedule", Method.Post);
             sendRequest.AddHeader("Authorization", $"Bearer {_settings.ApiToken}");
             sendRequest.AddHeader("Content-Type", "application/json");
             sendRequest.AddHeader("Accept", "application/json");
 
-            // Empty body for immediate send
-            sendRequest.AddStringBody("{}", ContentType.Json);
+            // Schedule for immediate delivery
+            var schedulePayload = new { delivery = "instant" };
+            sendRequest.AddStringBody(JsonConvert.SerializeObject(schedulePayload), ContentType.Json);
 
             var sendResponse = await _client.ExecuteAsync(sendRequest, cancellationToken);
 
@@ -226,6 +248,70 @@ public class MailerLiteEmailService : IEmailService
         {
             _logger.LogError(ex, "Exception sending email via MailerLite to {To} with subject '{Subject}'", to, subject);
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Gets or creates a group for transactional emails
+    /// </summary>
+    private async Task<string> GetOrCreateTransactionalGroupAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            const string groupName = "Transactional Emails";
+
+            // Try to find existing group
+            var listRequest = new RestRequest("/groups", Method.Get);
+            listRequest.AddHeader("Authorization", $"Bearer {_settings.ApiToken}");
+            listRequest.AddHeader("Accept", "application/json");
+            listRequest.AddParameter("filter[name]", groupName);
+
+            var listResponse = await _client.ExecuteAsync(listRequest, cancellationToken);
+
+            if (listResponse.IsSuccessful && !string.IsNullOrEmpty(listResponse.Content))
+            {
+                dynamic? listData = JsonConvert.DeserializeObject<dynamic>(listResponse.Content ?? "{}");
+                if (listData?.data != null && listData.data.Count > 0)
+                {
+                    string? groupId = listData.data[0].id?.ToString();
+                    if (!string.IsNullOrEmpty(groupId))
+                    {
+                        _logger.LogInformation("Found existing transactional email group: {GroupId}", groupId);
+                        return groupId;
+                    }
+                }
+            }
+
+            // Create new group if not found
+            var createRequest = new RestRequest("/groups", Method.Post);
+            createRequest.AddHeader("Authorization", $"Bearer {_settings.ApiToken}");
+            createRequest.AddHeader("Content-Type", "application/json");
+            createRequest.AddHeader("Accept", "application/json");
+
+            var groupPayload = new { name = groupName };
+            createRequest.AddStringBody(JsonConvert.SerializeObject(groupPayload), ContentType.Json);
+
+            var createResponse = await _client.ExecuteAsync(createRequest, cancellationToken);
+
+            if (createResponse.IsSuccessful && !string.IsNullOrEmpty(createResponse.Content))
+            {
+                dynamic? createData = JsonConvert.DeserializeObject<dynamic>(createResponse.Content ?? "{}");
+                string? groupId = createData?.data?.id?.ToString();
+                if (!string.IsNullOrEmpty(groupId))
+                {
+                    _logger.LogInformation("Created new transactional email group: {GroupId}", groupId);
+                    return groupId;
+                }
+            }
+
+            _logger.LogError("Failed to create transactional email group. Status: {StatusCode}, Error: {Error}",
+                createResponse.StatusCode, createResponse.Content);
+            return string.Empty;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception getting or creating transactional email group");
+            return string.Empty;
         }
     }
 

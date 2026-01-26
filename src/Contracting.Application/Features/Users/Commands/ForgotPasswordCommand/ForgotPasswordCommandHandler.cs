@@ -37,7 +37,7 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
     public async Task<ErrorOr<string>> Handle(ForgotPasswordCommand request, CancellationToken cancellationToken)
     {
         var user = await _userManager.FindByEmailAsync(request.Request.Email);
-        
+
         if (user == null)
         {
             // Return success even if user doesn't exist (security best practice - don't reveal if email exists)
@@ -56,7 +56,7 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
 
         // Generate a 6-digit verification code
         var verificationCode = GenerateVerificationCode();
-        
+
         // Create password reset code entity
         var resetCode = new PasswordResetCode
         {
@@ -83,14 +83,14 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
         {
             var sendOnot = await _emailService.SendEmailAsync(
                 user.Email!,
-                "Password Reset Verification Code - Contracting System",
+                "Password Reset Verification Code - Sole System",
                 "reset-password-code.html",
                 replacements,
                 cancellationToken);
 
             if (!sendOnot)
             {
-                return Error.Failure("Falied","Failed to send verification code. Please try again later.");
+                return Error.Failure("Falied", "Failed to send verification code. Please try again later.");
             }
         }
         catch (Exception ex)
