@@ -10,8 +10,8 @@ namespace Contracting.Infrustructure.Identity;
 
 public interface ITokenService
 {
-    string GenerateToken(ApplicationUser user, IList<string> roles, Guid? departmentId = null, Guid? engineerId = null, bool departmentHaveTeamLeadOrNot = false);
-    (string AccessToken, DateTime ExpiresAtUtc) GenerateAccessToken(ApplicationUser user, IList<string> roles, Guid? departmentId = null, Guid? engineerId = null, bool departmentHaveTeamLeadOrNot = false);
+    string GenerateToken(ApplicationUser user, IList<string> roles, Guid? departmentId = null, Guid? engineerId = null, bool departmentHaveTeamLeadOrNot = false, Guid? branchId = null);
+    (string AccessToken, DateTime ExpiresAtUtc) GenerateAccessToken(ApplicationUser user, IList<string> roles, Guid? departmentId = null, Guid? engineerId = null, bool departmentHaveTeamLeadOrNot = false, Guid? branchId = null);
 }
 
 public class TokenService : ITokenService
@@ -20,7 +20,7 @@ public class TokenService : ITokenService
 
     public TokenService(IOptions<JwtSettings> settings) => _settings = settings.Value;
 
-    public (string AccessToken, DateTime ExpiresAtUtc) GenerateAccessToken(ApplicationUser user, IList<string> roles, Guid? departmentId = null, Guid? engineerId = null, bool departmentHaveTeamLeadOrNot = false)
+    public (string AccessToken, DateTime ExpiresAtUtc) GenerateAccessToken(ApplicationUser user, IList<string> roles, Guid? departmentId = null, Guid? engineerId = null, bool departmentHaveTeamLeadOrNot = false, Guid? branchId = null)
     {
         var now = DateTime.UtcNow;
         var expires = now.AddMinutes(_settings.DurationInMinutes);
@@ -46,6 +46,10 @@ public class TokenService : ITokenService
         {
             claims.Add(new Claim("engineerId", engineerId?.ToString()));
         }
+        if (branchId != Guid.Empty && branchId != null)
+        {
+            claims.Add(new Claim("branchId", branchId?.ToString()));
+        }
 
         foreach (var role in roles ?? Array.Empty<string>())
             claims.Add(new Claim(ClaimTypes.Role, role));
@@ -69,6 +73,6 @@ public class TokenService : ITokenService
         return (new JwtSecurityTokenHandler().WriteToken(token), expires);
     }
 
-    public string GenerateToken(ApplicationUser user, IList<string> roles, Guid? departmentId = null, Guid? engineerId = null, bool departmentHaveTeamLeadOrNot = false)
-        => GenerateAccessToken(user, roles, departmentId, engineerId, departmentHaveTeamLeadOrNot).AccessToken;
+    public string GenerateToken(ApplicationUser user, IList<string> roles, Guid? departmentId = null, Guid? engineerId = null, bool departmentHaveTeamLeadOrNot = false, Guid? branchId = null)
+        => GenerateAccessToken(user, roles, departmentId, engineerId, departmentHaveTeamLeadOrNot, branchId).AccessToken;
 }
