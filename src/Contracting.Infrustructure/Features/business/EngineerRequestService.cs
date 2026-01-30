@@ -27,6 +27,10 @@ public class EngineerRequestService : IEngineerRequestService
     private readonly INotificationService _notificationService;
     private readonly IStringLocalizer<SharedResources> _localizer;
     private readonly IStorageService _storageService;
+    private const string AutomaticStatusActionType = "StatusChangedAuto";
+    private static readonly string[] InProgressKeywords = { "in progress", "progress", "processing", "working" };
+    private static readonly string[] DelayedKeywords = { "delay", "delayed", "late", "overdue" };
+    private static readonly string[] CompletedKeywords = { "completed", "complete", "done", "finished", "finish", "closed" };
 
 
     public EngineerRequestService(ApplicationDbContext db, IMapper mapper, INotificationService notificationService, IStringLocalizer<SharedResources> localizer, IStorageService storageService)
@@ -994,4 +998,99 @@ public class EngineerRequestService : IEngineerRequestService
 
         return requestCounts;
     }
+
+    public async Task ProcessScheduledStatusUpdatesAsync(CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+
+        var statuses = await _db.Statuses
+            .AsNoTracking()
+            .Select(s => new StatusKeywordProjection(s.Id, s.nameEn, s.nameAr, s.Code))
+            .ToListAsync(cancellationToken);
+
+        var inProgressStatusId = FindStatusIdByKeywords(statuses, InProgressKeywords);
+        var delayedStatusId = FindStatusIdByKeywords(statuses, DelayedKeywords);
+        var completedStatusIds = ExtractStatusIds(statuses, CompletedKeywords);
+
+        var activities = new List<EngineerRequestActivite>();
+
+        if (inProgressStatusId.HasValue)
+        {
+            var startCandidates = await _db.EngineerRequests
+                .Where(r => r.startDate.HasValue
+                            && r.startDate.Value <= now
+                            && r.StatusId != inProgressStatusId.Value)
+                .ToListAsync(cancellationToken);
+
+            foreach (var request in startCandidates)
+            {
+                request.StatusId = inProgressStatusId.Value;
+                activities.Add(CreateAutomaticActivity(request, inProgressStatusId.Value));
+            }
+        }
+
+        if (delayedStatusId.HasValue)
+        {
+            var delayCandidates = await _db.EngineerRequests
+                .Where(r => r.endDate.HasValue
+                            && r.endDate.Value <= now
+                            && r.StatusId != delayedStatusId.Value
+                            && !completedStatusIds.Contains(r.StatusId))
+                .ToListAsync(cancellationToken);
+
+            foreach (var request in delayCandidates)
+            {
+                request.StatusId = delayedStatusId.Value;
+                activities.Add(CreateAutomaticActivity(request, delayedStatusId.Value));
+            }
+        }
+
+        if (activities.Count == 0)
+        {
+            return;
+        }
+
+        await _db.EngineerRequestActivites.AddRangeAsync(activities, cancellationToken);
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static EngineerRequestActivite CreateAutomaticActivity(EngineerRequest request, Guid statusId)
+    {
+        return new EngineerRequestActivite
+        {
+            EngineerRequestId = request.Id,
+            EngineerId = request.assignToId ?? request.EngineerId,
+            StatusId = statusId,
+            ActionType = AutomaticStatusActionType
+        };
+    }
+
+    private static Guid? FindStatusIdByKeywords(IEnumerable<StatusKeywordProjection> statuses, string[] keywords)
+    {
+        return statuses
+            .FirstOrDefault(s => HasKeyword(s.Code, keywords)
+                              || HasKeyword(s.NameEn, keywords)
+                              || HasKeyword(s.NameAr, keywords))?.Id;
+    }
+
+    private static HashSet<Guid> ExtractStatusIds(IEnumerable<StatusKeywordProjection> statuses, string[] keywords)
+    {
+        return statuses
+            .Where(s => HasKeyword(s.Code, keywords)
+                     || HasKeyword(s.NameEn, keywords)
+                     || HasKeyword(s.NameAr, keywords))
+            .Select(s => s.Id)
+            .ToHashSet();
+    }
+
+    private static bool HasKeyword(string? value, string[] keywords)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var normalized = value.Trim().ToLowerInvariant();
+        return keywords.Any(keyword => normalized.Contains(keyword));
+    }
+
+    private sealed record StatusKeywordProjection(Guid Id, string? NameEn, string? NameAr, string? Code);
 }

@@ -3,13 +3,23 @@ using Hangfire.Dashboard;
 namespace Contracting.API
 {
     public class HangfireAuthorizationFilter : IDashboardAuthorizationFilter
-    {
-        public bool Authorize(DashboardContext context)
-        {
-            var httpContext = context.GetHttpContext();
+{
+    private readonly IWebHostEnvironment _env;
 
-                 // Allow any authenticated user to access the dashboard
-                 return httpContext?.User?.Identity?.IsAuthenticated == true;
-        }
+    public HangfireAuthorizationFilter(IWebHostEnvironment env)
+    {
+        _env = env;
     }
+
+    public bool Authorize(DashboardContext context)
+    {
+        if (_env.IsDevelopment())
+        {
+            return true; // allow local dev box
+        }
+
+        var httpContext = context.GetHttpContext();
+        return httpContext?.User?.Identity?.IsAuthenticated == true;
+    }
+}
 }

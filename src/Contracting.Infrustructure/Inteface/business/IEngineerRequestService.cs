@@ -46,5 +46,8 @@ namespace Contracting.Infrustructure.Inteface.business
         Task<List<GetEngineerRequestCountByStatusDto>> GetEngineerRequestCountByStatusAsync(Guid engineerId);
         Task<bool> DepartmentHasTeamLeadAsync(Guid departmentId);
 
+        // Scheduled automation
+        Task ProcessScheduledStatusUpdatesAsync(CancellationToken cancellationToken = default);
+
     }
 }

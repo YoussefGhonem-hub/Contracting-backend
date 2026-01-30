@@ -4,6 +4,7 @@ using Contracting.Application;
 using Contracting.Domain.Entities;
 using Contracting.Infrustructure;
 using Contracting.Infrustructure.Persistence;
+using Contracting.Infrustructure.Inteface.business;
 using Contracting.Shared.CurrentUser;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -12,6 +13,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using System.Threading;
 using Logging.Serilog;
 using Hangfire;
 using Hangfire.MemoryStorage;
@@ -131,10 +133,18 @@ app.UseAuthorization();
 
 // Start Hangfire server and expose dashboard at /hangfire with authorization
 app.UseHangfireServer();
+var env2 = app.Services.GetRequiredService<IWebHostEnvironment>();
 app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {
-    Authorization = new[] { new HangfireAuthorizationFilter() }
+    Authorization = new[] { new HangfireAuthorizationFilter(env2) }
 });
+
+RecurringJob.AddOrUpdate<IEngineerRequestService>(
+    "engineer-request-status-automation",
+    service => service.ProcessScheduledStatusUpdatesAsync(CancellationToken.None),
+    "0 */6 * * *",
+    TimeZoneInfo.Utc
+);
 
 app.MapControllers();
 #region Logger

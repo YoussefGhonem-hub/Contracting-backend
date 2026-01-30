@@ -50,6 +50,8 @@ namespace Contracting.Infrustructure.Features
             Status.nameEn = dto.nameEn;
             Status.nameAr = dto.nameAr;
             Status.Code = dto.Code;
+            Status.orderNumber = dto.orderNumber;
+            Status.showInDropdown = dto.showInDropdown;
 
             await _db.SaveChangesAsync();
 
@@ -123,6 +125,7 @@ namespace Contracting.Infrustructure.Features
         {
             var statues = await _db.Statuses
                 .AsNoTracking()
+                .Where(s => s.showInDropdown)
                 .ToListAsync();
 
             return _mapper.Map<List<GetDropDownStatusDto>>(statues);

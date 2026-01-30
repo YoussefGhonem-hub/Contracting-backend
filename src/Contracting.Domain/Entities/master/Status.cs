@@ -8,5 +8,6 @@ namespace Contracting.Domain.Entities.master
         public string? nameAr { get; set; }
         public string? Code { get; set; }
         public int orderNumber { get; set; }
+        public bool showInDropdown { get; set; }
     }
 }
