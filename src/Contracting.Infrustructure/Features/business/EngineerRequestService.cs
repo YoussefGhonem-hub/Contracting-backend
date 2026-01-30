@@ -861,6 +861,21 @@ public class EngineerRequestService : IEngineerRequestService
                     .ThenInclude(a => a.Status)
                 .AsNoTracking();
 
+            if (filter.ProjectId.HasValue && filter.ProjectId.Value != Guid.Empty)
+            {
+                query = query.Where(r => r.ProjectId == filter.ProjectId.Value);
+            }
+
+            if (filter.AssignToId.HasValue && filter.AssignToId.Value != Guid.Empty)
+            {
+                query = query.Where(r => r.assignToId == filter.AssignToId.Value);
+            }
+
+            if (filter.DepartmentId.HasValue && filter.DepartmentId.Value != Guid.Empty)
+            {
+                query = query.Where(r => r.DepartmentId == filter.DepartmentId.Value);
+            }
+
             if (isTeamLead && engineer.DepartmentId.HasValue)
             {
                 // Team lead: see all requests in their department OR requests they created
