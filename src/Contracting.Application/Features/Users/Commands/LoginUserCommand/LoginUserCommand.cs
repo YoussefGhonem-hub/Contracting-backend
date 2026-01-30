@@ -67,9 +67,11 @@ public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, ErrorOr
         // Get department name from Engineer entity
         var engineer = await _db.Engineers
             .Include(e => e.Department)
+                .ThenInclude(d => d.Branch)
             .FirstOrDefaultAsync(e => e.ApplicationUserId == user.Id, cancellationToken);
         
         var departmentId = engineer?.Department?.Id;
+        var branchId = engineer?.Department?.BranchId;
         var engineerId = engineer?.Id;
         bool departmentHaveTeamLeadOrNot = false;
         if (departmentId != Guid.Empty && departmentId !=null)
@@ -78,7 +80,7 @@ public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, ErrorOr
         }
 
         var roles = await _userManager.GetRolesAsync(user);
-        var accessToken = _tokenService.GenerateToken(user, roles, departmentId, engineerId, departmentHaveTeamLeadOrNot);
+        var accessToken = _tokenService.GenerateToken(user, roles, departmentId, engineerId, departmentHaveTeamLeadOrNot, branchId);
         var accessExp = DateTime.UtcNow.AddMinutes(_jwt.DurationInMinutes);
 
         var ip = _http.HttpContext?.Connection.RemoteIpAddress?.ToString();
