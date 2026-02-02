@@ -200,6 +200,7 @@ public class EngineerRequestService : IEngineerRequestService
         request.ProjectId = dto.ProjectId == Guid.Empty ? request.ProjectId : dto.ProjectId;
         request.DepartmentId = dto.DepartmentId == Guid.Empty ? request.DepartmentId : dto.DepartmentId;
         request.PriorityId = dto.PriorityId == Guid.Empty ? request.PriorityId : dto.PriorityId;
+        request.RequestTitle = dto.RequestTitle ?? request.RequestTitle;
         request.Descreption = dto.Descreption;
 
         // Handle notes

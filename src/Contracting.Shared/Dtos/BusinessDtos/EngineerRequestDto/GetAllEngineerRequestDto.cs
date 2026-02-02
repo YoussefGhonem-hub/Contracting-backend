@@ -24,6 +24,7 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestDto
         public GetDropDownStatusDto? Status { get; set; }
         public Guid? assignToId { get; set; }
         public GetEngineerDto? assignTo { get; set; }
+        public string? RequestTitle { get; set; }
         public string? Descreption { get; set; }
         public int? timeDuration { get; set; }
         public DateTime? startDate { get; set; }
