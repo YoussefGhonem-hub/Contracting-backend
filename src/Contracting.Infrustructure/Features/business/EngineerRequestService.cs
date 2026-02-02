@@ -805,7 +805,7 @@ public class EngineerRequestService : IEngineerRequestService
 
 
 
-    public async Task<PaginatedList<GetAllEngineerRequestDto>> GetCreatedRequestOrapplaied(BaseFilterDto filter, CancellationToken cancellationToken = default)
+    public async Task<PaginatedList<GetAllEngineerRequestDto>> GetCreatedRequestOrapplaied(EngineerRequestParticipationFilterDto filter, CancellationToken cancellationToken = default)
     {
         try
         {

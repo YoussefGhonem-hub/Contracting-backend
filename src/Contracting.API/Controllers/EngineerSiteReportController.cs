@@ -49,7 +49,7 @@ namespace Contracting.API.Controllers
         }
 
         [HttpGet("my")]
-        public async Task<IActionResult> GetMyReports([FromQuery] BaseFilterDto filter)
+        public async Task<IActionResult> GetMyReports([FromQuery] EngineerSiteReportFilterDto filter)
         {
             var query = new GetMyEngineerSiteReportsQuery(filter);
             var result = await _mediator.Send(query);
@@ -61,7 +61,7 @@ namespace Contracting.API.Controllers
         }
 
         [HttpGet("engineer/{engineerId:guid}")]
-        public async Task<IActionResult> GetByEngineerId(Guid engineerId, [FromQuery] BaseFilterDto filter)
+        public async Task<IActionResult> GetByEngineerId(Guid engineerId, [FromQuery] EngineerSiteReportFilterDto filter)
         {
             var query = new GetEngineerSiteReportsByEngineerIdQuery(engineerId, filter);
             var result = await _mediator.Send(query);

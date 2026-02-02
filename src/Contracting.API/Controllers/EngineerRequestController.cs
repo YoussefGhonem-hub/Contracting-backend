@@ -94,7 +94,7 @@ namespace Contracting.API.Controllers
             );
         }
         [HttpGet("appliedOrCreatedReqeust")]
-        public async Task<IActionResult> GetAllRequestAppliedOrCreated([FromQuery] BaseFilterDto filter)
+        public async Task<IActionResult> GetAllRequestAppliedOrCreated([FromQuery] EngineerRequestParticipationFilterDto filter)
         {
             var query = new GetRequestCreatedOrApplyToEngineerQuery(filter);
             var result = await _mediator.Send(query);

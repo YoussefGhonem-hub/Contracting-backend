@@ -170,7 +170,7 @@ namespace Contracting.Infrustructure.Features.business
             return report is null ? null! : _mapper.Map<GetEngineerSiteReportDto>(report);
         }
 
-        public async Task<List<GetEngineerSiteReportDto>> GetMyEngineerSiteReportsAsync(BaseFilterDto filter, CancellationToken cancellationToken = default)
+        public async Task<List<GetEngineerSiteReportDto>> GetMyEngineerSiteReportsAsync(EngineerSiteReportFilterDto filter, CancellationToken cancellationToken = default)
         {
             var engineer = await _db.Engineers
                 .AsNoTracking()
@@ -192,6 +192,11 @@ namespace Contracting.Infrustructure.Features.business
                 .Include(r => r.SurveyQuestions)
                 .AsNoTracking();
 
+            if (filter.ProjectId.HasValue && filter.ProjectId.Value != Guid.Empty)
+            {
+                query = query.Where(r => r.ProjectId == filter.ProjectId.Value);
+            }
+
             if (string.IsNullOrWhiteSpace(filter.Sort))
             {
                 query = query.OrderByDescending(r => r.ReportDate);
@@ -209,7 +214,7 @@ namespace Contracting.Infrustructure.Features.business
             return _mapper.Map<List<GetEngineerSiteReportDto>>(reports);
         }
 
-        public async Task<PaginatedList<GetEngineerSiteReportDto>> GetEngineerSiteReportsByEngineerIdAsync(Guid engineerId, BaseFilterDto filter, CancellationToken cancellationToken = default)
+        public async Task<PaginatedList<GetEngineerSiteReportDto>> GetEngineerSiteReportsByEngineerIdAsync(Guid engineerId, EngineerSiteReportFilterDto filter, CancellationToken cancellationToken = default)
         {
             var query = _db.EngineerSiteReports
                 .Where(r => r.EngineerId == engineerId)
@@ -221,6 +226,11 @@ namespace Contracting.Infrustructure.Features.business
                 .Include(r => r.Equipments)
                 .Include(r => r.SurveyQuestions)
                 .AsNoTracking();
+
+            if (filter.ProjectId.HasValue && filter.ProjectId.Value != Guid.Empty)
+            {
+                query = query.Where(r => r.ProjectId == filter.ProjectId.Value);
+            }
 
             if (string.IsNullOrWhiteSpace(filter.Sort))
             {

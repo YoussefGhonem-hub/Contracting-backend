@@ -26,7 +26,7 @@ namespace Contracting.Infrustructure.Inteface.business
             EngineerRequestFilterDto filter,
             CancellationToken cancellationToken = default);
         Task<PaginatedList<GetAllEngineerRequestDto>> GetCreatedRequestOrapplaied(
-            BaseFilterDto filter,
+            EngineerRequestParticipationFilterDto filter,
             CancellationToken cancellationToken = default);
 
         // Get request by ID
