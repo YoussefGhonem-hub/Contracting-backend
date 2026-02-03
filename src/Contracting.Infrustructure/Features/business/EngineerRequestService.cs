@@ -1105,17 +1105,35 @@ public class EngineerRequestService : IEngineerRequestService
             query = query.Where(er => er.EngineerId == engineerId || er.assignToId == engineerId);
         }
 
-        var requestCounts = await query
-            .GroupBy(er => new { er.StatusId, er.Status.nameEn })
-            .Select(g => new GetEngineerRequestCountByStatusDto
+        // Get all statuses
+        var allStatuses = await _db.Statuses
+            .AsNoTracking()
+            .Select(s => new { s.Id, s.nameEn })
+            .ToListAsync();
+
+        // Get request counts grouped by status
+        var requestCountsFromDb = await query
+            .GroupBy(er => er.StatusId)
+            .Select(g => new
             {
-                StatusId = g.Key.StatusId,
-                StatusName = g.Key.nameEn,
+                StatusId = g.Key,
                 Count = g.Count()
             })
-            .OrderBy(x => x.StatusName)
-            .AsNoTracking()
             .ToListAsync();
+
+        // Create dictionary for quick lookup
+        var countDict = requestCountsFromDb.ToDictionary(x => x.StatusId, x => x.Count);
+
+        // Return all statuses with their counts (0 if no requests)
+        var requestCounts = allStatuses
+            .Select(s => new GetEngineerRequestCountByStatusDto
+            {
+                StatusId = s.Id,
+                StatusName = s.nameEn,
+                Count = countDict.ContainsKey(s.Id) ? countDict[s.Id] : 0
+            })
+            .OrderBy(x => x.StatusName)
+            .ToList();
 
         return requestCounts;
     }
