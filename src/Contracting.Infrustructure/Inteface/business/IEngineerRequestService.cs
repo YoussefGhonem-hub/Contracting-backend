@@ -29,6 +29,11 @@ namespace Contracting.Infrustructure.Inteface.business
             EngineerRequestParticipationFilterDto filter,
             CancellationToken cancellationToken = default);
 
+        // Get requests by status for current engineer (assigned to or created by)
+        Task<PaginatedList<GetAllEngineerRequestDto>> GetRequestsByStatusForEngineerAsync(
+            GetRequestsByStatusFilterDto filter,
+            CancellationToken cancellationToken = default);
+
         // Get request by ID
         Task<GetAllEngineerRequestDto> GetEngineerRequestByIdAsync(Guid requestId);
 

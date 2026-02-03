@@ -9,6 +9,7 @@ using Contracting.Application.Features.Business.EngineerRequest.Query.GetEnginee
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequestActivities;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequestById;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequestCreatedOrApplyToEngineer;
+using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequestsByStatusForEngineer;
 using Contracting.Shared.BusinessDtos.EngineerRequestDto;
 using Contracting.Shared.Dtos;
 using MediatR;
@@ -97,6 +98,19 @@ namespace Contracting.API.Controllers
         public async Task<IActionResult> GetAllRequestAppliedOrCreated([FromQuery] EngineerRequestParticipationFilterDto filter)
         {
             var query = new GetRequestCreatedOrApplyToEngineerQuery(filter);
+            var result = await _mediator.Send(query);
+
+            return result.Match(
+                requests => Ok(requests),
+                errors => Problem(errors)
+            );
+        }
+
+        // Get requests by status for current engineer (assigned to or created by)
+        [HttpGet("byStatus")]
+        public async Task<IActionResult> GetRequestsByStatus([FromQuery] GetRequestsByStatusFilterDto filter)
+        {
+            var query = new GetRequestsByStatusForEngineerQuery(filter);
             var result = await _mediator.Send(query);
 
             return result.Match(
