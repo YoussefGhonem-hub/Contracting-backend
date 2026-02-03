@@ -71,5 +71,18 @@ namespace Contracting.API.Controllers
                 errors => Problem(errors)
             );
         }
+
+        [AllowAnonymous]
+        [HttpGet("engineerReport/{engineerId:guid}")]
+        public async Task<IActionResult> GetReprotByEngineerId(Guid engineerId, [FromQuery] EngineerSiteReportFilterDto filter)
+        {
+            var query = new GetEngineerSiteReportsByEngineerIdQuery(engineerId, filter);
+            var result = await _mediator.Send(query);
+
+            return result.Match(
+                reports => Ok(reports),
+                errors => Problem(errors)
+            );
+        }
     }
 }
