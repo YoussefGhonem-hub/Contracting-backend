@@ -31,6 +31,7 @@ public class EngineerRequestService : IEngineerRequestService
     private static readonly string[] InProgressKeywords = { "in progress", "progress", "processing", "working" };
     private static readonly string[] DelayedKeywords = { "delay", "delayed", "late", "overdue" };
     private static readonly string[] CompletedKeywords = { "completed", "complete", "done", "finished", "finish", "closed" };
+    private static readonly string[] NewPendingKeywords = { "new", "pending", "open", "submitted", "created" };
 
 
     public EngineerRequestService(ApplicationDbContext db, IMapper mapper, INotificationService notificationService, IStringLocalizer<SharedResources> localizer, IStorageService storageService)
@@ -1150,15 +1151,18 @@ public class EngineerRequestService : IEngineerRequestService
         var inProgressStatusId = FindStatusIdByKeywords(statuses, InProgressKeywords);
         var delayedStatusId = FindStatusIdByKeywords(statuses, DelayedKeywords);
         var completedStatusIds = ExtractStatusIds(statuses, CompletedKeywords);
+        var newPendingStatusIds = ExtractStatusIds(statuses, NewPendingKeywords);
 
         var activities = new List<EngineerRequestActivite>();
 
-        if (inProgressStatusId.HasValue)
+        // For startDate: Only change to InProgress if current status is New/Pending (initial state)
+        // This ensures we only auto-update once when the start date arrives
+        if (inProgressStatusId.HasValue && newPendingStatusIds.Count > 0)
         {
             var startCandidates = await _db.EngineerRequests
                 .Where(r => r.startDate.HasValue
                             && r.startDate.Value <= now
-                            && r.StatusId != inProgressStatusId.Value)
+                            && newPendingStatusIds.Contains(r.StatusId))
                 .ToListAsync(cancellationToken);
 
             foreach (var request in startCandidates)
@@ -1168,12 +1172,15 @@ public class EngineerRequestService : IEngineerRequestService
             }
         }
 
-        if (delayedStatusId.HasValue)
+        // For endDate: Only change to Delayed if current status is InProgress
+        // This ensures we only auto-update once when the end date passes
+        // If user changes status after delay, it won't be changed back to Delayed
+        if (delayedStatusId.HasValue && inProgressStatusId.HasValue)
         {
             var delayCandidates = await _db.EngineerRequests
                 .Where(r => r.endDate.HasValue
                             && r.endDate.Value <= now
-                            && r.StatusId != delayedStatusId.Value
+                            && r.StatusId == inProgressStatusId.Value
                             && !completedStatusIds.Contains(r.StatusId))
                 .ToListAsync(cancellationToken);
 
