@@ -1109,7 +1109,7 @@ public class EngineerRequestService : IEngineerRequestService
         // Get all statuses
         var allStatuses = await _db.Statuses
             .AsNoTracking()
-            .Select(s => new { s.Id, s.nameEn })
+            .Select(s => new { s.Id, s.nameEn, s.nameAr })
             .ToListAsync();
 
         // Get request counts grouped by status
@@ -1131,6 +1131,7 @@ public class EngineerRequestService : IEngineerRequestService
             {
                 StatusId = s.Id,
                 StatusName = s.nameEn,
+                StatusNameAr = s.nameAr ?? string.Empty,
                 Count = countDict.ContainsKey(s.Id) ? countDict[s.Id] : 0
             })
             .OrderBy(x => x.StatusName)
