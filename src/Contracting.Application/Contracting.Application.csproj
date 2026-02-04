@@ -19,7 +19,4 @@
 		<ProjectReference Include="..\Contracting.Shared\Contracting.Shared.csproj" />
 		<ProjectReference Include="..\Emails.Mailerlite\Emails.Mailerlite.csproj" />
 	</ItemGroup>
-	<ItemGroup>
-	  <Folder Include="Features\Users\Queries\" />
-	</ItemGroup>
 </Project>

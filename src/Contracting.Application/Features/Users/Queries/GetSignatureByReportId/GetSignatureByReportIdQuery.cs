@@ -1,0 +1,55 @@
+using Contracting.Infrustructure.Persistence;
+using Contracting.Shared.Dtos.HelperDtos;
+using Contracting.Shared.Resources;
+using ErrorOr;
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
+
+namespace Contracting.Application.Features.Users.Queries.GetSignatureByReportId;
+
+public record GetSignatureByReportIdQuery(Guid ReportId) : IRequest<ErrorOr<UserSignatureDto>>;
+
+public class GetSignatureByReportIdQueryHandler : IRequestHandler<GetSignatureByReportIdQuery, ErrorOr<UserSignatureDto>>
+{
+    private readonly ApplicationDbContext _db;
+    private readonly IStringLocalizer<SharedResources> _localizer;
+
+    public GetSignatureByReportIdQueryHandler(ApplicationDbContext db, IStringLocalizer<SharedResources> localizer)
+    {
+        _db = db;
+        _localizer = localizer;
+    }
+
+    public async Task<ErrorOr<UserSignatureDto>> Handle(GetSignatureByReportIdQuery request, CancellationToken cancellationToken)
+    {
+        var report = await _db.EngineerSiteReports
+            .AsNoTracking()
+            .Include(r => r.Engineer)
+            .FirstOrDefaultAsync(r => r.Id == request.ReportId, cancellationToken);
+
+        if (report is null)
+            return Error.NotFound("Report.NotFound", _localizer[SharedResourcesKeys.EngineerSiteReportNotFound]);
+
+        var applicationUserId = report.Engineer.ApplicationUserId;
+
+        var signature = await _db.UserSignatures
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.UserId == applicationUserId, cancellationToken);
+
+        if (signature is null)
+            return Error.NotFound("Signature.NotFound", "Signature not found for the report creator.");
+
+        return new UserSignatureDto
+        {
+            Id = signature.Id,
+            UserId = signature.UserId,
+            SignatureUrl = signature.SignatureUrl,
+            FileName = signature.FileName,
+            ContentType = signature.ContentType,
+            FileSize = signature.FileSize,
+            CreatedDate = signature.CreatedDate,
+            ModifiedDate = signature.ModifiedDate
+        };
+    }
+}
