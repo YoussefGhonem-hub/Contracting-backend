@@ -11,11 +11,13 @@ using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Contracting.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class EngineerController : APIBaseController
     {
         private readonly IMediator _mediator;

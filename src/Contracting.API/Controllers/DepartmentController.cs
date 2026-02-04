@@ -7,12 +7,14 @@ using Contracting.Application.Features.Master.Department.Query.GetDropDownDepart
 using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.DepartmentDtos;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Contracting.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class DepartmentController : APIBaseController
     {
         private readonly IMediator _mediator;

@@ -10,12 +10,14 @@ using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.BranchDto;
 using ErrorOr;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Contracting.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class BranchController : APIBaseController
     {
         private readonly IMediator _mediator;

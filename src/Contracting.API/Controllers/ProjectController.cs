@@ -8,12 +8,14 @@ using Contracting.Application.Features.Master.Project.Query.GetProjectDropdown;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.ProjectDtos;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Contracting.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class ProjectController : APIBaseController
     {
         private readonly IMediator _mediator;

@@ -6,12 +6,14 @@ using Contracting.Application.Features.Role.Query.GetAllRole;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.RoleDtos;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Contracting.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class RoleController : APIBaseController
     {
         private readonly IMediator _mediator;

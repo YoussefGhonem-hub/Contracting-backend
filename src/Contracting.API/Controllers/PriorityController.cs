@@ -7,12 +7,14 @@ using Contracting.Application.Features.Master.Priority.Query.GetPriorityDropdown
 using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.PriorityDto;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Contracting.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class PriorityController : APIBaseController
     {
         private readonly IMediator _mediator;

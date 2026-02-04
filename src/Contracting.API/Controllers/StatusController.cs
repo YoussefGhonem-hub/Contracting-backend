@@ -7,12 +7,14 @@ using Contracting.Application.Features.Master.Status.Query.GetStatusDropdown;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.StatusDtos;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Contracting.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class StatusController : APIBaseController
     {
         private readonly IMediator _mediator;
