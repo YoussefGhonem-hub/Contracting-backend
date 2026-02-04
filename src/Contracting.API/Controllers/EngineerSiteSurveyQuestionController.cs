@@ -24,6 +24,7 @@ namespace Contracting.API.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous]
         public async Task<IActionResult> GetActiveQuestions([FromQuery] BaseFilterDto filter)
         {
             var query = new GetEngineerSiteSurveyQuestionsQuery(filter);
