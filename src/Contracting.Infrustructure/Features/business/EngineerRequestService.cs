@@ -961,6 +961,16 @@ public class EngineerRequestService : IEngineerRequestService
                     filter.PageSize);
             }
 
+            // Determine if engineer is team lead and if department has team lead
+            bool isTeamLeadForDepartment = false;
+            bool departmentHasTeamLead = false;
+
+            if (engineer.DepartmentId.HasValue)
+            {
+                isTeamLeadForDepartment = await IsEngineerManagerOfDepartmentAsync(engineer.Id, engineer.DepartmentId.Value);
+                departmentHasTeamLead = await DepartmentHasTeamLeadAsync(engineer.DepartmentId.Value);
+            }
+
             var query = _db.EngineerRequests
                 .Include(r => r.Project)
                 .Include(r => r.Department)
@@ -986,8 +996,25 @@ public class EngineerRequestService : IEngineerRequestService
             // Filter by status
             query = query.Where(r => r.StatusId == filter.StatusId);
 
-            // Filter by engineer (assigned to or created by)
-            query = query.Where(r => r.assignToId == engineer.Id || r.EngineerId == engineer.Id);
+            // Filter based on team lead status (same logic as GetEngineerRequestCountByStatusAsync)
+            if (isTeamLeadForDepartment && engineer.DepartmentId.HasValue)
+            {
+                // Department manager: get all requests under their department
+                query = query.Where(r => r.DepartmentId == engineer.DepartmentId.Value);
+            }
+            else if (!departmentHasTeamLead && engineer.DepartmentId.HasValue)
+            {
+                // No team lead: get requests in department (if not assigned or assigned to them) OR requests they created
+                query = query.Where(r =>
+                    (r.DepartmentId == engineer.DepartmentId.Value &&
+                        (r.assignToId == null || r.assignToId == Guid.Empty || r.assignToId == engineer.Id))
+                    || r.EngineerId == engineer.Id);
+            }
+            else
+            {
+                // Regular engineer: get requests created by them (EngineerId) OR assigned to them (assignToId)
+                query = query.Where(r => r.assignToId == engineer.Id || r.EngineerId == engineer.Id);
+            }
 
             if (string.IsNullOrWhiteSpace(filter.Sort))
             {
