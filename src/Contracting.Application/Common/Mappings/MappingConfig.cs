@@ -51,12 +51,18 @@ public static class MappingConfig
         config.NewConfig<Project, CreateProjectDto>();
         config.NewConfig<CreateProjectDto, Project>();
         config.NewConfig<UpdateProjectDto, Project>();
-        config.NewConfig<Project, GetProjectDto>();
+        config.NewConfig<Project, GetProjectDto>()
+            .Map(dest => dest.SpecialFields, src => src.ProjectSpecialFields);
 
 
         config.NewConfig<CreatePriorityDto, Priority>();
         config.NewConfig<UpdatePriorityDto, Priority>();
         config.NewConfig<Priority, GetDropDownPriorityDto>();
+
+        config.NewConfig<SpecialField, SpecialFieldDto>();
+        config.NewConfig<ProjectSpecialField, ProjectSpecialFieldDto>()
+            .Map(dest => dest.name, src => src.SpecialField != null ? src.SpecialField.name : null)
+            .Map(dest => dest.fieldType, src => src.SpecialField != null ? src.SpecialField.fieldType : null);
 
         config.NewConfig<CreateStatusDto, Status>();
         config.NewConfig<UpdateStatusDto, Status>();

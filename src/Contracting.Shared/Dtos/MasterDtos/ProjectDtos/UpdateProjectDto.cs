@@ -8,5 +8,7 @@
         public string? location { get; set; }
         public string? Code { get; set; }
         public Guid? BranchId { get; set; }
+        public bool hasSpecialFields { get; set; }
+        public List<CreateProjectSpecialFieldDto> SpecialFields { get; set; } = new();
     }
 }
