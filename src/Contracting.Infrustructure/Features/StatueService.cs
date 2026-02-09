@@ -52,6 +52,7 @@ namespace Contracting.Infrustructure.Features
             Status.Code = dto.Code;
             Status.orderNumber = dto.orderNumber;
             Status.showInDropdown = dto.showInDropdown;
+            Status.iconName = dto.iconName;
 
             await _db.SaveChangesAsync();
 

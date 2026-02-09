@@ -14,6 +14,7 @@
         public string? password { get; set; }
         public Guid DepartmentId { get; set; }
         public List<Guid> Roles { get; set; } = new(); // New property for roles
+        public List<Guid> ProjectIds { get; set; } = new();
 
     }
 }

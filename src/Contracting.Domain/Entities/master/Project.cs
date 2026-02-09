@@ -10,5 +10,8 @@ namespace Contracting.Domain.Entities.master
         public string? Code { get; set; }
         public Guid? BranchId { get; set; }
         public Branch? Branch { get; set; }
+        public bool hasSpecialFields { get; set; }
+        public ICollection<ProjectSpecialField> ProjectSpecialFields { get; set; } = new List<ProjectSpecialField>();
+        public ICollection<EngineerProject> EngineerProjects { get; set; } = new List<EngineerProject>();
     }
 }

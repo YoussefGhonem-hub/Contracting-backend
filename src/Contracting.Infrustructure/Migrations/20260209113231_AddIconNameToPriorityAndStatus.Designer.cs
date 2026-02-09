@@ -4,6 +4,7 @@ using Contracting.Infrustructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Contracting.Infrustructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260209113231_AddIconNameToPriorityAndStatus")]
+    partial class AddIconNameToPriorityAndStatus
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1354,50 +1357,6 @@ namespace Contracting.Infrustructure.Migrations
                     b.ToTable("Engineers", "master");
                 });
 
-            modelBuilder.Entity("Contracting.Domain.Entities.master.EngineerProject", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset>("CreatedDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset?>("DeletedDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<Guid>("EngineerId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<Guid?>("ModifiedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset?>("ModifiedDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<Guid>("ProjectId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EngineerId");
-
-                    b.HasIndex("IsDeleted");
-
-                    b.HasIndex("ProjectId");
-
-                    b.ToTable("EngineerProjects");
-                });
-
             modelBuilder.Entity("Contracting.Domain.Entities.master.Priority", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1479,9 +1438,6 @@ namespace Contracting.Infrustructure.Migrations
                     b.Property<DateTimeOffset?>("ModifiedDate")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<bool>("hasSpecialFields")
-                        .HasColumnType("bit");
-
                     b.Property<string>("location")
                         .HasColumnType("nvarchar(max)");
 
@@ -1500,93 +1456,6 @@ namespace Contracting.Infrustructure.Migrations
                     b.HasIndex("IsDeleted");
 
                     b.ToTable("Projects", "master");
-                });
-
-            modelBuilder.Entity("Contracting.Domain.Entities.master.ProjectSpecialField", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset>("CreatedDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset?>("DeletedDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<Guid?>("ModifiedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset?>("ModifiedDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<Guid>("ProjectId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("SpecialFieldId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("value")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("IsDeleted");
-
-                    b.HasIndex("ProjectId");
-
-                    b.HasIndex("SpecialFieldId");
-
-                    b.ToTable("ProjectSpecialFields");
-                });
-
-            modelBuilder.Entity("Contracting.Domain.Entities.master.SpecialField", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset>("CreatedDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset?>("DeletedDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<Guid?>("ModifiedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset?>("ModifiedDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("fieldType")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("name")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("IsDeleted");
-
-                    b.ToTable("SpecialFields");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.master.Status", b =>
@@ -1981,25 +1850,6 @@ namespace Contracting.Infrustructure.Migrations
                     b.Navigation("Department");
                 });
 
-            modelBuilder.Entity("Contracting.Domain.Entities.master.EngineerProject", b =>
-                {
-                    b.HasOne("Contracting.Domain.Entities.master.Engineer", "Engineer")
-                        .WithMany("EngineerProjects")
-                        .HasForeignKey("EngineerId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Contracting.Domain.Entities.master.Project", "Project")
-                        .WithMany("EngineerProjects")
-                        .HasForeignKey("ProjectId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Engineer");
-
-                    b.Navigation("Project");
-                });
-
             modelBuilder.Entity("Contracting.Domain.Entities.master.Project", b =>
                 {
                     b.HasOne("Contracting.Domain.Entities.master.Branch", "Branch")
@@ -2007,25 +1857,6 @@ namespace Contracting.Infrustructure.Migrations
                         .HasForeignKey("BranchId");
 
                     b.Navigation("Branch");
-                });
-
-            modelBuilder.Entity("Contracting.Domain.Entities.master.ProjectSpecialField", b =>
-                {
-                    b.HasOne("Contracting.Domain.Entities.master.Project", "Project")
-                        .WithMany("ProjectSpecialFields")
-                        .HasForeignKey("ProjectId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Contracting.Domain.Entities.master.SpecialField", "SpecialField")
-                        .WithMany("ProjectSpecialFields")
-                        .HasForeignKey("SpecialFieldId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Project");
-
-                    b.Navigation("SpecialField");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -2122,23 +1953,6 @@ namespace Contracting.Infrustructure.Migrations
             modelBuilder.Entity("Contracting.Domain.Entities.master.Department", b =>
                 {
                     b.Navigation("Engineers");
-                });
-
-            modelBuilder.Entity("Contracting.Domain.Entities.master.Engineer", b =>
-                {
-                    b.Navigation("EngineerProjects");
-                });
-
-            modelBuilder.Entity("Contracting.Domain.Entities.master.Project", b =>
-                {
-                    b.Navigation("EngineerProjects");
-
-                    b.Navigation("ProjectSpecialFields");
-                });
-
-            modelBuilder.Entity("Contracting.Domain.Entities.master.SpecialField", b =>
-                {
-                    b.Navigation("ProjectSpecialFields");
                 });
 #pragma warning restore 612, 618
         }

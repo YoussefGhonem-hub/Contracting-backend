@@ -1,5 +1,6 @@
 ﻿using Contracting.Shared.Dtos.MasterDtos.DepartmentDtos;
 using Contracting.Shared.Dtos.MasterDtos.RoleDtos;
+using Contracting.Shared.Dtos.MasterDtos.ProjectDtos;
 
 namespace Contracting.Shared.Dtos.MasterDtos.EngineerDto
 {
@@ -19,6 +20,8 @@ namespace Contracting.Shared.Dtos.MasterDtos.EngineerDto
         public List<RoleDropDownDto>? Roles { get; set; }
         public Guid? DepartmentId { get; set; }
         public GetDepartmentDto? Department { get; set; }
+        public List<Guid> ProjectIds { get; set; } = new();
+        public List<GetProjectDropDownDto>? Projects { get; set; }
     }
 
     public class GetEngineerDropDownDto

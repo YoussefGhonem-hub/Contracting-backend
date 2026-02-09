@@ -50,6 +50,7 @@ namespace Contracting.Infrustructure.Features
             priority.nameEn = dto.nameEn;
             priority.nameAr = dto.nameAr;
             priority.code = dto.code;
+            priority.iconName = dto.iconName;
 
             await _db.SaveChangesAsync();
 

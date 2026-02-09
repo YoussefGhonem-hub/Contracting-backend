@@ -17,5 +17,6 @@ namespace Contracting.Domain.Entities.master
         public ApplicationUser ApplicationUser { get; set; }
         public Guid? DepartmentId { get; set; }
         public Department? Department { get; set; }
+        public ICollection<EngineerProject> EngineerProjects { get; set; } = new List<EngineerProject>();
     }
 }

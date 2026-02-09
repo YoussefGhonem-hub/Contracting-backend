@@ -10,5 +10,6 @@ namespace Contracting.Shared.Dtos.MasterDtos.ProjectDtos
         public string? Code { get; set; }
         public Guid? BranchId { get; set; }
         public GetBranchDto? Branch { get; set; }
+        public bool hasSpecialFields { get; set; }
     }
 }

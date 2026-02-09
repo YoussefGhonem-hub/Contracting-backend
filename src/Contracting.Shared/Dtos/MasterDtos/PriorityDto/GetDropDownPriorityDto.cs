@@ -6,5 +6,6 @@
         public string? nameEn { get; set; }
         public string? nameAr { get; set; }
         public string? code { get; set; }
+        public string? iconName { get; set; }
     }
 }
