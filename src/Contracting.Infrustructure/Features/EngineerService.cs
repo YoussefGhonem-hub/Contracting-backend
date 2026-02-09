@@ -8,6 +8,7 @@ using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.Common;
 using Contracting.Shared.Constants;
 using Contracting.Shared.Dtos;
+using Contracting.Shared.Dtos.MasterDtos.ProjectDtos;
 using MapsterMapper;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -43,12 +44,17 @@ namespace Contracting.Infrustructure.Features
 
             await _db.Engineers.AddAsync(engineer);
             await _db.SaveChangesAsync();
+
+            await ReplaceEngineerProjectsAsync(engineer.Id, dto.ProjectIds);
+
             return _mapper.Map<GetEngineerDto>(engineer);
         }
 
         public async Task<GetEngineerDto> UpdateEngineerAsync(UpdateEngineerDto dto)
         {
-            var engineer = await _db.Engineers.FindAsync(dto.Id);
+            var engineer = await _db.Engineers
+                .Include(e => e.EngineerProjects)
+                .FirstOrDefaultAsync(e => e.Id == dto.Id);
             if (engineer is null)
                 return null!;
 
@@ -70,6 +76,8 @@ namespace Contracting.Infrustructure.Features
             }
 
             await _db.SaveChangesAsync();
+
+            await ReplaceEngineerProjectsAsync(engineer.Id, dto.ProjectIds);
             return _mapper.Map<GetEngineerDto>(engineer);
         }
         public async Task UpdateUserRolesAsync(Guid userId, List<Guid> roleIds)
@@ -126,6 +134,8 @@ namespace Contracting.Infrustructure.Features
                     .Include(x => x.Department)
                     .ThenInclude(x => x.Branch)
                     .Include(x => x.ApplicationUser)
+                    .Include(x => x.EngineerProjects)
+                        .ThenInclude(ep => ep.Project)
                     .Where(e => e.DepartmentId == departmentId)
                     .AsNoTracking();
 
@@ -176,6 +186,8 @@ namespace Contracting.Infrustructure.Features
                     dto.Roles = userRolesDict.ContainsKey(engineer.ApplicationUserId)
                         ? userRolesDict[engineer.ApplicationUserId]
                         : new List<RoleDropDownDto>();
+                    dto.Projects = _mapper.Map<List<GetProjectDropDownDto>>(engineer.EngineerProjects);
+                    dto.ProjectIds = engineer.EngineerProjects.Select(ep => ep.ProjectId).ToList();
                     return dto;
                 }).ToList();
 
@@ -204,6 +216,8 @@ namespace Contracting.Infrustructure.Features
                     .Include(x => x.Department)
                     .ThenInclude(x=>x.Branch)
                     .Include(x => x.ApplicationUser)
+                    .Include(x => x.EngineerProjects)
+                        .ThenInclude(ep => ep.Project)
                     .AsNoTracking();
 
                 if (string.IsNullOrWhiteSpace(filter.Sort))
@@ -253,6 +267,8 @@ namespace Contracting.Infrustructure.Features
                     dto.Roles = userRolesDict.ContainsKey(engineer.ApplicationUserId)
                         ? userRolesDict[engineer.ApplicationUserId]
                         : new List<RoleDropDownDto>();
+                    dto.Projects = _mapper.Map<List<GetProjectDropDownDto>>(engineer.EngineerProjects);
+                    dto.ProjectIds = engineer.EngineerProjects.Select(ep => ep.ProjectId).ToList();
                     return dto;
                 }).ToList();
 
@@ -279,6 +295,8 @@ namespace Contracting.Infrustructure.Features
                 .Include(e => e.Department)
                 .ThenInclude(e => e.Branch)
                 .Include(e=>e.ApplicationUser)
+                .Include(e => e.EngineerProjects)
+                    .ThenInclude(ep => ep.Project)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(e => e.Id == engineerId);
 
@@ -299,6 +317,8 @@ namespace Contracting.Infrustructure.Features
                 .ToListAsync();
 
             dto.Roles = roles;
+            dto.Projects = _mapper.Map<List<GetProjectDropDownDto>>(engineer.EngineerProjects);
+            dto.ProjectIds = engineer.EngineerProjects.Select(ep => ep.ProjectId).ToList();
 
             return dto;
         }
@@ -312,6 +332,33 @@ namespace Contracting.Infrustructure.Features
                .ToListAsync();
 
             return _mapper.Map<List<GetEngineerDropDownDto>>(engineers);
+        }
+
+        private async Task ReplaceEngineerProjectsAsync(Guid engineerId, List<Guid> projectIds)
+        {
+            var existing = await _db.EngineerProjects
+                .Where(ep => ep.EngineerId == engineerId)
+                .ToListAsync();
+
+            if (existing.Any())
+            {
+                _db.EngineerProjects.RemoveRange(existing);
+            }
+
+            if (projectIds is null || projectIds.Count == 0)
+            {
+                await _db.SaveChangesAsync();
+                return;
+            }
+
+            var newLinks = projectIds.Distinct().Select(pid => new EngineerProject
+            {
+                EngineerId = engineerId,
+                ProjectId = pid
+            });
+
+            await _db.EngineerProjects.AddRangeAsync(newLinks);
+            await _db.SaveChangesAsync();
         }
 
         public async Task<bool> CheckDepartmentHaveManagerAsync(Guid departmentId, Guid? excludeEngineerId = null)

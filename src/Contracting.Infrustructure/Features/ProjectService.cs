@@ -6,6 +6,8 @@ using Contracting.Infrustructure.Inteface;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.Common;
 using Contracting.Shared.Dtos;
+using Contracting.Shared.Constants;
+using Contracting.Shared.CurrentUser;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
@@ -103,6 +105,8 @@ namespace Contracting.Infrustructure.Features
                         .ThenInclude(psf => psf.SpecialField)
                     .AsNoTracking();
 
+                query = ApplyProjectAccessFilter(query);
+
                 // ✅ ADDED: Filter by BranchId if provided
                 if (branchId.HasValue && branchId.Value != Guid.Empty)
                 {
@@ -154,12 +158,12 @@ namespace Contracting.Infrustructure.Features
 
         public async Task<GetProjectDto> GetProjectByIdAsync(Guid projectId)
         {
-            var project = await _db.Projects
+            var filteredQuery = ApplyProjectAccessFilter(_db.Projects.Where(p => p.Id == projectId))
                 .Include(p => p.Branch)
-                .Include(p => p.ProjectSpecialFields)
-                    .ThenInclude(psf => psf.SpecialField)
-                .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.Id == projectId);
+                .Include(p => p.ProjectSpecialFields).ThenInclude(psf => psf.SpecialField)
+                .AsNoTracking();
+
+            var project = await filteredQuery.FirstOrDefaultAsync();
 
             return project is null ? null! : _mapper.Map<GetProjectDto>(project);
         }
@@ -178,10 +182,43 @@ namespace Contracting.Infrustructure.Features
             {
                 query = query.Where(p => p.BranchId == branchId.Value);
             }
+            query = ApplyProjectAccessFilter(query);
 
             var projects = await query.ToListAsync();
 
             return _mapper.Map<List<GetProjectDropDownDto>>(projects);
+        }
+
+        private IQueryable<Project> ApplyProjectAccessFilter(IQueryable<Project> query)
+        {
+            var roles = CurrentUser.Roles;
+            var isSiteEngineer = roles.Any(r => string.Equals(r, RoleNames.Siteengineer, StringComparison.OrdinalIgnoreCase));
+            if (!isSiteEngineer)
+            {
+                return query;
+            }
+
+            var userId = CurrentUser.Id;
+            if (!userId.HasValue)
+            {
+                return query.Where(_ => false);
+            }
+
+            var engineerId = _db.Engineers
+                .Where(e => e.ApplicationUserId == userId.Value)
+                .Select(e => (Guid?)e.Id)
+                .FirstOrDefault();
+
+            if (!engineerId.HasValue)
+            {
+                return query.Where(_ => false);
+            }
+
+            var allowedProjects = _db.EngineerProjects
+                .Where(ep => ep.EngineerId == engineerId.Value)
+                .Select(ep => ep.ProjectId);
+
+            return query.Where(p => allowedProjects.Contains(p.Id));
         }
 
         private async Task AddProjectSpecialFieldsAsync(Project project, List<CreateProjectSpecialFieldDto> fields)

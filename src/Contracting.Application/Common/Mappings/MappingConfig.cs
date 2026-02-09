@@ -43,7 +43,10 @@ public static class MappingConfig
         config.NewConfig<UpdateEngineerDto, Engineer>();
 
         config.NewConfig<Engineer, GetEngineerDto>()
-        .Map(dest => dest.Department, src => src.Department).Ignore(dest => dest.Roles);
+        .Map(dest => dest.Department, src => src.Department)
+        .Map(dest => dest.Projects, src => src.EngineerProjects.Select(ep => ep.Project))
+        .Map(dest => dest.ProjectIds, src => src.EngineerProjects.Select(ep => ep.ProjectId))
+        .Ignore(dest => dest.Roles);
         config.NewConfig<Engineer, GetEngineerDropDownDto>()
         .Map(dest => dest.Department, src => src.Department);
 
@@ -53,6 +56,7 @@ public static class MappingConfig
         config.NewConfig<UpdateProjectDto, Project>();
         config.NewConfig<Project, GetProjectDto>()
             .Map(dest => dest.SpecialFields, src => src.ProjectSpecialFields);
+        config.NewConfig<Project, GetProjectDropDownDto>();
 
 
         config.NewConfig<CreatePriorityDto, Priority>();
@@ -63,6 +67,13 @@ public static class MappingConfig
         config.NewConfig<ProjectSpecialField, ProjectSpecialFieldDto>()
             .Map(dest => dest.name, src => src.SpecialField != null ? src.SpecialField.name : null)
             .Map(dest => dest.fieldType, src => src.SpecialField != null ? src.SpecialField.fieldType : null);
+        config.NewConfig<EngineerProject, GetProjectDropDownDto>()
+            .Map(dest => dest.Branch, src => src.Project != null ? src.Project.Branch : null)
+            .Map(dest => dest.BranchId, src => src.Project != null ? src.Project.BranchId : null)
+            .Map(dest => dest.nameEn, src => src.Project != null ? src.Project.nameEn : null)
+            .Map(dest => dest.nameAr, src => src.Project != null ? src.Project.nameAr : null)
+            .Map(dest => dest.location, src => src.Project != null ? src.Project.location : null)
+            .Map(dest => dest.Code, src => src.Project != null ? src.Project.Code : null);
 
         config.NewConfig<CreateStatusDto, Status>();
         config.NewConfig<UpdateStatusDto, Status>();
