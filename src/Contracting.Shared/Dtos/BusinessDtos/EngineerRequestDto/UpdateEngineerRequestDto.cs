@@ -13,6 +13,7 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestDto
         public string? Descreption { get; set; }
         public ICollection<UpdateEngineerRequestNotesDto> EngineerRequestNotes { get; set; }
         public ICollection<IFormFile>? Attachments { get; set; }
+        public List<CreateEngineerRequestSpecialFieldValueDto> SpecialFieldValues { get; set; } = new();
 
     }
 }

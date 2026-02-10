@@ -5,6 +5,7 @@ using Contracting.Application.Features.Master.Project.Command.UpdateProject;
 using Contracting.Application.Features.Master.Project.Query.GetAllProjects;
 using Contracting.Application.Features.Master.Project.Query.GetProjectById;
 using Contracting.Application.Features.Master.Project.Query.GetProjectDropdown;
+using Contracting.Application.Features.Master.Project.Query.GetProjectSpecialFields;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.ProjectDtos;
 using MediatR;
@@ -99,6 +100,19 @@ namespace Contracting.API.Controllers
 
             return result.Match(
                 projects => Ok(projects),
+                errors => Problem(errors)
+            );
+        }
+
+        // Check if Project has Special Fields
+        [HttpGet("{projectId:guid}/special-fields")]
+        public async Task<IActionResult> GetSpecialFields(Guid projectId)
+        {
+            var query = new GetProjectSpecialFieldsQuery(projectId);
+            var result = await _mediator.Send(query);
+
+            return result.Match(
+                data => Ok(data),
                 errors => Problem(errors)
             );
         }

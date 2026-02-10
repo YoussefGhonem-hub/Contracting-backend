@@ -82,6 +82,10 @@ public static class MappingConfig
         config.NewConfig<CreateEngineerRequestDto, EngineerRequest>();
         config.NewConfig<UpdateEngineerRequestDto, EngineerRequest>();
 
+        config.NewConfig<EngineerRequestSpecialFieldValue, EngineerRequestSpecialFieldValueDto>()
+            .Map(dest => dest.fieldName, src => src.ProjectSpecialField != null && src.ProjectSpecialField.SpecialField != null ? src.ProjectSpecialField.SpecialField.name : null)
+            .Map(dest => dest.fieldType, src => src.ProjectSpecialField != null && src.ProjectSpecialField.SpecialField != null ? src.ProjectSpecialField.SpecialField.fieldType : null);
+
         config.NewConfig<CrearteEngineerRequestNotesDto, EngineerRequestNotes>();
           config.NewConfig<EngineerRequestNotes, GetEngineerRequestNotesDto>()
               .Map(dest => dest.Engineer, src => src.Engineer)

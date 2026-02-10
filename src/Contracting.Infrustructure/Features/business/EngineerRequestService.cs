@@ -122,6 +122,21 @@ public class EngineerRequestService : IEngineerRequestService
 
         await _db.EngineerRequests.AddAsync(request);
         
+        // Save special field values
+        if (dto.SpecialFieldValues != null && dto.SpecialFieldValues.Any())
+        {
+            foreach (var sfv in dto.SpecialFieldValues)
+            {
+                var specialFieldValue = new EngineerRequestSpecialFieldValue
+                {
+                    EngineerRequestId = request.Id,
+                    ProjectSpecialFieldId = sfv.ProjectSpecialFieldId,
+                    value = sfv.value
+                };
+                await _db.EngineerRequestSpecialFieldValues.AddAsync(specialFieldValue);
+            }
+        }
+
         // Create initial activity for request creation
         var createActivity = new EngineerRequestActivite
         {
@@ -146,6 +161,9 @@ public class EngineerRequestService : IEngineerRequestService
                                 .ThenInclude(n => n.EngineerRequestAttachments)
                             .Include(r => r.EngineerRequestAttachments)
                             .Include(r=>r.EngineerRequestActivites)
+                            .Include(r => r.SpecialFieldValues)
+                                .ThenInclude(v => v.ProjectSpecialField)
+                                    .ThenInclude(psf => psf.SpecialField)
                             .AsNoTracking()
                             .FirstOrDefaultAsync(r => r.Id == request.Id);
 
@@ -190,6 +208,7 @@ public class EngineerRequestService : IEngineerRequestService
 
         var request = await _db.EngineerRequests
             .Include(r => r.EngineerRequestNotes)
+            .Include(r => r.SpecialFieldValues)
             .FirstOrDefaultAsync(r => r.Id == dto.Id);
         if (request is null)
             return null!;
@@ -292,6 +311,28 @@ public class EngineerRequestService : IEngineerRequestService
             }
         }
 
+        // Handle special field values
+        if (dto.SpecialFieldValues != null)
+        {
+            // Remove existing special field values
+            if (request.SpecialFieldValues != null && request.SpecialFieldValues.Any())
+            {
+                _db.EngineerRequestSpecialFieldValues.RemoveRange(request.SpecialFieldValues);
+            }
+
+            // Add new special field values
+            foreach (var sfv in dto.SpecialFieldValues)
+            {
+                var specialFieldValue = new EngineerRequestSpecialFieldValue
+                {
+                    EngineerRequestId = request.Id,
+                    ProjectSpecialFieldId = sfv.ProjectSpecialFieldId,
+                    value = sfv.value
+                };
+                await _db.EngineerRequestSpecialFieldValues.AddAsync(specialFieldValue);
+            }
+        }
+
         await _db.SaveChangesAsync();
 
         // Reload with navigation properties (including attachments)
@@ -304,6 +345,9 @@ public class EngineerRequestService : IEngineerRequestService
             .Include(r => r.EngineerRequestNotes)
                 .ThenInclude(n => n.EngineerRequestAttachments)
             .Include(r => r.EngineerRequestAttachments)
+            .Include(r => r.SpecialFieldValues)
+                .ThenInclude(v => v.ProjectSpecialField)
+                    .ThenInclude(psf => psf.SpecialField)
             .AsNoTracking()
             .FirstOrDefaultAsync(r => r.Id == request.Id);
 
@@ -351,6 +395,9 @@ public class EngineerRequestService : IEngineerRequestService
                     .ThenInclude(a => a.Engineer)
                 .Include(r => r.EngineerRequestActivites)
                     .ThenInclude(a => a.Status)
+                .Include(r => r.SpecialFieldValues)
+                    .ThenInclude(v => v.ProjectSpecialField)
+                        .ThenInclude(psf => psf.SpecialField)
                 .Where(r => r.DepartmentId == departmentId)
                 .AsNoTracking();
 
@@ -424,6 +471,9 @@ public class EngineerRequestService : IEngineerRequestService
                     .ThenInclude(a => a.Engineer)
                 .Include(r => r.EngineerRequestActivites)
                     .ThenInclude(a => a.Status)
+                .Include(r => r.SpecialFieldValues)
+                    .ThenInclude(v => v.ProjectSpecialField)
+                        .ThenInclude(psf => psf.SpecialField)
                 .AsNoTracking();
 
             if (filter.DepartmentId.HasValue && filter.DepartmentId.Value != Guid.Empty)
@@ -511,6 +561,9 @@ public class EngineerRequestService : IEngineerRequestService
                 .ThenInclude(a => a.Engineer)
             .Include(r => r.EngineerRequestActivites)
                 .ThenInclude(a => a.Status)
+            .Include(r => r.SpecialFieldValues)
+                .ThenInclude(v => v.ProjectSpecialField)
+                    .ThenInclude(psf => psf.SpecialField)
             .AsNoTracking()
             .FirstOrDefaultAsync(r => r.Id == requestId);
 
@@ -861,6 +914,9 @@ public class EngineerRequestService : IEngineerRequestService
                     .ThenInclude(a => a.Engineer)
                 .Include(r => r.EngineerRequestActivites)
                     .ThenInclude(a => a.Status)
+                .Include(r => r.SpecialFieldValues)
+                    .ThenInclude(v => v.ProjectSpecialField)
+                        .ThenInclude(psf => psf.SpecialField)
                 .AsNoTracking();
 
             if (filter.ProjectId.HasValue && filter.ProjectId.Value != Guid.Empty)
@@ -981,6 +1037,9 @@ public class EngineerRequestService : IEngineerRequestService
                     .ThenInclude(a => a.Engineer)
                 .Include(r => r.EngineerRequestActivites)
                     .ThenInclude(a => a.Status)
+                .Include(r => r.SpecialFieldValues)
+                    .ThenInclude(v => v.ProjectSpecialField)
+                        .ThenInclude(psf => psf.SpecialField)
                 .AsNoTracking();
 
             // Filter by status

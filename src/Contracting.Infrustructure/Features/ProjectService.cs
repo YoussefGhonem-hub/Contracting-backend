@@ -189,6 +189,27 @@ namespace Contracting.Infrustructure.Features
             return _mapper.Map<List<GetProjectDropDownDto>>(projects);
         }
 
+        public async Task<ProjectSpecialFieldsCheckDto> GetProjectSpecialFieldsAsync(Guid projectId)
+        {
+            var project = await _db.Projects
+                .Include(p => p.ProjectSpecialFields)
+                    .ThenInclude(psf => psf.SpecialField)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == projectId);
+
+            if (project is null)
+                return null!;
+
+            return new ProjectSpecialFieldsCheckDto
+            {
+                ProjectId = project.Id,
+                hasSpecialFields = project.hasSpecialFields,
+                SpecialFields = project.hasSpecialFields
+                    ? _mapper.Map<List<ProjectSpecialFieldDto>>(project.ProjectSpecialFields)
+                    : new List<ProjectSpecialFieldDto>()
+            };
+        }
+
         private IQueryable<Project> ApplyProjectAccessFilter(IQueryable<Project> query)
         {
             var roles = CurrentUser.Roles;
