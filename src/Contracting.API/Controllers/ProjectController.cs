@@ -28,7 +28,7 @@ namespace Contracting.API.Controllers
 
         // Create Project
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] CreateProjectDto dto)
+        public async Task<IActionResult> Create([FromForm] CreateProjectDto dto)
         {
             var command = new CreateProjectCommand(dto);
             var result = await _mediator.Send(command);
@@ -41,7 +41,7 @@ namespace Contracting.API.Controllers
 
         // Update Project
         [HttpPut]
-        public async Task<IActionResult> Update([FromBody] UpdateProjectDto dto)
+        public async Task<IActionResult> Update([FromForm] UpdateProjectDto dto)
         {
             var command = new UpdateProjectCommand(dto);
             var result = await _mediator.Send(command);

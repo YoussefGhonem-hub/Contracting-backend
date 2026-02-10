@@ -52,8 +52,12 @@ public static class MappingConfig
 
         config.NewConfig<Project, UpdateProjectDto>();
         config.NewConfig<Project, CreateProjectDto>();
-        config.NewConfig<CreateProjectDto, Project>();
-        config.NewConfig<UpdateProjectDto, Project>();
+        config.NewConfig<CreateProjectDto, Project>()
+            .Ignore(dest => dest.imageUrl)
+            .Ignore(dest => dest.imageKey);
+        config.NewConfig<UpdateProjectDto, Project>()
+            .Ignore(dest => dest.imageUrl)
+            .Ignore(dest => dest.imageKey);
         config.NewConfig<Project, GetProjectDto>()
             .Map(dest => dest.SpecialFields, src => src.ProjectSpecialFields);
         config.NewConfig<Project, GetProjectDropDownDto>();
