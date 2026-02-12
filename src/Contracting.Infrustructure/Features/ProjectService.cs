@@ -12,6 +12,7 @@ using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Contracting.Shared.Dtos.MasterDtos.ProjectDtos;
+using Storage.AWS3.Services;
 
 namespace Contracting.Infrustructure.Features
 {
@@ -20,12 +21,14 @@ namespace Contracting.Infrustructure.Features
         private readonly ApplicationDbContext _db;
         private readonly IMapper _mapper;
         private readonly IStringLocalizer<SharedResources> _localizer;
+        private readonly IStorageService _storageService;
 
-        public ProjectService(ApplicationDbContext db, IMapper mapper, IStringLocalizer<SharedResources> localizer)
+        public ProjectService(ApplicationDbContext db, IMapper mapper, IStringLocalizer<SharedResources> localizer, IStorageService storageService)
         {
             _db = db;
             _mapper = mapper;
             _localizer = localizer;
+            _storageService = storageService;
         }
 
         public async Task<GetProjectDto> CreateProjectAsync(CreateProjectDto dto)
@@ -35,6 +38,17 @@ namespace Contracting.Infrustructure.Features
             if (project.BranchId == Guid.Empty || project.BranchId == null)
             {
                 project.BranchId = null;
+            }
+
+            // Handle image upload
+            if (dto.Image != null)
+            {
+                var uploaded = await _storageService.Upload(dto.Image);
+                if (uploaded != null)
+                {
+                    project.imageUrl = uploaded.Url;
+                    project.imageKey = uploaded.Key;
+                }
             }
 
             await _db.Projects.AddAsync(project);
@@ -63,6 +77,23 @@ namespace Contracting.Infrustructure.Features
             project.location = dto.location;
             project.Code = dto.Code;
             project.hasSpecialFields = dto.hasSpecialFields;
+
+            // Handle image upload
+            if (dto.Image != null)
+            {
+                // Delete old image if exists
+                if (!string.IsNullOrEmpty(project.imageKey))
+                {
+                    await _storageService.Delete(project.imageKey);
+                }
+
+                var uploaded = await _storageService.Upload(dto.Image);
+                if (uploaded != null)
+                {
+                    project.imageUrl = uploaded.Url;
+                    project.imageKey = uploaded.Key;
+                }
+            }
 
             if (dto.BranchId == Guid.Empty || dto.BranchId == null)
             {
@@ -187,6 +218,27 @@ namespace Contracting.Infrustructure.Features
             var projects = await query.ToListAsync();
 
             return _mapper.Map<List<GetProjectDropDownDto>>(projects);
+        }
+
+        public async Task<ProjectSpecialFieldsCheckDto> GetProjectSpecialFieldsAsync(Guid projectId)
+        {
+            var project = await _db.Projects
+                .Include(p => p.ProjectSpecialFields)
+                    .ThenInclude(psf => psf.SpecialField)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == projectId);
+
+            if (project is null)
+                return null!;
+
+            return new ProjectSpecialFieldsCheckDto
+            {
+                ProjectId = project.Id,
+                hasSpecialFields = project.hasSpecialFields,
+                SpecialFields = project.hasSpecialFields
+                    ? _mapper.Map<List<ProjectSpecialFieldDto>>(project.ProjectSpecialFields)
+                    : new List<ProjectSpecialFieldDto>()
+            };
         }
 
         private IQueryable<Project> ApplyProjectAccessFilter(IQueryable<Project> query)

@@ -25,6 +25,7 @@ namespace Contracting.Domain.Entities.business
         public ICollection<EngineerRequestNotes> EngineerRequestNotes { get; set; }
         public ICollection<EngineerRequestActivite> EngineerRequestActivites { get; set; }
         public ICollection<EngineerRequestAttachment> EngineerRequestAttachments { get; set; }
+        public ICollection<EngineerRequestSpecialFieldValue> SpecialFieldValues { get; set; } = new List<EngineerRequestSpecialFieldValue>();
 
     }
 }

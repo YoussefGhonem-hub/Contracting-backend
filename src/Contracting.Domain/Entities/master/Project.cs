@@ -8,6 +8,8 @@ namespace Contracting.Domain.Entities.master
         public string? nameAr { get; set; }
         public string? location { get; set; }
         public string? Code { get; set; }
+        public string? imageUrl { get; set; }
+        public string? imageKey { get; set; }
         public Guid? BranchId { get; set; }
         public Branch? Branch { get; set; }
         public bool hasSpecialFields { get; set; }
