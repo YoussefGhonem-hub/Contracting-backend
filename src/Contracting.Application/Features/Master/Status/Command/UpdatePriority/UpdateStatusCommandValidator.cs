@@ -24,7 +24,6 @@ namespace Contracting.Application.Features.Master.Status.Command.UpdateStatus
                 .MaximumLength(50).WithMessage(string.Format(localizer[SharedResourcesKeys.CodeMaxLength], 50));
             
             RuleFor(x => x.Status.orderNumber)
-                .Empty().WithMessage(localizer[SharedResourcesKeys.OrderNumberRequired])
                 .GreaterThan(0).WithMessage(localizer[SharedResourcesKeys.OrderNumberGreaterThanZero]);
         }
     }
