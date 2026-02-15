@@ -39,100 +39,41 @@ namespace Contracting.Infrustructure.Features.business
                 EngineerId = engineer.Id,
                 ProjectId = dto.ProjectId == Guid.Empty ? null : dto.ProjectId,
                 ReportDate = dto.ReportDate ?? DateTimeOffset.UtcNow,
-                GeneralNotes = dto.GeneralNotes,
-                SiteSafetyObservations = dto.SiteSafetyObservations,
-                QualityControlObservations = dto.QualityControlObservations,
-                WorkLogs = new List<EngineerSiteWorkLog>(),
-                Materials = new List<EngineerSiteMaterial>(),
-                Equipments = new List<EngineerSiteEquipment>(),
-                SurveyQuestions = new List<EngineerSiteSurveyQuestion>()
+                WorkPerformedToday = dto.WorkPerformedToday,
+                MaterialDetails = dto.MaterialDetails,
+                IssuesOrDelays = dto.IssuesOrDelays,
+                ClientVisitToday = dto.ClientVisitToday,
+                VisitDetails = dto.VisitDetails,
+                Workers = new List<ReportConstructionItemWorker>(),
+                Attachments = new List<EngineerSiteReportAttachment>()
             };
 
-            if (dto.WorkLogs != null && dto.WorkLogs.Any())
+            // 3. Workers by Construction Item
+            if (dto.Workers != null && dto.Workers.Any())
             {
-                foreach (var workLogDto in dto.WorkLogs)
+                foreach (var w in dto.Workers)
                 {
-                    var workLog = new EngineerSiteWorkLog
+                    report.Workers.Add(new ReportConstructionItemWorker
                     {
-                        name = workLogDto.name,
-                        description = workLogDto.description,
-                        quantity = workLogDto.quantity,
-                        totalHours = workLogDto.totalHours,
-                        totalHoursToDate = workLogDto.totalHoursToDate,
-                        Attachments = new List<EngineerSiteWorkLogAttachment>()
-                    };
-
-                    if (workLogDto.Attachments != null && workLogDto.Attachments.Any())
-                    {
-                        var uploaded = await _storageService.UploadFiles(workLogDto.Attachments.ToList());
-                        workLog.Attachments = uploaded?.Select(f => new EngineerSiteWorkLogAttachment
-                        {
-                            Key = f.Key,
-                            FileName = f.FileName,
-                            Extension = f.Extension,
-                            FileSize = f.FileSize,
-                            Url = f.Url
-                        }).ToList() ?? new List<EngineerSiteWorkLogAttachment>();
-                    }
-
-                    report.WorkLogs.Add(workLog);
+                        ConstructionItemId = w.ConstructionItemId,
+                        Count = w.Count
+                    });
                 }
             }
 
-            if (dto.Materials != null && dto.Materials.Any())
+            // 9. Attachments
+            if (dto.Attachments != null && dto.Attachments.Any())
             {
-                report.Materials = dto.Materials.Select(m => new EngineerSiteMaterial
+                var uploaded = await _storageService.UploadFiles(dto.Attachments.ToList());
+                if (uploaded != null)
                 {
-                    name = m.name,
-                    quantity = m.quantity,
-                    usage = m.usage,
-                    needMore = m.needMore,
-                    unit = m.unit,
-                    unitCost = m.unitCost,
-                    totalCost = m.totalCost,
-                    notes = m.notes
-                }).ToList();
-            }
-
-            if (dto.Equipments != null && dto.Equipments.Any())
-            {
-                report.Equipments = dto.Equipments.Select(e => new EngineerSiteEquipment
-                {
-                    name = e.name,
-                    quantity = e.quantity,
-                    hoursUsed = e.hoursUsed,
-                    condition = e.condition,
-                    isOperational = e.isOperational,
-                    notes = e.notes
-                }).ToList();
-            }
-
-            if (dto.SurveyQuestions != null && dto.SurveyQuestions.Any())
-            {
-                report.SurveyQuestions = dto.SurveyQuestions.Select(s => new EngineerSiteSurveyQuestion
-                {
-                    TemplateId = s.TemplateId,
-                    question = s.question,
-                    answer = s.answer,
-                    description = s.description
-                }).ToList();
-            }
-            else
-            {
-                var templates = await _db.EngineerSiteSurveyQuestionTemplates
-                    .Where(t => t.isActive)
-                    .OrderBy(t => t.order)
-                    .AsNoTracking()
-                    .ToListAsync();
-
-                if (templates.Any())
-                {
-                    report.SurveyQuestions = templates.Select(t => new EngineerSiteSurveyQuestion
+                    report.Attachments = uploaded.Select(f => new EngineerSiteReportAttachment
                     {
-                        TemplateId = t.Id,
-                        question = t.question,
-                        answer = null,
-                        description = null
+                        Key = f.Key,
+                        FileName = f.FileName,
+                        Extension = f.Extension,
+                        FileSize = f.FileSize,
+                        Url = f.Url
                     }).ToList();
                 }
             }
@@ -140,31 +81,12 @@ namespace Contracting.Infrustructure.Features.business
             await _db.EngineerSiteReports.AddAsync(report);
             await _db.SaveChangesAsync();
 
-            var createdReport = await _db.EngineerSiteReports
-                .Include(r => r.Project)
-                .Include(r => r.Engineer)
-                .Include(r => r.WorkLogs)
-                    .ThenInclude(w => w.Attachments)
-                .Include(r => r.Materials)
-                .Include(r => r.Equipments)
-                .Include(r => r.SurveyQuestions)
-                .AsNoTracking()
-                .FirstOrDefaultAsync(r => r.Id == report.Id);
-
-            return createdReport is null ? null! : _mapper.Map<GetEngineerSiteReportDto>(createdReport);
+            return await GetEngineerSiteReportByIdAsync(report.Id);
         }
 
         public async Task<GetEngineerSiteReportDto> GetEngineerSiteReportByIdAsync(Guid reportId)
         {
-            var report = await _db.EngineerSiteReports
-                .Include(r => r.Project)
-                .Include(r => r.Engineer)
-                .Include(r => r.WorkLogs)
-                    .ThenInclude(w => w.Attachments)
-                .Include(r => r.Materials)
-                .Include(r => r.Equipments)
-                .Include(r => r.SurveyQuestions)
-                .AsNoTracking()
+            var report = await BuildReportQuery()
                 .FirstOrDefaultAsync(r => r.Id == reportId);
 
             return report is null ? null! : _mapper.Map<GetEngineerSiteReportDto>(report);
@@ -181,16 +103,8 @@ namespace Contracting.Infrustructure.Features.business
                 return new List<GetEngineerSiteReportDto>();
             }
 
-            var query = _db.EngineerSiteReports
-                .Where(r => r.EngineerId == engineer.Id)
-                .Include(r => r.Project)
-                .Include(r => r.Engineer)
-                .Include(r => r.WorkLogs)
-                    .ThenInclude(w => w.Attachments)
-                .Include(r => r.Materials)
-                .Include(r => r.Equipments)
-                .Include(r => r.SurveyQuestions)
-                .AsNoTracking();
+            var query = BuildReportQuery()
+                .Where(r => r.EngineerId == engineer.Id);
 
             if (filter.ProjectId.HasValue && filter.ProjectId.Value != Guid.Empty)
             {
@@ -216,16 +130,8 @@ namespace Contracting.Infrustructure.Features.business
 
         public async Task<PaginatedList<GetEngineerSiteReportDto>> GetEngineerSiteReportsByEngineerIdAsync(Guid engineerId, EngineerSiteReportFilterDto filter, CancellationToken cancellationToken = default)
         {
-            var query = _db.EngineerSiteReports
-                .Where(r => r.EngineerId == engineerId)
-                .Include(r => r.Project)
-                .Include(r => r.Engineer)
-                .Include(r => r.WorkLogs)
-                    .ThenInclude(w => w.Attachments)
-                .Include(r => r.Materials)
-                .Include(r => r.Equipments)
-                .Include(r => r.SurveyQuestions)
-                .AsNoTracking();
+            var query = BuildReportQuery()
+                .Where(r => r.EngineerId == engineerId);
 
             if (filter.ProjectId.HasValue && filter.ProjectId.Value != Guid.Empty)
             {
@@ -263,6 +169,17 @@ namespace Contracting.Infrustructure.Features.business
                 totalCount,
                 filter.PageIndex,
                 filter.PageSize);
+        }
+
+        private IQueryable<EngineerSiteReport> BuildReportQuery()
+        {
+            return _db.EngineerSiteReports
+                .Include(r => r.Project)
+                .Include(r => r.Engineer)
+                .Include(r => r.Workers)
+                    .ThenInclude(w => w.ConstructionItem)
+                .Include(r => r.Attachments)
+                .AsNoTracking();
         }
     }
 }

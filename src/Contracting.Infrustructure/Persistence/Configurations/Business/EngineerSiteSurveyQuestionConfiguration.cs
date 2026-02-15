@@ -17,7 +17,7 @@ namespace Contracting.Infrustructure.Persistence.Configurations.Business
             builder.Property(s => s.description).HasMaxLength(1000);
 
             builder.HasOne(s => s.EngineerSiteReport)
-                .WithMany(r => r.SurveyQuestions)
+                .WithMany()
                 .HasForeignKey(s => s.EngineerSiteReportId)
                 .OnDelete(DeleteBehavior.Cascade);
 

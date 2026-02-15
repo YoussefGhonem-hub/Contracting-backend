@@ -13,9 +13,10 @@ namespace Contracting.Infrustructure.Persistence.Configurations.Business
             builder.HasKey(r => r.Id);
 
             builder.Property(r => r.ReportDate).IsRequired();
-            builder.Property(r => r.GeneralNotes).HasMaxLength(4000);
-            builder.Property(r => r.SiteSafetyObservations).HasMaxLength(4000);
-            builder.Property(r => r.QualityControlObservations).HasMaxLength(4000);
+            builder.Property(r => r.WorkPerformedToday).HasMaxLength(4000);
+            builder.Property(r => r.MaterialDetails).HasMaxLength(4000);
+            builder.Property(r => r.IssuesOrDelays).HasMaxLength(4000);
+            builder.Property(r => r.VisitDetails).HasMaxLength(4000);
 
             builder.HasOne(r => r.Engineer)
                 .WithMany()

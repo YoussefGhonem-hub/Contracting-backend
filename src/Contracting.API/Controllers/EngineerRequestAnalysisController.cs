@@ -9,6 +9,8 @@ using Contracting.Application.Features.Business.EngineerRequest.Query.GetReworkR
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetSiteEngineerAnalysis;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetSlaBucketsReport;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetTeamLeadAnalysis;
+using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequestStatusPercentage;
+using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequestStatusPercentageByEngineerId;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -265,6 +267,51 @@ namespace Contracting.API.Controllers
         public async Task<IActionResult> GetReworkRate()
         {
             var query = new GetReworkRateQuery();
+            var result = await _mediator.Send(query);
+
+            return result.Match(
+                data => Ok(data),
+                errors => Problem(errors)
+            );
+        }
+
+        /// <summary>
+        /// Get request status percentage analysis for all engineers
+        /// </summary>
+        /// <remarks>
+        /// Returns finished in time, on hold, delayed, and completed percentages per engineer.
+        /// </remarks>
+        /// <response code="200">Returns status percentage analysis for all engineers</response>
+        /// <response code="401">Unauthorized - User is not authenticated</response>
+        [HttpGet("status-percentage")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> GetRequestStatusPercentage([FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null)
+        {
+            var query = new GetRequestStatusPercentageQuery(startDate, endDate);
+            var result = await _mediator.Send(query);
+
+            return result.Match(
+                data => Ok(data),
+                errors => Problem(errors)
+            );
+        }
+
+        /// <summary>
+        /// Get request status percentage analysis for a specific engineer
+        /// </summary>
+        /// <param name="engineerId">The ID of the engineer</param>
+        /// <remarks>
+        /// Returns finished in time, on hold, delayed, and completed percentages for the specified engineer.
+        /// </remarks>
+        /// <response code="200">Returns status percentage analysis for the engineer</response>
+        /// <response code="401">Unauthorized - User is not authenticated</response>
+        [HttpGet("status-percentage/{engineerId:guid}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> GetRequestStatusPercentageByEngineerId(Guid engineerId, [FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null)
+        {
+            var query = new GetRequestStatusPercentageByEngineerIdQuery(engineerId, startDate, endDate);
             var result = await _mediator.Send(query);
 
             return result.Match(

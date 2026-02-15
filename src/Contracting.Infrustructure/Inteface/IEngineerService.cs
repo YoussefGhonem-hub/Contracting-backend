@@ -3,6 +3,7 @@ using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Shared.Common;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
+using Contracting.Shared.Dtos.MasterDtos.ProjectDtos;
 
 namespace Contracting.Infrustructure.Inteface
 {
@@ -28,6 +29,7 @@ namespace Contracting.Infrustructure.Inteface
 
         // Get a dropdown list of engineers (id and name only)
         Task<List<GetEngineerDropDownDto>> GetEngineerDropdownAsync(Guid departmentId);
+        Task<List<GetProjectDropDownDto>> GetEngineerProjectsAsync(Guid engineerId);
         Task<bool> CheckDepartmentHaveManagerAsync(Guid departmentId, Guid? excludeEngineerId = null);
         Task UpdateUserRolesAsync(Guid userId, List<Guid> roleIds);
         Task<ApplicationUser> UpdateUserAsync(Guid userId, UpdateEngineerDto dto);

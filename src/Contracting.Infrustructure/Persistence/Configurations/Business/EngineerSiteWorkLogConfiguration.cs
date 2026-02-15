@@ -19,7 +19,7 @@ namespace Contracting.Infrustructure.Persistence.Configurations.Business
             builder.Property(w => w.totalHoursToDate).HasColumnType("decimal(18,2)");
 
             builder.HasOne(w => w.EngineerSiteReport)
-                .WithMany(r => r.WorkLogs)
+                .WithMany()
                 .HasForeignKey(w => w.EngineerSiteReportId)
                 .OnDelete(DeleteBehavior.Cascade);
 

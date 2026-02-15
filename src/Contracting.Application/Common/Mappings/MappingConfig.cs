@@ -12,6 +12,7 @@ using Contracting.Shared.Dtos.MasterDtos.PriorityDto;
 using Contracting.Shared.Dtos.MasterDtos.ProjectDtos;
 using Contracting.Shared.Dtos.MasterDtos.RoleDtos;
 using Contracting.Shared.Dtos.MasterDtos.StatusDtos;
+using Contracting.Shared.Dtos.MasterDtos.ConstructionItemDtos;
 using Mapster;
 
 namespace Contracting.Application.Common.Mappings;
@@ -99,20 +100,26 @@ public static class MappingConfig
 
         config.NewConfig<EngineerSiteWorkLogAttachment, Contracting.Shared.Dtos.GetAttachmentDto>();
 
-        config.NewConfig<EngineerSiteWorkLog, GetEngineerSiteWorkLogDto>()
-            .Map(dest => dest.Attachments, src => src.Attachments);
-        config.NewConfig<EngineerSiteMaterial, GetEngineerSiteMaterialDto>();
-        config.NewConfig<EngineerSiteEquipment, GetEngineerSiteEquipmentDto>();
-        config.NewConfig<EngineerSiteSurveyQuestion, GetEngineerSiteSurveyQuestionDto>();
         config.NewConfig<EngineerSiteSurveyQuestionTemplate, GetEngineerSiteSurveyQuestionTemplateDto>();
 
+        // ConstructionItem mappings
+        config.NewConfig<CreateConstructionItemDto, ConstructionItem>();
+        config.NewConfig<ConstructionItem, GetConstructionItemDto>();
+        config.NewConfig<ConstructionItem, GetConstructionItemDropdownDto>();
+
+        // Report worker mapping
+        config.NewConfig<ReportConstructionItemWorker, GetReportWorkerDto>()
+            .Map(dest => dest.ConstructionItem, src => src.ConstructionItem);
+
+        // Report attachment mapping
+        config.NewConfig<EngineerSiteReportAttachment, Contracting.Shared.Dtos.GetAttachmentDto>();
+
+        // EngineerSiteReport mapping (new structure)
         config.NewConfig<EngineerSiteReport, GetEngineerSiteReportDto>()
             .Map(dest => dest.Project, src => src.Project)
             .Map(dest => dest.Engineer, src => src.Engineer)
-            .Map(dest => dest.WorkLogs, src => src.WorkLogs)
-            .Map(dest => dest.Materials, src => src.Materials)
-            .Map(dest => dest.Equipments, src => src.Equipments)
-            .Map(dest => dest.SurveyQuestions, src => src.SurveyQuestions);
+            .Map(dest => dest.Workers, src => src.Workers)
+            .Map(dest => dest.Attachments, src => src.Attachments);
 
         config.NewConfig<Status, GetDropDownStatusDto>();
         

@@ -21,7 +21,7 @@ namespace Contracting.Infrustructure.Persistence.Configurations.Business
             builder.Property(m => m.totalCost).HasColumnType("decimal(18,2)");
 
             builder.HasOne(m => m.EngineerSiteReport)
-                .WithMany(r => r.Materials)
+                .WithMany()
                 .HasForeignKey(m => m.EngineerSiteReportId)
                 .OnDelete(DeleteBehavior.Cascade);
 

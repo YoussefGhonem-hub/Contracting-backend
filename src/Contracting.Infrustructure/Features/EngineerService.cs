@@ -334,6 +334,25 @@ namespace Contracting.Infrustructure.Features
             return _mapper.Map<List<GetEngineerDropDownDto>>(engineers);
         }
 
+        public async Task<List<GetProjectDropDownDto>> GetEngineerProjectsAsync(Guid engineerId)
+        {
+            var engineerExists = await _db.Engineers
+                .AsNoTracking()
+                .AnyAsync(e => e.Id == engineerId);
+
+            if (!engineerExists)
+                return null!;
+
+            var engineerProjects = await _db.EngineerProjects
+                .Where(ep => ep.EngineerId == engineerId)
+                .Include(ep => ep.Project)
+                    .ThenInclude(p => p.Branch)
+                .AsNoTracking()
+                .ToListAsync();
+
+            return _mapper.Map<List<GetProjectDropDownDto>>(engineerProjects);
+        }
+
         private async Task ReplaceEngineerProjectsAsync(Guid engineerId, List<Guid> projectIds)
         {
             var existing = await _db.EngineerProjects

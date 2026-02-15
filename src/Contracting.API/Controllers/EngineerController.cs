@@ -6,6 +6,7 @@ using Contracting.Application.Features.Master.Engineer.Query.GetEngineerById;
 using Contracting.Application.Features.Master.Engineer.Query.GetEngineerDropdown;
 using Contracting.Application.Features.Master.Engineer.Query.GetEngineerList;
 using Contracting.Application.Features.Master.Engineer.Query.GetEngineerListByBranch;
+using Contracting.Application.Features.Master.Engineer.Query.GetEngineerProjects;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetEngineerRequestCountByStatus;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
@@ -127,6 +128,19 @@ namespace Contracting.API.Controllers
 
             return result.Match(
                 counts => Ok(counts),
+                errors => Problem(errors)
+            );
+        }
+
+        // Get projects assigned to engineer
+        [HttpGet("{engineerId:guid}/projects")]
+        public async Task<IActionResult> GetEngineerProjects(Guid engineerId)
+        {
+            var query = new GetEngineerProjectsQuery(engineerId);
+            var result = await _mediator.Send(query);
+
+            return result.Match(
+                projects => Ok(projects),
                 errors => Problem(errors)
             );
         }

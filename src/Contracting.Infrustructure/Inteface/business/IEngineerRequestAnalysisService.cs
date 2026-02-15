@@ -14,5 +14,7 @@ namespace Contracting.Infrustructure.Inteface.business
         Task<AssigneePerformanceReportDto> GetAssigneePerformanceAsync(CancellationToken cancellationToken = default);
         Task<AssigneePerformanceReportDto> GetAssigneePerformanceByEngineerIdAsync(Guid engineerId, CancellationToken cancellationToken = default);
         Task<ReworkRateDto> GetReworkRateAsync(CancellationToken cancellationToken = default);
+        Task<EngineerStatusPercentageReportDto> GetRequestStatusPercentageAsync(DateTime? startDate = null, DateTime? endDate = null, CancellationToken cancellationToken = default);
+        Task<EngineerStatusPercentageReportDto> GetRequestStatusPercentageByEngineerIdAsync(Guid engineerId, DateTime? startDate = null, DateTime? endDate = null, CancellationToken cancellationToken = default);
     }
 }

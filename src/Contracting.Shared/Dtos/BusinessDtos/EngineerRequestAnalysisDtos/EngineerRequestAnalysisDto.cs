@@ -104,4 +104,29 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestAnalysisDtos
         public int ReworkedRequests { get; set; }
         public decimal ReworkPercentage { get; set; }
     }
+
+    public class EngineerStatusPercentageDto
+    {
+        public Guid? EngineerId { get; set; }
+        public string EngineerName { get; set; } = string.Empty;
+        public int TotalRequests { get; set; }
+
+        public int FinishedInTimeCount { get; set; }
+        public decimal FinishedInTimePercentage { get; set; }
+
+        public int OnHoldCount { get; set; }
+        public decimal OnHoldPercentage { get; set; }
+
+        public int DelayedCount { get; set; }
+        public decimal DelayedPercentage { get; set; }
+
+        public int CompletedCount { get; set; }
+        public decimal CompletedPercentage { get; set; }
+    }
+
+    public class EngineerStatusPercentageReportDto
+    {
+        public int TotalRequests { get; set; }
+        public List<EngineerStatusPercentageDto> Engineers { get; set; } = new();
+    }
 }

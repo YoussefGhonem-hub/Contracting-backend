@@ -467,6 +467,111 @@ namespace Contracting.Infrustructure.Features.business
             };
         }
 
+        public async Task<EngineerStatusPercentageReportDto> GetRequestStatusPercentageAsync(DateTime? startDate = null, DateTime? endDate = null, CancellationToken cancellationToken = default)
+        {
+            var statusSets = await GetStatusSetsAsync(cancellationToken);
+            var filterContext = await GetUserFilterContextAsync(cancellationToken);
+            var items = await QueryRequestsDetailedWithFilterAsync(statusSets.CompletedStatusIds, filterContext, cancellationToken);
+
+            items = ApplyDateFilter(items, startDate, endDate);
+
+            var engineers = BuildEngineerStatusPercentages(items, statusSets);
+
+            return new EngineerStatusPercentageReportDto
+            {
+                TotalRequests = items.Count,
+                Engineers = engineers
+            };
+        }
+
+        public async Task<EngineerStatusPercentageReportDto> GetRequestStatusPercentageByEngineerIdAsync(Guid engineerId, DateTime? startDate = null, DateTime? endDate = null, CancellationToken cancellationToken = default)
+        {
+            var statusSets = await GetStatusSetsAsync(cancellationToken);
+            var filterContext = await GetUserFilterContextAsync(cancellationToken);
+            var items = await QueryRequestsDetailedWithFilterAsync(statusSets.CompletedStatusIds, filterContext, cancellationToken);
+
+            items = ApplyDateFilter(items, startDate, endDate);
+
+            var filteredItems = items
+                .Where(i => i.AssignedEngineerId.HasValue && i.AssignedEngineerId.Value == engineerId)
+                .ToList();
+
+            var engineers = BuildEngineerStatusPercentages(filteredItems, statusSets);
+
+            return new EngineerStatusPercentageReportDto
+            {
+                TotalRequests = filteredItems.Count,
+                Engineers = engineers
+            };
+        }
+
+        private static List<RequestAnalysisItem> ApplyDateFilter(List<RequestAnalysisItem> items, DateTime? startDate, DateTime? endDate)
+        {
+            if (startDate.HasValue)
+                items = items.Where(i => i.CreatedDate >= new DateTimeOffset(startDate.Value)).ToList();
+
+            if (endDate.HasValue)
+                items = items.Where(i => i.CreatedDate <= new DateTimeOffset(endDate.Value.Date.AddDays(1).AddTicks(-1))).ToList();
+
+            return items;
+        }
+
+        private List<EngineerStatusPercentageDto> BuildEngineerStatusPercentages(
+            List<RequestAnalysisItem> items,
+            (HashSet<Guid> CompletedStatusIds, HashSet<Guid> OnHoldStatusIds) statusSets)
+        {
+            var today = DateTime.UtcNow.Date;
+
+            return items
+                .Where(i => i.AssignedEngineerId.HasValue)
+                .GroupBy(i => new { i.AssignedEngineerId, i.AssignedEngineerName })
+                .Select(g =>
+                {
+                    var total = g.Count();
+
+                    // Completed = in a completed status
+                    var completed = g.Where(i => statusSets.CompletedStatusIds.Contains(i.StatusId)).ToList();
+                    var completedCount = completed.Count;
+
+                    // Finished in time = completed and CompletedAt <= EndDate
+                    var finishedInTime = completed
+                        .Count(i => i.EndDate.HasValue && i.CompletedAt.HasValue
+                                    && i.CompletedAt.Value <= new DateTimeOffset(i.EndDate.Value));
+
+                    // On hold = status is on hold
+                    var onHold = g.Count(i => statusSets.OnHoldStatusIds.Contains(i.StatusId));
+
+                    // Delayed = completed late (CompletedAt > EndDate) OR open and past deadline
+                    var completedLate = completed
+                        .Count(i => i.EndDate.HasValue && i.CompletedAt.HasValue
+                                    && i.CompletedAt.Value > new DateTimeOffset(i.EndDate.Value));
+
+                    var openOverdue = g
+                        .Where(i => !statusSets.CompletedStatusIds.Contains(i.StatusId)
+                                    && !statusSets.OnHoldStatusIds.Contains(i.StatusId))
+                        .Count(i => i.EndDate.HasValue && i.EndDate.Value.Date < today);
+
+                    var delayed = completedLate + openOverdue;
+
+                    return new EngineerStatusPercentageDto
+                    {
+                        EngineerId = g.Key.AssignedEngineerId,
+                        EngineerName = string.IsNullOrWhiteSpace(g.Key.AssignedEngineerName) ? "Unspecified" : g.Key.AssignedEngineerName,
+                        TotalRequests = total,
+                        FinishedInTimeCount = finishedInTime,
+                        FinishedInTimePercentage = total == 0 ? 0m : Math.Round((decimal)finishedInTime / total * 100m, 2, MidpointRounding.AwayFromZero),
+                        OnHoldCount = onHold,
+                        OnHoldPercentage = total == 0 ? 0m : Math.Round((decimal)onHold / total * 100m, 2, MidpointRounding.AwayFromZero),
+                        DelayedCount = delayed,
+                        DelayedPercentage = total == 0 ? 0m : Math.Round((decimal)delayed / total * 100m, 2, MidpointRounding.AwayFromZero),
+                        CompletedCount = completedCount,
+                        CompletedPercentage = total == 0 ? 0m : Math.Round((decimal)completedCount / total * 100m, 2, MidpointRounding.AwayFromZero)
+                    };
+                })
+                .OrderByDescending(x => x.TotalRequests)
+                .ToList();
+        }
+
         private sealed record RequestAnalysisItem(
             Guid Id,
             Guid StatusId,
