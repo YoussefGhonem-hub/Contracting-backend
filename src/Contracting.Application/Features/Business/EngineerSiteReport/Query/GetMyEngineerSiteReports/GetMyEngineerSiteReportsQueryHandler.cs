@@ -1,11 +1,12 @@
 using Contracting.Infrustructure.Inteface.business;
+using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Shared.BusinessDtos.EngineerSiteReportDto;
 using ErrorOr;
 using MediatR;
 
 namespace Contracting.Application.Features.Business.EngineerSiteReport.Query.GetMyEngineerSiteReports
 {
-    public class GetMyEngineerSiteReportsQueryHandler : IRequestHandler<GetMyEngineerSiteReportsQuery, ErrorOr<List<GetEngineerSiteReportDto>>>
+    public class GetMyEngineerSiteReportsQueryHandler : IRequestHandler<GetMyEngineerSiteReportsQuery, ErrorOr<PaginatedList<GetEngineerSiteReportDto>>>
     {
         private readonly IEngineerSiteReportService _service;
 
@@ -14,7 +15,7 @@ namespace Contracting.Application.Features.Business.EngineerSiteReport.Query.Get
             _service = service;
         }
 
-        public async Task<ErrorOr<List<GetEngineerSiteReportDto>>> Handle(GetMyEngineerSiteReportsQuery request, CancellationToken cancellationToken)
+        public async Task<ErrorOr<PaginatedList<GetEngineerSiteReportDto>>> Handle(GetMyEngineerSiteReportsQuery request, CancellationToken cancellationToken)
         {
             var result = await _service.GetMyEngineerSiteReportsAsync(request.Filter, cancellationToken);
             return result;

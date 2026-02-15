@@ -92,7 +92,7 @@ namespace Contracting.Infrustructure.Features.business
             return report is null ? null! : _mapper.Map<GetEngineerSiteReportDto>(report);
         }
 
-        public async Task<List<GetEngineerSiteReportDto>> GetMyEngineerSiteReportsAsync(EngineerSiteReportFilterDto filter, CancellationToken cancellationToken = default)
+        public async Task<PaginatedList<GetEngineerSiteReportDto>> GetMyEngineerSiteReportsAsync(EngineerSiteReportFilterDto filter, CancellationToken cancellationToken = default)
         {
             var engineer = await _db.Engineers
                 .AsNoTracking()
@@ -100,7 +100,11 @@ namespace Contracting.Infrustructure.Features.business
 
             if (engineer is null)
             {
-                return new List<GetEngineerSiteReportDto>();
+                return new PaginatedList<GetEngineerSiteReportDto>(
+                    new List<GetEngineerSiteReportDto>(),
+                    0,
+                    filter.PageIndex,
+                    filter.PageSize);
             }
 
             var query = BuildReportQuery()
@@ -120,12 +124,28 @@ namespace Contracting.Infrustructure.Features.business
                 query = query.OrderByDynamic(filter.Sort, filter.Descending);
             }
 
+            var totalCount = await query.CountAsync(cancellationToken);
+            if (totalCount == 0)
+            {
+                return new PaginatedList<GetEngineerSiteReportDto>(
+                    new List<GetEngineerSiteReportDto>(),
+                    0,
+                    filter.PageIndex,
+                    filter.PageSize);
+            }
+
             var reports = await query
                 .Skip((filter.PageIndex - 1) * filter.PageSize)
                 .Take(filter.PageSize)
                 .ToListAsync(cancellationToken);
 
-            return _mapper.Map<List<GetEngineerSiteReportDto>>(reports);
+            var reportDtos = _mapper.Map<List<GetEngineerSiteReportDto>>(reports);
+
+            return new PaginatedList<GetEngineerSiteReportDto>(
+                reportDtos,
+                totalCount,
+                filter.PageIndex,
+                filter.PageSize);
         }
 
         public async Task<PaginatedList<GetEngineerSiteReportDto>> GetEngineerSiteReportsByEngineerIdAsync(Guid engineerId, EngineerSiteReportFilterDto filter, CancellationToken cancellationToken = default)
@@ -171,11 +191,58 @@ namespace Contracting.Infrustructure.Features.business
                 filter.PageSize);
         }
 
+        public async Task<PaginatedList<GetEngineerSiteReportDto>> GetAllEngineerSiteReportsAsync(EngineerSiteReportFilterDto filter, CancellationToken cancellationToken = default)
+        {
+            var query = BuildReportQuery();
+
+            if (filter.ProjectId.HasValue && filter.ProjectId.Value != Guid.Empty)
+            {
+                query = query.Where(r => r.ProjectId == filter.ProjectId.Value);
+            }
+
+            if (string.IsNullOrWhiteSpace(filter.Sort))
+            {
+                query = query.OrderByDescending(r => r.ReportDate);
+            }
+            else
+            {
+                query = query.OrderByDynamic(filter.Sort, filter.Descending);
+            }
+
+            var totalCount = await query.CountAsync(cancellationToken);
+            if (totalCount == 0)
+            {
+                return new PaginatedList<GetEngineerSiteReportDto>(
+                    new List<GetEngineerSiteReportDto>(),
+                    0,
+                    filter.PageIndex,
+                    filter.PageSize);
+            }
+
+            var reports = await query
+                .Skip((filter.PageIndex - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .ToListAsync(cancellationToken);
+
+            var reportDtos = _mapper.Map<List<GetEngineerSiteReportDto>>(reports);
+
+            return new PaginatedList<GetEngineerSiteReportDto>(
+                reportDtos,
+                totalCount,
+                filter.PageIndex,
+                filter.PageSize);
+        }
+
         private IQueryable<EngineerSiteReport> BuildReportQuery()
         {
             return _db.EngineerSiteReports
                 .Include(r => r.Project)
+                    .ThenInclude(p => p.Branch)
+                .Include(r => r.Project)
+                    .ThenInclude(p => p.ProjectSpecialFields)
+                        .ThenInclude(psf => psf.SpecialField)
                 .Include(r => r.Engineer)
+                    .ThenInclude(e => e.Department)
                 .Include(r => r.Workers)
                     .ThenInclude(w => w.ConstructionItem)
                 .Include(r => r.Attachments)

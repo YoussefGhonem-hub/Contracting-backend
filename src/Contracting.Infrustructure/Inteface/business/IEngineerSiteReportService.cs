@@ -7,7 +7,8 @@ namespace Contracting.Infrustructure.Inteface.business
     {
         Task<GetEngineerSiteReportDto> CreateEngineerSiteReportAsync(CreateEngineerSiteReportDto dto);
         Task<GetEngineerSiteReportDto> GetEngineerSiteReportByIdAsync(Guid reportId);
-        Task<List<GetEngineerSiteReportDto>> GetMyEngineerSiteReportsAsync(EngineerSiteReportFilterDto filter, CancellationToken cancellationToken = default);
+        Task<PaginatedList<GetEngineerSiteReportDto>> GetMyEngineerSiteReportsAsync(EngineerSiteReportFilterDto filter, CancellationToken cancellationToken = default);
         Task<PaginatedList<GetEngineerSiteReportDto>> GetEngineerSiteReportsByEngineerIdAsync(Guid engineerId, EngineerSiteReportFilterDto filter, CancellationToken cancellationToken = default);
+        Task<PaginatedList<GetEngineerSiteReportDto>> GetAllEngineerSiteReportsAsync(EngineerSiteReportFilterDto filter, CancellationToken cancellationToken = default);
     }
 }

@@ -1,5 +1,6 @@
 using Contracting.API.Controllers.Shared;
 using Contracting.Application.Features.Business.EngineerSiteReport.Command.CreateEngineerSiteReport;
+using Contracting.Application.Features.Business.EngineerSiteReport.Query.GetAllEngineerSiteReports;
 using Contracting.Application.Features.Business.EngineerSiteReport.Query.GetEngineerSiteReportsByEngineerId;
 using Contracting.Application.Features.Business.EngineerSiteReport.Query.GetEngineerSiteReportById;
 using Contracting.Application.Features.Business.EngineerSiteReport.Query.GetMyEngineerSiteReports;
@@ -94,6 +95,18 @@ namespace Contracting.API.Controllers
 
             return result.Match(
                 report => Ok(report),
+                errors => Problem(errors)
+            );
+        }
+
+        [HttpGet("all")]
+        public async Task<IActionResult> GetAllReports([FromQuery] EngineerSiteReportFilterDto filter)
+        {
+            var query = new GetAllEngineerSiteReportsQuery(filter);
+            var result = await _mediator.Send(query);
+
+            return result.Match(
+                reports => Ok(reports),
                 errors => Problem(errors)
             );
         }
