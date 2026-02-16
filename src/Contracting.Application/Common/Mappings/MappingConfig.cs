@@ -73,6 +73,7 @@ public static class MappingConfig
             .Map(dest => dest.name, src => src.SpecialField != null ? src.SpecialField.name : null)
             .Map(dest => dest.fieldType, src => src.SpecialField != null ? src.SpecialField.fieldType : null);
         config.NewConfig<EngineerProject, GetProjectDropDownDto>()
+            .Map(dest => dest.Id, src => src.ProjectId)
             .Map(dest => dest.Branch, src => src.Project != null ? src.Project.Branch : null)
             .Map(dest => dest.BranchId, src => src.Project != null ? src.Project.BranchId : null)
             .Map(dest => dest.nameEn, src => src.Project != null ? src.Project.nameEn : null)
