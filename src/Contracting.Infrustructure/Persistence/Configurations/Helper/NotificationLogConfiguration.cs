@@ -30,6 +30,10 @@ namespace Contracting.Infrustructure.Persistence.Configurations.Helper
                 .IsRequired()
                 .HasDefaultValue(false);
 
+            builder.Property(x => x.IsRead)
+                .IsRequired()
+                .HasDefaultValue(false);
+
             builder.Property(x => x.ErrorMessage)
                 .HasMaxLength(1000);
 
@@ -42,12 +46,24 @@ namespace Contracting.Infrustructure.Persistence.Configurations.Helper
             builder.Property(x => x.CreatedBy)
                 .IsRequired();
 
+            // Engineer FK
+            builder.HasOne(x => x.Engineer)
+                .WithMany()
+                .HasForeignKey(x => x.EngineerId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             // Indexes for better query performance
             builder.HasIndex(x => x.UserId)
                 .HasDatabaseName("idx_NotificationLogs_UserId");
 
             builder.HasIndex(x => x.IsSent)
                 .HasDatabaseName("idx_NotificationLogs_IsSent");
+
+            builder.HasIndex(x => x.IsRead)
+                .HasDatabaseName("idx_NotificationLogs_IsRead");
+
+            builder.HasIndex(x => x.EngineerId)
+                .HasDatabaseName("idx_NotificationLogs_EngineerId");
 
             builder.HasIndex(x => x.CreatedDate)
                 .HasDatabaseName("idx_NotificationLogs_CreatedDate");

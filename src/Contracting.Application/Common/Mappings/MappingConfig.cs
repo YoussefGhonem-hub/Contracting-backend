@@ -1,10 +1,12 @@
 using Contracting.Domain.Entities;
 using Contracting.Domain.Entities.business;
+using Contracting.Domain.Entities.helper;
 using Contracting.Domain.Entities.master;
 using Contracting.Shared.BusinessDtos.EngineerRequestActiviteDto;
 using Contracting.Shared.BusinessDtos.EngineerRequestDto;
 using Contracting.Shared.BusinessDtos.EngineerRequestNotesDtos;
 using Contracting.Shared.BusinessDtos.EngineerSiteReportDto;
+using Contracting.Shared.Dtos.HelperDtos;
 using Contracting.Shared.Dtos.MasterDtos.BranchDto;
 using Contracting.Shared.Dtos.MasterDtos.DepartmentDtos;
 using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
@@ -155,7 +157,9 @@ public static class MappingConfig
             .Map(dest => dest.Id, src => src.Id)
             .Map(dest => dest.Name, src => src.Name);
 
-
+        // NotificationLog mappings
+        config.NewConfig<NotificationLog, GetNotificationDto>()
+            .Map(dest => dest.EngineerName, src => src.Engineer != null ? $"{src.Engineer.nameEn} / {src.Engineer.nameAr}" : null);
 
 
     }

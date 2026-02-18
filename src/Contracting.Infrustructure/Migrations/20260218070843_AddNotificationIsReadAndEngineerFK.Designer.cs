@@ -4,6 +4,7 @@ using Contracting.Infrustructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Contracting.Infrustructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260218070843_AddNotificationIsReadAndEngineerFK")]
+    partial class AddNotificationIsReadAndEngineerFK
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -477,8 +480,7 @@ namespace Contracting.Infrustructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("value")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -488,7 +490,7 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.HasIndex("ProjectSpecialFieldId");
 
-                    b.ToTable("EngineerRequestSpecialFieldValues", "business");
+                    b.ToTable("EngineerRequestSpecialFieldValues");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.business.EngineerSiteEquipment", b =>
@@ -1611,7 +1613,7 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.HasIndex("ProjectId");
 
-                    b.ToTable("EngineerProjects", "master");
+                    b.ToTable("EngineerProjects");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.master.Priority", b =>
@@ -1768,7 +1770,7 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.HasIndex("SpecialFieldId");
 
-                    b.ToTable("ProjectSpecialFields", "master");
+                    b.ToTable("ProjectSpecialFields");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.master.SpecialField", b =>
@@ -1799,18 +1801,16 @@ namespace Contracting.Infrustructure.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("fieldType")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("name")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("IsDeleted");
 
-                    b.ToTable("SpecialFields", "master");
+                    b.ToTable("SpecialFields");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.master.Status", b =>

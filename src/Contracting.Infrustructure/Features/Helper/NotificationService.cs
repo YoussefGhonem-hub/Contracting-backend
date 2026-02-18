@@ -1,6 +1,8 @@
 ﻿using Contracting.Domain.Entities.helper;
+using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Infrustructure.Inteface.Helper;
 using Contracting.Infrustructure.Persistence;
+using Contracting.Shared.Common;
 using Contracting.Shared.CurrentUser;
 using Contracting.Shared.Dtos.HelperDtos;
 using FirebaseAdmin;
@@ -11,6 +13,7 @@ using Hangfire;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.EntityFrameworkCore;
+using MapsterMapper;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Contracting.Infrustructure.Features.Helper
@@ -20,10 +23,12 @@ namespace Contracting.Infrustructure.Features.Helper
         private readonly ILogger<NotificationService> _logger;
         private readonly ApplicationDbContext _db;
         private readonly IBackgroundJobClient _backgroundJobClient;
+        private readonly IMapper _mapper;
 
-        public NotificationService(ILogger<NotificationService> logger, ApplicationDbContext db, IOptions<FirebaseSettings> firebaseOptions, IBackgroundJobClient backgroundJobClient)
+        public NotificationService(ILogger<NotificationService> logger, ApplicationDbContext db, IOptions<FirebaseSettings> firebaseOptions, IBackgroundJobClient backgroundJobClient, IMapper mapper)
         {
             _logger = logger;
+            _mapper = mapper;
 
             if (FirebaseApp.DefaultInstance == null)
             {
@@ -161,6 +166,12 @@ namespace Contracting.Infrustructure.Features.Helper
             if (userId == Guid.Empty)
                 return;
 
+            // Resolve the EngineerId from the ApplicationUserId
+            var engineerId = await _db.Engineers
+                .Where(e => e.ApplicationUserId == userId)
+                .Select(e => (Guid?)e.Id)
+                .FirstOrDefaultAsync();
+
             var tokens = await _db.userDeviceTokens
                 .Where(t => t.UserId == userId)
                 .Select(t => t.FcmToken)
@@ -174,6 +185,7 @@ namespace Contracting.Infrustructure.Features.Helper
                     Token = token,
                     Title = title,
                     Body = body,
+                    EngineerId = engineerId?.ToString(),
                     RequestId = requestId?.ToString(),
                     DepartmentId = departmentId?.ToString()
                 };
@@ -188,6 +200,114 @@ namespace Contracting.Infrustructure.Features.Helper
                     await LogNotificationAsync(notification, false, ex.Message);
                 }
             }
+        }
+
+        public async Task<PaginatedList<GetNotificationDto>> GetNotificationsByEngineerAsync(Guid engineerId, NotificationFilterDto filter)
+        {
+            var query = _db.NotificationLogs
+                .Include(n => n.Engineer)
+                .Where(n => n.EngineerId == engineerId)
+                .AsNoTracking();
+
+            if (filter.IsRead.HasValue)
+            {
+                query = query.Where(n => n.IsRead == filter.IsRead.Value);
+            }
+
+            query = query.OrderByDescending(n => n.CreatedDate);
+
+            var totalCount = await query.CountAsync();
+
+            if (totalCount == 0)
+            {
+                return new PaginatedList<GetNotificationDto>(
+                    new List<GetNotificationDto>(),
+                    0,
+                    filter.PageIndex,
+                    filter.PageSize);
+            }
+
+            var notifications = await query
+                .Skip((filter.PageIndex - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .ToListAsync();
+
+            var dtos = notifications.Select(n =>
+            {
+                var dto = _mapper.Map<GetNotificationDto>(n);
+                dto.EngineerName = n.Engineer != null
+                    ? $"{n.Engineer.nameEn} / {n.Engineer.nameAr}"
+                    : null;
+                return dto;
+            }).ToList();
+
+            return new PaginatedList<GetNotificationDto>(
+                dtos,
+                totalCount,
+                filter.PageIndex,
+                filter.PageSize);
+        }
+
+        public async Task<GetNotificationDto> GetNotificationByIdAsync(Guid notificationId)
+        {
+            var notification = await _db.NotificationLogs
+                .Include(n => n.Engineer)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(n => n.Id == notificationId);
+
+            if (notification is null)
+                return null!;
+
+            var dto = _mapper.Map<GetNotificationDto>(notification);
+            dto.EngineerName = notification.Engineer != null
+                ? $"{notification.Engineer.nameEn} / {notification.Engineer.nameAr}"
+                : null;
+            return dto;
+        }
+
+        public async Task<GenericResponse> MarkAsReadAsync(Guid notificationId)
+        {
+            var notification = await _db.NotificationLogs
+                .FirstOrDefaultAsync(n => n.Id == notificationId);
+
+            if (notification is null)
+                return GenericResponse.FailureResult("Notification not found.");
+
+            if (notification.IsRead)
+                return GenericResponse.SuccessResult("Notification already marked as read.");
+
+            notification.IsRead = true;
+            notification.ReadAt = DateTimeOffset.UtcNow;
+            await _db.SaveChangesAsync();
+
+            return GenericResponse.SuccessResult("Notification marked as read.");
+        }
+
+        public async Task<GenericResponse> MarkAllAsReadAsync(Guid engineerId)
+        {
+            var unread = await _db.NotificationLogs
+                .Where(n => n.EngineerId == engineerId && !n.IsRead)
+                .ToListAsync();
+
+            if (unread.Count == 0)
+                return GenericResponse.SuccessResult("No unread notifications.");
+
+            var now = DateTimeOffset.UtcNow;
+            foreach (var n in unread)
+            {
+                n.IsRead = true;
+                n.ReadAt = now;
+            }
+
+            await _db.SaveChangesAsync();
+            return GenericResponse.SuccessResult($"{unread.Count} notifications marked as read.");
+        }
+
+        public async Task<int> GetUnreadCountAsync(Guid engineerId)
+        {
+            return await _db.NotificationLogs
+                .Where(n => n.EngineerId == engineerId && !n.IsRead)
+                .CountAsync();
         }
 
     }
