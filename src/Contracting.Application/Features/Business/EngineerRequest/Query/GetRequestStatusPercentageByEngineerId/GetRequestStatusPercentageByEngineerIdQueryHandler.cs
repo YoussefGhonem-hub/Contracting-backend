@@ -16,7 +16,7 @@ namespace Contracting.Application.Features.Business.EngineerRequest.Query.GetReq
 
         public async Task<ErrorOr<EngineerStatusPercentageReportDto>> Handle(GetRequestStatusPercentageByEngineerIdQuery request, CancellationToken cancellationToken)
         {
-            var result = await _service.GetRequestStatusPercentageByEngineerIdAsync(request.EngineerId, request.StartDate, request.EndDate, cancellationToken);
+            var result = await _service.GetRequestStatusPercentageByEngineerIdAsync(request.EngineerId, request.Month, request.Year, cancellationToken);
             return result;
         }
     }

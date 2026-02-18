@@ -11,6 +11,7 @@ using Contracting.Application.Features.Business.EngineerRequest.Query.GetSlaBuck
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetTeamLeadAnalysis;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequestStatusPercentage;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequestStatusPercentageByEngineerId;
+using Contracting.Application.Features.Business.EngineerRequest.Query.GetWeeklyCompletion;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -309,9 +310,33 @@ namespace Contracting.API.Controllers
         [HttpGet("status-percentage/{engineerId:guid}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public async Task<IActionResult> GetRequestStatusPercentageByEngineerId(Guid engineerId, [FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null)
+        public async Task<IActionResult> GetRequestStatusPercentageByEngineerId(Guid engineerId, [FromQuery] int? month = null, [FromQuery] int? year = null)
         {
-            var query = new GetRequestStatusPercentageByEngineerIdQuery(engineerId, startDate, endDate);
+            var query = new GetRequestStatusPercentageByEngineerIdQuery(engineerId, month, year);
+            var result = await _mediator.Send(query);
+
+            return result.Match(
+                data => Ok(data),
+                errors => Problem(errors)
+            );
+        }
+
+        /// <summary>
+        /// Get weekly on-time completion vs delayed tasks for a given month
+        /// </summary>
+        /// <param name="month">Month number (1-12). Defaults to current month.</param>
+        /// <param name="year">Year. Defaults to current year.</param>
+        /// <remarks>
+        /// Returns weekly breakdown of on-time completions and delayed tasks within the specified month.
+        /// </remarks>
+        /// <response code="200">Returns weekly completion analysis</response>
+        /// <response code="401">Unauthorized - User is not authenticated</response>
+        [HttpGet("weekly-completion")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> GetWeeklyCompletion([FromQuery] int? month = null, [FromQuery] int? year = null)
+        {
+            var query = new GetWeeklyCompletionQuery(month, year);
             var result = await _mediator.Send(query);
 
             return result.Match(

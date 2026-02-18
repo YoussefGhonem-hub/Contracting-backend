@@ -129,4 +129,23 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestAnalysisDtos
         public int TotalRequests { get; set; }
         public List<EngineerStatusPercentageDto> Engineers { get; set; } = new();
     }
+
+    public class WeeklyCompletionDto
+    {
+        public int WeekNumber { get; set; }
+        public string WeekLabel { get; set; } = string.Empty;
+        public DateTime WeekStartDate { get; set; }
+        public DateTime WeekEndDate { get; set; }
+        public int OnTimeCompletion { get; set; }
+        public int TaskDelayed { get; set; }
+    }
+
+    public class WeeklyCompletionReportDto
+    {
+        public int Year { get; set; }
+        public int Month { get; set; }
+        public int TotalOnTime { get; set; }
+        public int TotalDelayed { get; set; }
+        public List<WeeklyCompletionDto> Weeks { get; set; } = new();
+    }
 }

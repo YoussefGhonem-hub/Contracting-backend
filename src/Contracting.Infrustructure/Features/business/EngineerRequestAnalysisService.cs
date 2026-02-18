@@ -484,13 +484,13 @@ namespace Contracting.Infrustructure.Features.business
             };
         }
 
-        public async Task<EngineerStatusPercentageReportDto> GetRequestStatusPercentageByEngineerIdAsync(Guid engineerId, DateTime? startDate = null, DateTime? endDate = null, CancellationToken cancellationToken = default)
+        public async Task<EngineerStatusPercentageReportDto> GetRequestStatusPercentageByEngineerIdAsync(Guid engineerId, int? month = null, int? year = null, CancellationToken cancellationToken = default)
         {
             var statusSets = await GetStatusSetsAsync(cancellationToken);
             var filterContext = await GetUserFilterContextAsync(cancellationToken);
             var items = await QueryRequestsDetailedWithFilterAsync(statusSets.CompletedStatusIds, filterContext, cancellationToken);
 
-            items = ApplyDateFilter(items, startDate, endDate);
+            items = ApplyMonthYearFilter(items, month, year);
 
             var filteredItems = items
                 .Where(i => i.AssignedEngineerId.HasValue && i.AssignedEngineerId.Value == engineerId)
@@ -514,6 +514,85 @@ namespace Contracting.Infrustructure.Features.business
                 items = items.Where(i => i.CreatedDate <= new DateTimeOffset(endDate.Value.Date.AddDays(1).AddTicks(-1))).ToList();
 
             return items;
+        }
+
+        private static List<RequestAnalysisItem> ApplyMonthYearFilter(List<RequestAnalysisItem> items, int? month, int? year)
+        {
+            if (year.HasValue)
+                items = items.Where(i => i.CreatedDate.Year == year.Value).ToList();
+
+            if (month.HasValue)
+                items = items.Where(i => i.CreatedDate.Month == month.Value).ToList();
+
+            return items;
+        }
+
+        public async Task<WeeklyCompletionReportDto> GetWeeklyCompletionAsync(int? month = null, int? year = null, CancellationToken cancellationToken = default)
+        {
+            var now = DateTime.UtcNow;
+            var targetYear = year ?? now.Year;
+            var targetMonth = month ?? now.Month;
+
+            var firstDay = new DateTime(targetYear, targetMonth, 1);
+            var lastDay = firstDay.AddMonths(1).AddDays(-1);
+
+            var statusSets = await GetStatusSetsAsync(cancellationToken);
+            var filterContext = await GetUserFilterContextAsync(cancellationToken);
+            var items = await QueryRequestsDetailedWithFilterAsync(statusSets.CompletedStatusIds, filterContext, cancellationToken);
+
+            // Filter to only completed items within the target month
+            var completedItems = items
+                .Where(i => statusSets.CompletedStatusIds.Contains(i.StatusId)
+                         && i.CompletedAt.HasValue
+                         && i.CompletedAt.Value >= new DateTimeOffset(firstDay)
+                         && i.CompletedAt.Value < new DateTimeOffset(firstDay.AddMonths(1)))
+                .ToList();
+
+            var weeks = new List<WeeklyCompletionDto>();
+            var weekNumber = 1;
+            var currentStart = firstDay;
+
+            while (currentStart <= lastDay)
+            {
+                var currentEnd = currentStart.AddDays(6);
+                if (currentEnd > lastDay)
+                    currentEnd = lastDay;
+
+                var weekStart = new DateTimeOffset(currentStart);
+                var weekEnd = new DateTimeOffset(currentEnd.AddDays(1)); // exclusive upper bound
+
+                var weekItems = completedItems
+                    .Where(i => i.CompletedAt!.Value >= weekStart && i.CompletedAt!.Value < weekEnd)
+                    .ToList();
+
+                var onTime = weekItems.Count(i => i.EndDate.HasValue
+                    && i.CompletedAt!.Value <= new DateTimeOffset(i.EndDate.Value));
+
+                var delayed = weekItems.Count(i => i.EndDate.HasValue
+                    && i.CompletedAt!.Value > new DateTimeOffset(i.EndDate.Value));
+
+                weeks.Add(new WeeklyCompletionDto
+                {
+                    WeekNumber = weekNumber,
+                    WeekLabel = $"Week {weekNumber}",
+                    WeekStartDate = currentStart,
+                    WeekEndDate = currentEnd,
+                    OnTimeCompletion = onTime,
+                    TaskDelayed = delayed
+                });
+
+                weekNumber++;
+                currentStart = currentEnd.AddDays(1);
+            }
+
+            return new WeeklyCompletionReportDto
+            {
+                Year = targetYear,
+                Month = targetMonth,
+                TotalOnTime = weeks.Sum(w => w.OnTimeCompletion),
+                TotalDelayed = weeks.Sum(w => w.TaskDelayed),
+                Weeks = weeks
+            };
         }
 
         private List<EngineerStatusPercentageDto> BuildEngineerStatusPercentages(
