@@ -136,6 +136,8 @@ namespace Contracting.Infrustructure.Features
                     .Include(x => x.ApplicationUser)
                     .Include(x => x.EngineerProjects)
                         .ThenInclude(ep => ep.Project)
+                            .ThenInclude(p => p.ProjectSpecialFields)
+                                .ThenInclude(psf => psf.SpecialField)
                     .Where(e => e.DepartmentId == departmentId)
                     .AsNoTracking();
 
@@ -218,6 +220,8 @@ namespace Contracting.Infrustructure.Features
                     .Include(x => x.ApplicationUser)
                     .Include(x => x.EngineerProjects)
                         .ThenInclude(ep => ep.Project)
+                            .ThenInclude(p => p.ProjectSpecialFields)
+                                .ThenInclude(psf => psf.SpecialField)
                     .AsNoTracking();
 
                 if (string.IsNullOrWhiteSpace(filter.Sort))
@@ -297,6 +301,8 @@ namespace Contracting.Infrustructure.Features
                 .Include(e=>e.ApplicationUser)
                 .Include(e => e.EngineerProjects)
                     .ThenInclude(ep => ep.Project)
+                        .ThenInclude(p => p.ProjectSpecialFields)
+                            .ThenInclude(psf => psf.SpecialField)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(e => e.Id == engineerId);
 
@@ -347,6 +353,9 @@ namespace Contracting.Infrustructure.Features
                 .Where(ep => ep.EngineerId == engineerId)
                 .Include(ep => ep.Project)
                     .ThenInclude(p => p.Branch)
+                .Include(ep => ep.Project)
+                    .ThenInclude(p => p.ProjectSpecialFields)
+                        .ThenInclude(psf => psf.SpecialField)
                 .AsNoTracking()
                 .ToListAsync();
 

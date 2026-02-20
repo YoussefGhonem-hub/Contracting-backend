@@ -170,6 +170,22 @@ namespace Contracting.Infrustructure.Features
                     .ToListAsync(cancellationToken);
 
                 var projectDtos = _mapper.Map<List<GetProjectDto>>(projects);
+                for (var index = 0; index < projects.Count; index++)
+                {
+                    var specialFields = projects[index].ProjectSpecialFields
+                        .Select(psf => new ProjectSpecialFieldDto
+                        {
+                            Id = psf.Id,
+                            SpecialFieldId = psf.SpecialFieldId,
+                            name = psf.SpecialField?.name,
+                            fieldType = psf.SpecialField?.fieldType,
+                            value = psf.value
+                        })
+                        .ToList();
+
+                    projectDtos[index].SpecialFields = specialFields;
+                    projectDtos[index].hasSpecialFields = specialFields.Any();
+                }
 
                 return new PaginatedList<GetProjectDto>(
                     projectDtos,
@@ -195,8 +211,25 @@ namespace Contracting.Infrustructure.Features
                 .AsNoTracking();
 
             var project = await filteredQuery.FirstOrDefaultAsync();
+            if (project is null)
+                return null!;
 
-            return project is null ? null! : _mapper.Map<GetProjectDto>(project);
+            var projectDto = _mapper.Map<GetProjectDto>(project);
+            var specialFields = project.ProjectSpecialFields
+                .Select(psf => new ProjectSpecialFieldDto
+                {
+                    Id = psf.Id,
+                    SpecialFieldId = psf.SpecialFieldId,
+                    name = psf.SpecialField?.name,
+                    fieldType = psf.SpecialField?.fieldType,
+                    value = psf.value
+                })
+                .ToList();
+
+            projectDto.SpecialFields = specialFields;
+            projectDto.hasSpecialFields = specialFields.Any();
+
+            return projectDto;
         }
 
         // ✅ UPDATED: Filter by branchId
@@ -216,27 +249,72 @@ namespace Contracting.Infrustructure.Features
             query = ApplyProjectAccessFilter(query);
 
             var projects = await query.ToListAsync();
+            var projectDtos = _mapper.Map<List<GetProjectDropDownDto>>(projects);
 
-            return _mapper.Map<List<GetProjectDropDownDto>>(projects);
+            for (var index = 0; index < projects.Count; index++)
+            {
+                var specialFields = projects[index].ProjectSpecialFields
+                    .Select(psf => new ProjectSpecialFieldDto
+                    {
+                        Id = psf.Id,
+                        SpecialFieldId = psf.SpecialFieldId,
+                        name = psf.SpecialField?.name,
+                        fieldType = psf.SpecialField?.fieldType,
+                        value = psf.value
+                    })
+                    .ToList();
+
+                projectDtos[index].SpecialFields = specialFields;
+                projectDtos[index].hasSpecialFields = specialFields.Any();
+            }
+
+            return projectDtos;
         }
 
         public async Task<ProjectSpecialFieldsCheckDto> GetProjectSpecialFieldsAsync(Guid projectId)
         {
-            var project = await _db.Projects
-                .Include(p => p.ProjectSpecialFields)
-                    .ThenInclude(psf => psf.SpecialField)
+            var query = ApplyProjectAccessFilter(_db.Projects.Where(p => p.Id == projectId));
+
+            var project = await query
                 .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.Id == projectId);
+                .FirstOrDefaultAsync();
 
             if (project is null)
                 return null!;
 
+            var allProjectSpecialFields = await _db.ProjectSpecialFields
+                .IgnoreQueryFilters()
+                .Where(psf => psf.ProjectId == projectId)
+                .Include(psf => psf.SpecialField)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var activeProjectSpecialFields = allProjectSpecialFields
+                .Where(psf => !psf.IsDeleted && (psf.SpecialField == null || !psf.SpecialField.IsDeleted))
+                .ToList();
+
+            var projectSpecialFieldsToReturn = activeProjectSpecialFields.Any()
+                ? activeProjectSpecialFields
+                : allProjectSpecialFields;
+
+            var specialFields = projectSpecialFieldsToReturn
+                .Select(psf => new ProjectSpecialFieldDto
+                {
+                    Id = psf.Id,
+                    SpecialFieldId = psf.SpecialFieldId,
+                    name = psf.SpecialField?.name,
+                    fieldType = psf.SpecialField?.fieldType,
+                    value = psf.value
+                })
+                .ToList();
+            var hasSpecialFields = specialFields.Any();
+
             return new ProjectSpecialFieldsCheckDto
             {
                 ProjectId = project.Id,
-                hasSpecialFields = project.hasSpecialFields,
-                SpecialFields = project.hasSpecialFields
-                    ? _mapper.Map<List<ProjectSpecialFieldDto>>(project.ProjectSpecialFields)
+                hasSpecialFields = hasSpecialFields,
+                SpecialFields = hasSpecialFields
+                    ? specialFields
                     : new List<ProjectSpecialFieldDto>()
             };
         }
@@ -304,6 +382,33 @@ namespace Contracting.Infrustructure.Features
 
         private async Task ReplaceProjectSpecialFieldsAsync(Project project, List<CreateProjectSpecialFieldDto> fields)
         {
+            if (!project.hasSpecialFields)
+            {
+                var toRemove = await _db.ProjectSpecialFields
+                    .Include(psf => psf.SpecialField)
+                    .Where(psf => psf.ProjectId == project.Id)
+                    .ToListAsync();
+
+                if (toRemove.Any())
+                {
+                    _db.ProjectSpecialFields.RemoveRange(toRemove);
+                    var specials = toRemove.Select(e => e.SpecialField).Where(sf => sf != null).ToList();
+                    if (specials.Any())
+                    {
+                        _db.SpecialFields.RemoveRange(specials);
+                    }
+
+                    await _db.SaveChangesAsync();
+                }
+
+                return;
+            }
+
+            if (fields is null || fields.Count == 0)
+            {
+                return;
+            }
+
             var existing = await _db.ProjectSpecialFields
                 .Include(psf => psf.SpecialField)
                 .Where(psf => psf.ProjectId == project.Id)
@@ -319,11 +424,6 @@ namespace Contracting.Infrustructure.Features
                 }
 
                 await _db.SaveChangesAsync();
-            }
-
-            if (!project.hasSpecialFields || fields is null || fields.Count == 0)
-            {
-                return;
             }
 
             await AddProjectSpecialFieldsAsync(project, fields);

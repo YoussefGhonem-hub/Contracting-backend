@@ -62,8 +62,11 @@ public static class MappingConfig
             .Ignore(dest => dest.imageUrl)
             .Ignore(dest => dest.imageKey);
         config.NewConfig<Project, GetProjectDto>()
+            .Map(dest => dest.hasSpecialFields, src => src.hasSpecialFields || src.ProjectSpecialFields.Any())
             .Map(dest => dest.SpecialFields, src => src.ProjectSpecialFields);
-        config.NewConfig<Project, GetProjectDropDownDto>();
+        config.NewConfig<Project, GetProjectDropDownDto>()
+            .Map(dest => dest.hasSpecialFields, src => src.hasSpecialFields || src.ProjectSpecialFields.Any())
+            .Map(dest => dest.SpecialFields, src => src.ProjectSpecialFields);
 
 
         config.NewConfig<CreatePriorityDto, Priority>();
@@ -81,6 +84,9 @@ public static class MappingConfig
             .Map(dest => dest.nameEn, src => src.Project != null ? src.Project.nameEn : null)
             .Map(dest => dest.nameAr, src => src.Project != null ? src.Project.nameAr : null)
             .Map(dest => dest.location, src => src.Project != null ? src.Project.location : null)
+            .Map(dest => dest.imageUrl, src => src.Project != null ? src.Project.imageUrl : null)
+            .Map(dest => dest.hasSpecialFields, src => src.Project != null && (src.Project.hasSpecialFields || src.Project.ProjectSpecialFields.Any()))
+            .Map(dest => dest.SpecialFields, src => src.Project != null ? src.Project.ProjectSpecialFields : new List<ProjectSpecialField>())
             .Map(dest => dest.Code, src => src.Project != null ? src.Project.Code : null);
 
         config.NewConfig<CreateStatusDto, Status>();
