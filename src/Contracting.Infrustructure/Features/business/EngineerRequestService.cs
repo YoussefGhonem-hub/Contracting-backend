@@ -130,7 +130,7 @@ public class EngineerRequestService : IEngineerRequestService
                 var specialFieldValue = new EngineerRequestSpecialFieldValue
                 {
                     EngineerRequestId = request.Id,
-                    ProjectSpecialFieldId = sfv.ProjectSpecialFieldId,
+                    DepartmentSpecialFieldId = sfv.DepartmentSpecialFieldId,
                     value = sfv.value
                 };
                 await _db.EngineerRequestSpecialFieldValues.AddAsync(specialFieldValue);
@@ -162,7 +162,7 @@ public class EngineerRequestService : IEngineerRequestService
                             .Include(r => r.EngineerRequestAttachments)
                             .Include(r=>r.EngineerRequestActivites)
                             .Include(r => r.SpecialFieldValues)
-                                .ThenInclude(v => v.ProjectSpecialField)
+                                .ThenInclude(v => v.DepartmentSpecialField)
                                     .ThenInclude(psf => psf.SpecialField)
                             .AsNoTracking()
                             .FirstOrDefaultAsync(r => r.Id == request.Id);
@@ -326,7 +326,7 @@ public class EngineerRequestService : IEngineerRequestService
                 var specialFieldValue = new EngineerRequestSpecialFieldValue
                 {
                     EngineerRequestId = request.Id,
-                    ProjectSpecialFieldId = sfv.ProjectSpecialFieldId,
+                    DepartmentSpecialFieldId = sfv.DepartmentSpecialFieldId,
                     value = sfv.value
                 };
                 await _db.EngineerRequestSpecialFieldValues.AddAsync(specialFieldValue);
@@ -346,7 +346,7 @@ public class EngineerRequestService : IEngineerRequestService
                 .ThenInclude(n => n.EngineerRequestAttachments)
             .Include(r => r.EngineerRequestAttachments)
             .Include(r => r.SpecialFieldValues)
-                .ThenInclude(v => v.ProjectSpecialField)
+                .ThenInclude(v => v.DepartmentSpecialField)
                     .ThenInclude(psf => psf.SpecialField)
             .AsNoTracking()
             .FirstOrDefaultAsync(r => r.Id == request.Id);
@@ -396,7 +396,7 @@ public class EngineerRequestService : IEngineerRequestService
                 .Include(r => r.EngineerRequestActivites)
                     .ThenInclude(a => a.Status)
                 .Include(r => r.SpecialFieldValues)
-                    .ThenInclude(v => v.ProjectSpecialField)
+                    .ThenInclude(v => v.DepartmentSpecialField)
                         .ThenInclude(psf => psf.SpecialField)
                 .Where(r => r.DepartmentId == departmentId)
                 .AsNoTracking();
@@ -472,7 +472,7 @@ public class EngineerRequestService : IEngineerRequestService
                 .Include(r => r.EngineerRequestActivites)
                     .ThenInclude(a => a.Status)
                 .Include(r => r.SpecialFieldValues)
-                    .ThenInclude(v => v.ProjectSpecialField)
+                    .ThenInclude(v => v.DepartmentSpecialField)
                         .ThenInclude(psf => psf.SpecialField)
                 .AsNoTracking();
 
@@ -562,7 +562,7 @@ public class EngineerRequestService : IEngineerRequestService
             .Include(r => r.EngineerRequestActivites)
                 .ThenInclude(a => a.Status)
             .Include(r => r.SpecialFieldValues)
-                .ThenInclude(v => v.ProjectSpecialField)
+                .ThenInclude(v => v.DepartmentSpecialField)
                     .ThenInclude(psf => psf.SpecialField)
             .AsNoTracking()
             .FirstOrDefaultAsync(r => r.Id == requestId);
@@ -915,7 +915,7 @@ public class EngineerRequestService : IEngineerRequestService
                 .Include(r => r.EngineerRequestActivites)
                     .ThenInclude(a => a.Status)
                 .Include(r => r.SpecialFieldValues)
-                    .ThenInclude(v => v.ProjectSpecialField)
+                    .ThenInclude(v => v.DepartmentSpecialField)
                         .ThenInclude(psf => psf.SpecialField)
                 .AsNoTracking();
 
@@ -1048,7 +1048,7 @@ public class EngineerRequestService : IEngineerRequestService
                 .Include(r => r.EngineerRequestActivites)
                     .ThenInclude(a => a.Status)
                 .Include(r => r.SpecialFieldValues)
-                    .ThenInclude(v => v.ProjectSpecialField)
+                    .ThenInclude(v => v.DepartmentSpecialField)
                         .ThenInclude(psf => psf.SpecialField)
                 .AsNoTracking();
 

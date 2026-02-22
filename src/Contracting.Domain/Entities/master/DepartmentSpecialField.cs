@@ -2,10 +2,10 @@ using Contracting.Domain.Common;
 
 namespace Contracting.Domain.Entities.master
 {
-    public class ProjectSpecialField : BaseAuditableEntity
+    public class DepartmentSpecialField : BaseAuditableEntity
     {
-        public Guid ProjectId { get; set; }
-        public Project? Project { get; set; }
+        public Guid DepartmentId { get; set; }
+        public Department? Department { get; set; }
 
         public Guid SpecialFieldId { get; set; }
         public SpecialField? SpecialField { get; set; }

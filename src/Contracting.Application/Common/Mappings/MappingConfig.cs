@@ -34,7 +34,9 @@ public static class MappingConfig
            .Ignore(dest => dest.Departments);
 
         // Department mappings
-        config.NewConfig<Department, GetDepartmentDto>();
+        config.NewConfig<Department, GetDepartmentDto>()
+            .Map(dest => dest.hasSpecialFields, src => src.hasSpecialFields || src.DepartmentSpecialFields.Any())
+            .Map(dest => dest.SpecialFields, src => src.DepartmentSpecialFields);
 
         config.NewConfig<Department, UpdateDepartmentDto>();
         config.NewConfig<Department, CreateDepartmentDto>();
@@ -61,12 +63,8 @@ public static class MappingConfig
         config.NewConfig<UpdateProjectDto, Project>()
             .Ignore(dest => dest.imageUrl)
             .Ignore(dest => dest.imageKey);
-        config.NewConfig<Project, GetProjectDto>()
-            .Map(dest => dest.hasSpecialFields, src => src.hasSpecialFields || src.ProjectSpecialFields.Any())
-            .Map(dest => dest.SpecialFields, src => src.ProjectSpecialFields);
-        config.NewConfig<Project, GetProjectDropDownDto>()
-            .Map(dest => dest.hasSpecialFields, src => src.hasSpecialFields || src.ProjectSpecialFields.Any())
-            .Map(dest => dest.SpecialFields, src => src.ProjectSpecialFields);
+        config.NewConfig<Project, GetProjectDto>();
+        config.NewConfig<Project, GetProjectDropDownDto>();
 
 
         config.NewConfig<CreatePriorityDto, Priority>();
@@ -74,7 +72,7 @@ public static class MappingConfig
         config.NewConfig<Priority, GetDropDownPriorityDto>();
 
         config.NewConfig<SpecialField, SpecialFieldDto>();
-        config.NewConfig<ProjectSpecialField, ProjectSpecialFieldDto>()
+        config.NewConfig<DepartmentSpecialField, DepartmentSpecialFieldDto>()
             .Map(dest => dest.name, src => src.SpecialField != null ? src.SpecialField.name : null)
             .Map(dest => dest.fieldType, src => src.SpecialField != null ? src.SpecialField.fieldType : null);
         config.NewConfig<EngineerProject, GetProjectDropDownDto>()
@@ -85,8 +83,6 @@ public static class MappingConfig
             .Map(dest => dest.nameAr, src => src.Project != null ? src.Project.nameAr : null)
             .Map(dest => dest.location, src => src.Project != null ? src.Project.location : null)
             .Map(dest => dest.imageUrl, src => src.Project != null ? src.Project.imageUrl : null)
-            .Map(dest => dest.hasSpecialFields, src => src.Project != null && (src.Project.hasSpecialFields || src.Project.ProjectSpecialFields.Any()))
-            .Map(dest => dest.SpecialFields, src => src.Project != null ? src.Project.ProjectSpecialFields : new List<ProjectSpecialField>())
             .Map(dest => dest.Code, src => src.Project != null ? src.Project.Code : null);
 
         config.NewConfig<CreateStatusDto, Status>();
@@ -97,8 +93,8 @@ public static class MappingConfig
         config.NewConfig<UpdateEngineerRequestDto, EngineerRequest>();
 
         config.NewConfig<EngineerRequestSpecialFieldValue, EngineerRequestSpecialFieldValueDto>()
-            .Map(dest => dest.fieldName, src => src.ProjectSpecialField != null && src.ProjectSpecialField.SpecialField != null ? src.ProjectSpecialField.SpecialField.name : null)
-            .Map(dest => dest.fieldType, src => src.ProjectSpecialField != null && src.ProjectSpecialField.SpecialField != null ? src.ProjectSpecialField.SpecialField.fieldType : null);
+            .Map(dest => dest.fieldName, src => src.DepartmentSpecialField != null && src.DepartmentSpecialField.SpecialField != null ? src.DepartmentSpecialField.SpecialField.name : null)
+            .Map(dest => dest.fieldType, src => src.DepartmentSpecialField != null && src.DepartmentSpecialField.SpecialField != null ? src.DepartmentSpecialField.SpecialField.fieldType : null);
 
         config.NewConfig<CrearteEngineerRequestNotesDto, EngineerRequestNotes>();
           config.NewConfig<EngineerRequestNotes, GetEngineerRequestNotesDto>()

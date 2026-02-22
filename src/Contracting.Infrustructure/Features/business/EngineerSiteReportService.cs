@@ -238,9 +238,6 @@ namespace Contracting.Infrustructure.Features.business
             return _db.EngineerSiteReports
                 .Include(r => r.Project)
                     .ThenInclude(p => p.Branch)
-                .Include(r => r.Project)
-                    .ThenInclude(p => p.ProjectSpecialFields)
-                        .ThenInclude(psf => psf.SpecialField)
                 .Include(r => r.Engineer)
                     .ThenInclude(e => e.Department)
                 .Include(r => r.Workers)

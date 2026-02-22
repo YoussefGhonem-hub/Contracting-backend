@@ -34,28 +34,38 @@ namespace Contracting.Infrustructure.Features
 
             var department = _mapper.Map<Department>(departmentDto);
             department.BranchId = branchId;
-            
+            department.hasSpecialFields = departmentDto.hasSpecialFields;
 
             await _db.Departmentes.AddAsync(department);
             await _db.SaveChangesAsync();
 
-            return _mapper.Map<GetDepartmentDto>(department);
+            if (departmentDto.hasSpecialFields && departmentDto.SpecialFields.Any())
+            {
+                await AddDepartmentSpecialFieldsAsync(department, departmentDto.SpecialFields);
+            }
+
+            return await GetDepartmentByIdAsync(department.Id);
         }
 
         public async Task<GetDepartmentDto> UpdateDepartmentAsync(UpdateDepartmentDto departmentDto)
         {
-            var department = await _db.Departmentes  // ✅ FIXED: Make async
+            var department = await _db.Departmentes
+                .Include(d => d.DepartmentSpecialFields)
+                    .ThenInclude(dsf => dsf.SpecialField)
                 .FirstOrDefaultAsync(d => d.Id == departmentDto.Id);
 
             if (department is null)
                 return null!;
 
             department.nameEn = departmentDto.nameEn;
-            department.nameAr = departmentDto.nameAr;           
+            department.nameAr = departmentDto.nameAr;
+            department.hasSpecialFields = departmentDto.hasSpecialFields;
 
             await _db.SaveChangesAsync();
 
-            return _mapper.Map<GetDepartmentDto>(department);
+            await ReplaceDepartmentSpecialFieldsAsync(department, departmentDto.SpecialFields);
+
+            return await GetDepartmentByIdAsync(department.Id);
         }
 
         public async Task<PaginatedList<GetDepartmentDto>> GetDepartmentsByBranchIdAsync(
@@ -66,6 +76,8 @@ namespace Contracting.Infrustructure.Features
             try
             {
                 var query = _db.Departmentes
+                    .Include(d => d.DepartmentSpecialFields)
+                        .ThenInclude(dsf => dsf.SpecialField)
                     .Where(d => d.BranchId == branchId)
                     .AsNoTracking();
 
@@ -98,6 +110,23 @@ namespace Contracting.Infrustructure.Features
                 // Map to DTOs after materialization (not in LINQ projection)
                 var departmentDtos = _mapper.Map<List<GetDepartmentDto>>(departments);
 
+                for (var index = 0; index < departments.Count; index++)
+                {
+                    var specialFields = departments[index].DepartmentSpecialFields
+                        .Select(dsf => new DepartmentSpecialFieldDto
+                        {
+                            Id = dsf.Id,
+                            SpecialFieldId = dsf.SpecialFieldId,
+                            name = dsf.SpecialField?.name,
+                            fieldType = dsf.SpecialField?.fieldType,
+                            value = dsf.value
+                        })
+                        .ToList();
+
+                    departmentDtos[index].SpecialFields = specialFields;
+                    departmentDtos[index].hasSpecialFields = specialFields.Any();
+                }
+
                 // Return paginated result
                 return new PaginatedList<GetDepartmentDto>(
                     departmentDtos,
@@ -117,7 +146,7 @@ namespace Contracting.Infrustructure.Features
 
         public async Task<GenericResponse> RemoveDepartmentAsync(Guid branchId, Guid departmentId)
         {
-            var department = await _db.Departmentes  // ✅ FIXED: Make async
+            var department = await _db.Departmentes
                 .FirstOrDefaultAsync(d => d.Id == departmentId && d.BranchId == branchId);
 
             if (department is null)
@@ -130,15 +159,184 @@ namespace Contracting.Infrustructure.Features
 
         public async Task<List<GetDepartmentDto>> DropDownMethodAsync(Guid branchId)
         {
-            return await _db.Departmentes
+            var departments = await _db.Departmentes
+                   .Include(d => d.DepartmentSpecialFields)
+                       .ThenInclude(dsf => dsf.SpecialField)
                    .Where(x => x.BranchId == branchId)
-                   .Select(x => new GetDepartmentDto
-                   {
-                       Id = x.Id,
-                       nameAr = x.nameAr,
-                       nameEn = x.nameEn
-                   })
+                   .AsNoTracking()
                    .ToListAsync();
+
+            var dtos = departments.Select(x => new GetDepartmentDto
+            {
+                Id = x.Id,
+                nameAr = x.nameAr,
+                nameEn = x.nameEn,
+                hasSpecialFields = x.hasSpecialFields || x.DepartmentSpecialFields.Any(),
+                SpecialFields = x.DepartmentSpecialFields.Select(dsf => new DepartmentSpecialFieldDto
+                {
+                    Id = dsf.Id,
+                    SpecialFieldId = dsf.SpecialFieldId,
+                    name = dsf.SpecialField?.name,
+                    fieldType = dsf.SpecialField?.fieldType,
+                    value = dsf.value
+                }).ToList()
+            }).ToList();
+
+            return dtos;
+        }
+
+        public async Task<DepartmentSpecialFieldsCheckDto> GetDepartmentSpecialFieldsAsync(Guid departmentId)
+        {
+            var department = await _db.Departmentes
+                .AsNoTracking()
+                .FirstOrDefaultAsync(d => d.Id == departmentId);
+
+            if (department is null)
+                return null!;
+
+            var allDepartmentSpecialFields = await _db.DepartmentSpecialFields
+                .IgnoreQueryFilters()
+                .Where(dsf => dsf.DepartmentId == departmentId)
+                .Include(dsf => dsf.SpecialField)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var activeDepartmentSpecialFields = allDepartmentSpecialFields
+                .Where(dsf => !dsf.IsDeleted && (dsf.SpecialField == null || !dsf.SpecialField.IsDeleted))
+                .ToList();
+
+            var departmentSpecialFieldsToReturn = activeDepartmentSpecialFields.Any()
+                ? activeDepartmentSpecialFields
+                : allDepartmentSpecialFields;
+
+            var specialFields = departmentSpecialFieldsToReturn
+                .Select(dsf => new DepartmentSpecialFieldDto
+                {
+                    Id = dsf.Id,
+                    SpecialFieldId = dsf.SpecialFieldId,
+                    name = dsf.SpecialField?.name,
+                    fieldType = dsf.SpecialField?.fieldType,
+                    value = dsf.value
+                })
+                .ToList();
+            var hasSpecialFields = specialFields.Any();
+
+            return new DepartmentSpecialFieldsCheckDto
+            {
+                DepartmentId = department.Id,
+                hasSpecialFields = hasSpecialFields,
+                SpecialFields = hasSpecialFields
+                    ? specialFields
+                    : new List<DepartmentSpecialFieldDto>()
+            };
+        }
+
+        private async Task<GetDepartmentDto> GetDepartmentByIdAsync(Guid departmentId)
+        {
+            var department = await _db.Departmentes
+                .Include(d => d.Branch)
+                .Include(d => d.DepartmentSpecialFields)
+                    .ThenInclude(dsf => dsf.SpecialField)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(d => d.Id == departmentId);
+
+            if (department is null)
+                return null!;
+
+            var dto = _mapper.Map<GetDepartmentDto>(department);
+            var specialFields = department.DepartmentSpecialFields
+                .Select(dsf => new DepartmentSpecialFieldDto
+                {
+                    Id = dsf.Id,
+                    SpecialFieldId = dsf.SpecialFieldId,
+                    name = dsf.SpecialField?.name,
+                    fieldType = dsf.SpecialField?.fieldType,
+                    value = dsf.value
+                })
+                .ToList();
+
+            dto.SpecialFields = specialFields;
+            dto.hasSpecialFields = specialFields.Any();
+
+            return dto;
+        }
+
+        private async Task AddDepartmentSpecialFieldsAsync(Department department, List<CreateDepartmentSpecialFieldDto> fields)
+        {
+            if (fields is null || fields.Count == 0)
+            {
+                return;
+            }
+
+            var departmentFields = new List<DepartmentSpecialField>();
+
+            foreach (var field in fields)
+            {
+                var specialField = new SpecialField
+                {
+                    name = field.name,
+                    fieldType = field.fieldType
+                };
+
+                departmentFields.Add(new DepartmentSpecialField
+                {
+                    DepartmentId = department.Id,
+                    SpecialField = specialField,
+                    value = field.value
+                });
+            }
+
+            await _db.DepartmentSpecialFields.AddRangeAsync(departmentFields);
+            await _db.SaveChangesAsync();
+        }
+
+        private async Task ReplaceDepartmentSpecialFieldsAsync(Department department, List<CreateDepartmentSpecialFieldDto> fields)
+        {
+            if (!department.hasSpecialFields)
+            {
+                var toRemove = await _db.DepartmentSpecialFields
+                    .Include(dsf => dsf.SpecialField)
+                    .Where(dsf => dsf.DepartmentId == department.Id)
+                    .ToListAsync();
+
+                if (toRemove.Any())
+                {
+                    _db.DepartmentSpecialFields.RemoveRange(toRemove);
+                    var specials = toRemove.Select(e => e.SpecialField).Where(sf => sf != null).ToList();
+                    if (specials.Any())
+                    {
+                        _db.SpecialFields.RemoveRange(specials);
+                    }
+
+                    await _db.SaveChangesAsync();
+                }
+
+                return;
+            }
+
+            if (fields is null || fields.Count == 0)
+            {
+                return;
+            }
+
+            var existing = await _db.DepartmentSpecialFields
+                .Include(dsf => dsf.SpecialField)
+                .Where(dsf => dsf.DepartmentId == department.Id)
+                .ToListAsync();
+
+            if (existing.Any())
+            {
+                _db.DepartmentSpecialFields.RemoveRange(existing);
+                var specials = existing.Select(e => e.SpecialField).Where(sf => sf != null).ToList();
+                if (specials.Any())
+                {
+                    _db.SpecialFields.RemoveRange(specials);
+                }
+
+                await _db.SaveChangesAsync();
+            }
+
+            await AddDepartmentSpecialFieldsAsync(department, fields);
         }
     }
 

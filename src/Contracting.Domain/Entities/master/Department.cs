@@ -8,6 +8,8 @@ namespace Contracting.Domain.Entities.master
         public string? nameAr { get; set; }
         public Guid BranchId { get; set; }
         public Branch Branch { get; set; }
+        public bool hasSpecialFields { get; set; }
+        public ICollection<DepartmentSpecialField> DepartmentSpecialFields { get; set; } = new List<DepartmentSpecialField>();
         public ICollection<Engineer> Engineers { get; set; }
 
     }

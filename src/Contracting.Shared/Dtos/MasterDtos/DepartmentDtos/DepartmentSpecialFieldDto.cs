@@ -1,6 +1,6 @@
-namespace Contracting.Shared.Dtos.MasterDtos.ProjectDtos
+namespace Contracting.Shared.Dtos.MasterDtos.DepartmentDtos
 {
-    public class ProjectSpecialFieldDto
+    public class DepartmentSpecialFieldDto
     {
         public Guid Id { get; set; }
         public Guid SpecialFieldId { get; set; }

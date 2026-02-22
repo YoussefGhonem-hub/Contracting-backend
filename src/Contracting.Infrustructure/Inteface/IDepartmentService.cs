@@ -19,6 +19,7 @@ namespace Contracting.Infrustructure.Inteface
         Task<GenericResponse> RemoveDepartmentAsync(Guid branchId, Guid departmentId);
         Task<List<GetDepartmentDto>> DropDownMethodAsync(Guid branchId);
 
-
+        // Check special fields for a department
+        Task<DepartmentSpecialFieldsCheckDto> GetDepartmentSpecialFieldsAsync(Guid departmentId);
     }
 }

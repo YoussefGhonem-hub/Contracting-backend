@@ -1,6 +1,6 @@
-namespace Contracting.Shared.Dtos.MasterDtos.ProjectDtos
+namespace Contracting.Shared.Dtos.MasterDtos.DepartmentDtos
 {
-    public class CreateProjectSpecialFieldDto
+    public class CreateDepartmentSpecialFieldDto
     {
         public string? name { get; set; }
         public string? fieldType { get; set; }

@@ -20,9 +20,9 @@ namespace Contracting.Infrustructure.Persistence.Configurations.Business
                 .HasForeignKey(x => x.EngineerRequestId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            builder.HasOne(x => x.ProjectSpecialField)
+            builder.HasOne(x => x.DepartmentSpecialField)
                 .WithMany()
-                .HasForeignKey(x => x.ProjectSpecialFieldId)
+                .HasForeignKey(x => x.DepartmentSpecialFieldId)
                 .OnDelete(DeleteBehavior.Cascade);
         }
     }

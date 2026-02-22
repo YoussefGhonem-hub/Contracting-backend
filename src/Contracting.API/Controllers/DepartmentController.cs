@@ -4,6 +4,7 @@ using Contracting.Application.Features.Master.Department.Command.RemoveDepartmen
 using Contracting.Application.Features.Master.Department.Command.UpdateDepartment;
 using Contracting.Application.Features.Master.Department.Query.GetDepartmentsByBranchId;
 using Contracting.Application.Features.Master.Department.Query.GetDropDownDepartment;
+using Contracting.Application.Features.Master.Department.Query.GetDepartmentSpecialFields;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.DepartmentDtos;
 using MediatR;
@@ -85,6 +86,19 @@ namespace Contracting.API.Controllers
 
             return result.Match(
                 paged => Ok(paged),
+                errors => Problem(errors)
+            );
+        }
+
+        // Check if Department has Special Fields
+        [HttpGet("{departmentId:guid}/special-fields")]
+        public async Task<IActionResult> GetSpecialFields(Guid departmentId)
+        {
+            var query = new GetDepartmentSpecialFieldsQuery(departmentId);
+            var result = await _mediator.Send(query);
+
+            return result.Match(
+                data => Ok(data),
                 errors => Problem(errors)
             );
         }

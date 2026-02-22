@@ -7,6 +7,6 @@ namespace Contracting.Domain.Entities.master
         public string? name { get; set; }
         public string? fieldType { get; set; }
 
-        public ICollection<ProjectSpecialField> ProjectSpecialFields { get; set; } = new List<ProjectSpecialField>();
+        public ICollection<DepartmentSpecialField> DepartmentSpecialFields { get; set; } = new List<DepartmentSpecialField>();
     }
 }

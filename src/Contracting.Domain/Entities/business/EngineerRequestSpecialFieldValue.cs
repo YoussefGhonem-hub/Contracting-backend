@@ -8,8 +8,8 @@ namespace Contracting.Domain.Entities.business
         public Guid EngineerRequestId { get; set; }
         public EngineerRequest? EngineerRequest { get; set; }
 
-        public Guid ProjectSpecialFieldId { get; set; }
-        public ProjectSpecialField? ProjectSpecialField { get; set; }
+        public Guid DepartmentSpecialFieldId { get; set; }
+        public DepartmentSpecialField? DepartmentSpecialField { get; set; }
 
         public string? value { get; set; }
     }

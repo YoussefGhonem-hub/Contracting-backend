@@ -23,8 +23,5 @@ namespace Contracting.Infrustructure.Inteface
 
         // Dropdown
         Task<List<GetProjectDropDownDto>> GetProjectDropdownAsync(Guid? branchId);
-
-        // Check special fields for a project
-        Task<ProjectSpecialFieldsCheckDto> GetProjectSpecialFieldsAsync(Guid projectId);
     }
 }
