@@ -1242,14 +1242,16 @@ public class EngineerRequestService : IEngineerRequestService
 
         var activities = new List<EngineerRequestActivite>();
 
-        // For startDate: Only change to InProgress if current status is New/Pending (initial state)
-        // This ensures we only auto-update once when the start date arrives
+        // Move requests to InProgress when they have planning dates.
+        // This covers requests whose start date has arrived and also requests with future planned dates.
         if (inProgressStatusId.HasValue && newPendingStatusIds.Count > 0)
         {
             var startCandidates = await _db.EngineerRequests
                 .Where(r => r.startDate.HasValue
-                            && r.startDate.Value <= now
-                            && newPendingStatusIds.Contains(r.StatusId))
+                            || (r.endDate.HasValue && r.endDate.Value > now))
+                .Where(r => newPendingStatusIds.Contains(r.StatusId))
+                .Where(r => r.startDate.HasValue
+                            || r.endDate.HasValue)
                 .ToListAsync(cancellationToken);
 
             foreach (var request in startCandidates)

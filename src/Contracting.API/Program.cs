@@ -142,7 +142,7 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
 RecurringJob.AddOrUpdate<IEngineerRequestService>(
     "engineer-request-status-automation",
     service => service.ProcessScheduledStatusUpdatesAsync(CancellationToken.None),
-    "0 */6 * * *",
+    Cron.Hourly(),
     TimeZoneInfo.Utc
 );
 
