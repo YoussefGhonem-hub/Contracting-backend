@@ -280,7 +280,7 @@ namespace Contracting.API.Controllers
         /// Get request status percentage analysis for all engineers
         /// </summary>
         /// <remarks>
-        /// Returns finished in time, on hold, delayed, and completed percentages per engineer.
+        /// Returns finished in time, finished before end time coming, delayed, and completed percentages per engineer.
         /// </remarks>
         /// <response code="200">Returns status percentage analysis for all engineers</response>
         /// <response code="401">Unauthorized - User is not authenticated</response>
@@ -303,7 +303,7 @@ namespace Contracting.API.Controllers
         /// </summary>
         /// <param name="engineerId">The ID of the engineer</param>
         /// <remarks>
-        /// Returns finished in time, on hold, delayed, and completed percentages for the specified engineer.
+        /// Returns finished in time, finished before end time coming, delayed, and completed percentages for the specified engineer.
         /// </remarks>
         /// <response code="200">Returns status percentage analysis for the engineer</response>
         /// <response code="401">Unauthorized - User is not authenticated</response>

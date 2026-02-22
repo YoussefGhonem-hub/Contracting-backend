@@ -114,8 +114,8 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestAnalysisDtos
         public int FinishedInTimeCount { get; set; }
         public decimal FinishedInTimePercentage { get; set; }
 
-        public int OnHoldCount { get; set; }
-        public decimal OnHoldPercentage { get; set; }
+        public int FinishedBeforeEndTimeComingCount { get; set; }
+        public decimal FinishedBeforeEndTimeComingPercentage { get; set; }
 
         public int DelayedCount { get; set; }
         public decimal DelayedPercentage { get; set; }

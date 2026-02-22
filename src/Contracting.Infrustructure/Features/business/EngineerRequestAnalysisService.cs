@@ -617,8 +617,10 @@ namespace Contracting.Infrustructure.Features.business
                         .Count(i => i.EndDate.HasValue && i.CompletedAt.HasValue
                                     && i.CompletedAt.Value <= new DateTimeOffset(i.EndDate.Value));
 
-                    // On hold = status is on hold
-                    var onHold = g.Count(i => statusSets.OnHoldStatusIds.Contains(i.StatusId));
+                    // Finished before end time coming = not completed yet and deadline is today or in future
+                    var finishedBeforeEndTimeComing = g
+                        .Where(i => !statusSets.CompletedStatusIds.Contains(i.StatusId))
+                        .Count(i => i.EndDate.HasValue && i.EndDate.Value.Date >= today);
 
                     // Delayed = completed late (CompletedAt > EndDate) OR open and past deadline
                     var completedLate = completed
@@ -639,8 +641,8 @@ namespace Contracting.Infrustructure.Features.business
                         TotalRequests = total,
                         FinishedInTimeCount = finishedInTime,
                         FinishedInTimePercentage = total == 0 ? 0m : Math.Round((decimal)finishedInTime / total * 100m, 2, MidpointRounding.AwayFromZero),
-                        OnHoldCount = onHold,
-                        OnHoldPercentage = total == 0 ? 0m : Math.Round((decimal)onHold / total * 100m, 2, MidpointRounding.AwayFromZero),
+                        FinishedBeforeEndTimeComingCount = finishedBeforeEndTimeComing,
+                        FinishedBeforeEndTimeComingPercentage = total == 0 ? 0m : Math.Round((decimal)finishedBeforeEndTimeComing / total * 100m, 2, MidpointRounding.AwayFromZero),
                         DelayedCount = delayed,
                         DelayedPercentage = total == 0 ? 0m : Math.Round((decimal)delayed / total * 100m, 2, MidpointRounding.AwayFromZero),
                         CompletedCount = completedCount,
