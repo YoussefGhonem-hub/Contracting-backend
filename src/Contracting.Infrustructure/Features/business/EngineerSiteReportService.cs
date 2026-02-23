@@ -110,6 +110,8 @@ namespace Contracting.Infrustructure.Features.business
             var query = BuildReportQuery()
                 .Where(r => r.EngineerId == engineer.Id);
 
+            query = ApplyDateRangeFilter(query, filter);
+
             if (filter.ProjectId.HasValue && filter.ProjectId.Value != Guid.Empty)
             {
                 query = query.Where(r => r.ProjectId == filter.ProjectId.Value);
@@ -152,6 +154,8 @@ namespace Contracting.Infrustructure.Features.business
         {
             var query = BuildReportQuery()
                 .Where(r => r.EngineerId == engineerId);
+
+            query = ApplyDateRangeFilter(query, filter);
 
             if (filter.ProjectId.HasValue && filter.ProjectId.Value != Guid.Empty)
             {
@@ -244,6 +248,25 @@ namespace Contracting.Infrustructure.Features.business
                     .ThenInclude(w => w.ConstructionItem)
                 .Include(r => r.Attachments)
                 .AsNoTracking();
+        }
+
+        private static IQueryable<EngineerSiteReport> ApplyDateRangeFilter(
+            IQueryable<EngineerSiteReport> query,
+            EngineerSiteReportFilterDto filter)
+        {
+            if (filter.FromDate.HasValue)
+            {
+                var from = new DateTimeOffset(filter.FromDate.Value.Date);
+                query = query.Where(r => r.ReportDate >= from);
+            }
+
+            if (filter.ToDate.HasValue)
+            {
+                var toExclusive = new DateTimeOffset(filter.ToDate.Value.Date.AddDays(1));
+                query = query.Where(r => r.ReportDate < toExclusive);
+            }
+
+            return query;
         }
     }
 }
