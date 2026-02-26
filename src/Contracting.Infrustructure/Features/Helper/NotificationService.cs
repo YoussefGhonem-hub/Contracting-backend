@@ -149,7 +149,7 @@ namespace Contracting.Infrustructure.Features.Helper
                     EngineerId = engineerId,
                     DepartmentId = departmentId,
                     RequestId = requestId,
-                    SentAt = DateTimeOffset.UtcNow
+                    SentAt = Contracting.Shared.Common.DateTimeHelper.Now
                 };
 
                 _db.NotificationLogs.Add(notificationLog);
@@ -277,7 +277,7 @@ namespace Contracting.Infrustructure.Features.Helper
                 return GenericResponse.SuccessResult("Notification already marked as read.");
 
             notification.IsRead = true;
-            notification.ReadAt = DateTimeOffset.UtcNow;
+                notification.ReadAt = Contracting.Shared.Common.DateTimeHelper.Now;
             await _db.SaveChangesAsync();
 
             return GenericResponse.SuccessResult("Notification marked as read.");
@@ -292,7 +292,7 @@ namespace Contracting.Infrustructure.Features.Helper
             if (unread.Count == 0)
                 return GenericResponse.SuccessResult("No unread notifications.");
 
-            var now = DateTimeOffset.UtcNow;
+            var now = Contracting.Shared.Common.DateTimeHelper.Now;
             foreach (var n in unread)
             {
                 n.IsRead = true;

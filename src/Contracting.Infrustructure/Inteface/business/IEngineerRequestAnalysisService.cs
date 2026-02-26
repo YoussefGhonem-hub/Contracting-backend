@@ -16,6 +16,6 @@ namespace Contracting.Infrustructure.Inteface.business
         Task<ReworkRateDto> GetReworkRateAsync(CancellationToken cancellationToken = default);
         Task<EngineerStatusPercentageReportDto> GetRequestStatusPercentageAsync(DateTime? startDate = null, DateTime? endDate = null, CancellationToken cancellationToken = default);
         Task<EngineerStatusPercentageReportDto> GetRequestStatusPercentageByEngineerIdAsync(Guid engineerId, int? month = null, int? year = null, CancellationToken cancellationToken = default);
-        Task<WeeklyCompletionReportDto> GetWeeklyCompletionAsync(int? month = null, int? year = null, CancellationToken cancellationToken = default);
+        Task<WeeklyCompletionReportDto> GetWeeklyCompletionAsync(int? month = null, int? year = null, Guid? engineerId = null, CancellationToken cancellationToken = default);
     }
 }

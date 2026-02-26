@@ -77,7 +77,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
 
     private void ApplyAuditing()
     {
-        var now = DateTimeOffset.UtcNow;
+        var now = Contracting.Shared.Common.DateTimeHelper.Now;
         var userId = CurrentUser.Id;
 
         foreach (var entry in ChangeTracker.Entries())
@@ -87,7 +87,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
             switch (entry.State)
             {
                 case EntityState.Added:
-                    if (auditable.CreatedDate == default) auditable.CreatedDate = now;
+                    auditable.CreatedDate = now;
                     if (auditable.CreatedBy == Guid.Empty && userId.HasValue) auditable.CreatedBy = userId.Value;
                     auditable.IsDeleted = false;
                     break;

@@ -82,7 +82,7 @@ namespace Contracting.Infrustructure.Features.business
 
             var totals = CalculateCompletionTotals(items, statusSets.CompletedStatusIds);
 
-            var today = DateTime.UtcNow.Date;
+            var today = Contracting.Shared.Common.DateTimeHelper.Today;
             var activeWithinDeadline = items
                 .Where(i => !statusSets.CompletedStatusIds.Contains(i.StatusId))
                 .Count(i => i.EndDate.HasValue && i.EndDate.Value.Date >= today);
@@ -191,7 +191,7 @@ namespace Contracting.Infrustructure.Features.business
         {
             var statusSets = await GetStatusSetsAsync(cancellationToken);
             var filterContext = await GetUserFilterContextAsync(cancellationToken);
-            var now = DateTimeOffset.UtcNow;
+            var now = Contracting.Shared.Common.DateTimeHelper.Now;
 
             var items = await QueryRequestsDetailedWithFilterAsync(statusSets.CompletedStatusIds, filterContext, cancellationToken);
             var openItems = items.Where(i => !statusSets.CompletedStatusIds.Contains(i.StatusId)).ToList();
@@ -269,7 +269,7 @@ namespace Contracting.Infrustructure.Features.business
             var filterContext = await GetUserFilterContextAsync(cancellationToken);
             var items = await QueryRequestsDetailedWithFilterAsync(statusSets.CompletedStatusIds, filterContext, cancellationToken);
 
-            var today = DateTime.UtcNow.Date;
+            var today = Contracting.Shared.Common.DateTimeHelper.Today;
             var riskLimit = today.AddDays(3);
 
             var openWithDeadline = items
@@ -527,9 +527,9 @@ namespace Contracting.Infrustructure.Features.business
             return items;
         }
 
-        public async Task<WeeklyCompletionReportDto> GetWeeklyCompletionAsync(int? month = null, int? year = null, CancellationToken cancellationToken = default)
+        public async Task<WeeklyCompletionReportDto> GetWeeklyCompletionAsync(int? month = null, int? year = null, Guid? engineerId = null, CancellationToken cancellationToken = default)
         {
-            var now = DateTime.UtcNow;
+            var now = Contracting.Shared.Common.DateTimeHelper.DateTimeNow;
             var targetYear = year ?? now.Year;
             var targetMonth = month ?? now.Month;
 
@@ -539,6 +539,9 @@ namespace Contracting.Infrustructure.Features.business
             var statusSets = await GetStatusSetsAsync(cancellationToken);
             var filterContext = await GetUserFilterContextAsync(cancellationToken);
             var items = await QueryRequestsDetailedWithFilterAsync(statusSets.CompletedStatusIds, filterContext, cancellationToken);
+
+            if (engineerId.HasValue)
+                items = items.Where(i => i.AssignedEngineerId == engineerId.Value).ToList();
 
             // Filter to only completed items within the target month
             var completedItems = items
@@ -599,7 +602,7 @@ namespace Contracting.Infrustructure.Features.business
             List<RequestAnalysisItem> items,
             (HashSet<Guid> CompletedStatusIds, HashSet<Guid> OnHoldStatusIds) statusSets)
         {
-            var today = DateTime.UtcNow.Date;
+            var today = Contracting.Shared.Common.DateTimeHelper.Today;
 
             return items
                 .Where(i => i.AssignedEngineerId.HasValue)

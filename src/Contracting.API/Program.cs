@@ -5,6 +5,7 @@ using Contracting.Domain.Entities;
 using Contracting.Infrustructure;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Infrustructure.Inteface.business;
+using Contracting.Shared.Common;
 using Contracting.Shared.CurrentUser;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -103,6 +104,19 @@ builder.AddSharedSerilog(serviceName: "ContractingAPI");
 #endregion
 var app = builder.Build();
 
+// Initialize timezone from configuration
+var timeZoneId = builder.Configuration.GetValue<string>("AppSettings:TimeZoneId") ?? "Egypt Standard Time";
+DateTimeHelper.Initialize(timeZoneId);
+
+if (!DateTimeHelper.IsInitialized)
+{
+    Console.WriteLine($"[WARNING] Could not resolve timezone '{timeZoneId}'. Falling back to UTC. Timestamps will NOT reflect local time.");
+}
+else
+{
+    Console.WriteLine($"[INFO] Timezone initialized: {DateTimeHelper.TimeZone.Id} (UTC{DateTimeHelper.TimeZone.BaseUtcOffset:hh\\:mm})");
+}
+
 app.UseSwagger();
 app.UseSwaggerUI();
 
@@ -125,6 +139,7 @@ app.UseSwaggerUI(c => { c.SwaggerEndpoint("/swagger/v1/swagger.json", "Contracti
 var options = app.Services.GetService<IOptions<RequestLocalizationOptions>>();
 app.UseRequestLocalization(options.Value);
 app.UseStaticFiles();
+app.UseMiddleware<TimezoneMiddleware>();
 app.UseMiddleware<ExceptionMiddleware>();
 
 app.UseCors("default");

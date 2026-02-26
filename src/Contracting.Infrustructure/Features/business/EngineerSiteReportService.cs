@@ -38,7 +38,7 @@ namespace Contracting.Infrustructure.Features.business
             {
                 EngineerId = engineer.Id,
                 ProjectId = dto.ProjectId == Guid.Empty ? null : dto.ProjectId,
-                ReportDate = dto.ReportDate ?? DateTimeOffset.UtcNow,
+                ReportDate = dto.ReportDate ?? Contracting.Shared.Common.DateTimeHelper.Now,
                 WorkPerformedToday = dto.WorkPerformedToday,
                 MaterialDetails = dto.MaterialDetails,
                 IssuesOrDelays = dto.IssuesOrDelays,

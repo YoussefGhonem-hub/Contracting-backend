@@ -9,7 +9,7 @@ namespace Contracting.Infrustructure.Persistence.Configurations.Business
         public void Configure(EntityTypeBuilder<EngineerRequest> builder)
         {
             builder.ToTable("EngineerRequests", "business");
-            builder.Property(r => r.RequestTitle).HasMaxLength(200);
+            builder.Property(r => r.RequestTitle).HasMaxLength(500);
             builder.Property(r => r.Descreption).HasMaxLength(500);
         }
     }

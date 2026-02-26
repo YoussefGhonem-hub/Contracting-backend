@@ -334,9 +334,9 @@ namespace Contracting.API.Controllers
         [HttpGet("weekly-completion")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public async Task<IActionResult> GetWeeklyCompletion([FromQuery] int? month = null, [FromQuery] int? year = null)
+        public async Task<IActionResult> GetWeeklyCompletion([FromQuery] int? month = null, [FromQuery] int? year = null, [FromQuery] Guid? engineerId = null)
         {
-            var query = new GetWeeklyCompletionQuery(month, year);
+            var query = new GetWeeklyCompletionQuery(month, year, engineerId);
             var result = await _mediator.Send(query);
 
             return result.Match(

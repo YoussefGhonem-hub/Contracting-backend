@@ -1228,7 +1228,7 @@ public class EngineerRequestService : IEngineerRequestService
 
     public async Task ProcessScheduledStatusUpdatesAsync(CancellationToken cancellationToken = default)
     {
-        var now = DateTime.UtcNow;
+        var now = Contracting.Shared.Common.DateTimeHelper.DateTimeNow;
 
         var statuses = await _db.Statuses
             .AsNoTracking()

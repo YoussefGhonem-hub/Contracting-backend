@@ -16,7 +16,7 @@ namespace Contracting.Application.Features.Business.EngineerRequest.Query.GetWee
 
         public async Task<ErrorOr<WeeklyCompletionReportDto>> Handle(GetWeeklyCompletionQuery request, CancellationToken cancellationToken)
         {
-            var result = await _service.GetWeeklyCompletionAsync(request.Month, request.Year, cancellationToken);
+            var result = await _service.GetWeeklyCompletionAsync(request.Month, request.Year, request.EngineerId, cancellationToken);
             return result;
         }
     }

@@ -1,3 +1,5 @@
+using Contracting.Shared.Common;
+
 namespace Contracting.Domain.Common;
 
 public class BaseAuditableEntity : BaseEntity
@@ -11,7 +13,7 @@ public class BaseAuditableEntity : BaseEntity
     public void MarkAsCreated(Guid currentUserId)
     {
         CreatedBy = currentUserId;
-        CreatedDate = DateTime.UtcNow;
+        CreatedDate = DateTimeHelper.Now;
     }
 
     public void MarkAsNotDeleted()
@@ -22,13 +24,13 @@ public class BaseAuditableEntity : BaseEntity
     public void MarkAsDeleted(Guid currentUserId)
     {
         IsDeleted = true;
-        DeletedDate = DateTime.UtcNow;
+        DeletedDate = DateTimeHelper.Now;
         DeletedBy = currentUserId;
     }
 
     public void MarkAsModified(Guid currentUserId)
     {
         ModifiedBy = currentUserId;
-        ModifiedDate = DateTime.UtcNow;
+        ModifiedDate = DateTimeHelper.Now;
     }
 }
