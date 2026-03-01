@@ -23,7 +23,11 @@ public static class DependencyInjection
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseSqlServer(
                 configuration.GetConnectionString("DefaultConnection"),
-                sql => sql.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName)));
+                sql =>
+                {
+                    sql.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName);
+                    sql.CommandTimeout(300);
+                }));
 
         services.AddScoped<ApplicationDbContext>();
 

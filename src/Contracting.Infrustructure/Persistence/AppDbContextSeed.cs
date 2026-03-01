@@ -1,6 +1,8 @@
 using Contracting.Domain.Entities;
+using Contracting.Domain.Entities.master;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace Contracting.Infrustructure.Persistence;
 
@@ -13,7 +15,7 @@ public static class AppDbContextSeed
         IWebHostEnvironment env)
     {
         await SeedRolesAsync(roleManager);
-        await SeedUsersAsync(userManager);
+        await SeedUsersAsync(userManager, context);
 
         //var adminId = await GetAdminUserIdAsync(userManager);
         //var customerId = await GetFirstUserIdInRoleAsync(userManager, "SuperAdmin");
@@ -62,7 +64,7 @@ public static class AppDbContextSeed
         }
     }
 
-    private static async Task SeedUsersAsync(UserManager<ApplicationUser> userManager)
+    private static async Task SeedUsersAsync(UserManager<ApplicationUser> userManager, ApplicationDbContext context)
     {
         var superAdminEmail = "superadmin@shop.com";
         var superAdmin = await userManager.FindByEmailAsync(superAdminEmail);
@@ -77,7 +79,14 @@ public static class AppDbContextSeed
                 IsActive = true
             };
             if ((await userManager.CreateAsync(superAdmin, "SuperAdmin@123")).Succeeded)
+            {
                 await userManager.AddToRolesAsync(superAdmin, new[] { "SuperAdmin", "Admin" });
+                await SeedEngineerForUserAsync(context, superAdmin, "Super Administrator", "superAdminEngineer");
+            }
+        }
+        else
+        {
+            await SeedEngineerForUserAsync(context, superAdmin, "Super Administrator", "superAdminEngineer");
         }
 
         var adminEmail = "admin@shop.com";
@@ -93,7 +102,39 @@ public static class AppDbContextSeed
                 IsActive = true
             };
             if ((await userManager.CreateAsync(admin, "Admin@123")).Succeeded)
+            {
                 await userManager.AddToRoleAsync(admin, "Admin");
+                await SeedEngineerForUserAsync(context, admin, "System Admin", "systemAdminEngineer");
+            }
+        }
+        else
+        {
+            await SeedEngineerForUserAsync(context, admin, "System Admin", "systemAdminEngineer");
+        }
+    }
+
+    private static async Task SeedEngineerForUserAsync(
+        ApplicationDbContext context,
+        ApplicationUser user,
+        string nameEn,
+        string position)
+    {
+        bool engineerExists = await context.Set<Engineer>()
+            .AnyAsync(e => e.ApplicationUserId == user.Id);
+
+        if (!engineerExists)
+        {
+            var engineer = new Engineer
+            {
+                nameEn = nameEn,
+                Email = user.Email,
+                phoneNumber = user.PhoneNumber,
+                position = position,
+                ApplicationUserId = user.Id,
+            };
+
+            await context.Set<Engineer>().AddAsync(engineer);
+            await context.SaveChangesAsync();
         }
     }
 }
