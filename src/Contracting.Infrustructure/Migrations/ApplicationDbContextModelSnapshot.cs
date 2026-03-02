@@ -242,8 +242,8 @@ namespace Contracting.Infrustructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("RequestTitle")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<Guid>("StatusId")
                         .HasColumnType("uniqueidentifier");
@@ -1771,53 +1771,6 @@ namespace Contracting.Infrustructure.Migrations
                     b.ToTable("Projects", "master");
                 });
 
-            modelBuilder.Entity("Contracting.Domain.Entities.master.ProjectSpecialField", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset>("CreatedDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset?>("DeletedDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<Guid?>("ModifiedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset?>("ModifiedDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<Guid>("ProjectId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("SpecialFieldId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("value")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("IsDeleted");
-
-                    b.HasIndex("ProjectId");
-
-                    b.HasIndex("SpecialFieldId");
-
-                    b.ToTable("ProjectSpecialFields", "master");
-                });
-
             modelBuilder.Entity("Contracting.Domain.Entities.master.SpecialField", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2356,25 +2309,6 @@ namespace Contracting.Infrustructure.Migrations
                         .HasForeignKey("BranchId");
 
                     b.Navigation("Branch");
-                });
-
-            modelBuilder.Entity("Contracting.Domain.Entities.master.ProjectSpecialField", b =>
-                {
-                    b.HasOne("Contracting.Domain.Entities.master.Project", "Project")
-                        .WithMany()
-                        .HasForeignKey("ProjectId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Contracting.Domain.Entities.master.SpecialField", "SpecialField")
-                        .WithMany()
-                        .HasForeignKey("SpecialFieldId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Project");
-
-                    b.Navigation("SpecialField");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
