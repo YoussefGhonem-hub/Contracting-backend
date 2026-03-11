@@ -40,6 +40,18 @@ namespace Contracting.Application.Features.Master.Engineer.Command.CreateEnginee
                 if (hasManager) 
                     return Error.Validation("Department.ManagerExists", "The selected department already has a manager.");
             }
+
+            // Check TeamLead uniqueness per department in DepartmentRoles
+            if (teamleadRole != null && request.Engineer.DepartmentRoles != null)
+            {
+                foreach (var dr in request.Engineer.DepartmentRoles.Where(d => d.RoleId == teamleadRole.Id))
+                {
+                    var hasManager = await _service.CheckDepartmentHaveManagerAsync(dr.DepartmentId);
+                    if (hasManager)
+                        return Error.Validation("Department.ManagerExists", $"Department already has a TeamLead.");
+                }
+            }
+
             // You can add any additional logic here if needed, such as checking user permissions
             // Create User
             var user = new ApplicationUser
@@ -59,9 +71,16 @@ namespace Contracting.Application.Features.Master.Engineer.Command.CreateEnginee
 
             // Create Engineer
             var engineer = await _service.CreateEngineerAsync(request.Engineer, user.Id);
-            return engineer is null
-                ? Error.Failure("Could not create engineer.")
-                : engineer;
+            if (engineer is null)
+                return Error.Failure("Could not create engineer.");
+
+            // Save department-role assignments
+            if (request.Engineer.DepartmentRoles != null && request.Engineer.DepartmentRoles.Any())
+            {
+                await _service.ReplaceEngineerDepartmentsAsync(engineer.Id, request.Engineer.DepartmentRoles);
+            }
+
+            return engineer;
         }
     }
 }

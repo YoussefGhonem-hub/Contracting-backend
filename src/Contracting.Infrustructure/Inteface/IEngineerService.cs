@@ -34,5 +34,9 @@ namespace Contracting.Infrustructure.Inteface
         Task UpdateUserRolesAsync(Guid userId, List<Guid> roleIds);
         Task<ApplicationUser> UpdateUserAsync(Guid userId, UpdateEngineerDto dto);
 
+        // Multi-department support
+        Task ReplaceEngineerDepartmentsAsync(Guid engineerId, List<DepartmentRoleDto> departmentRoles);
+        Task<List<EngineerDepartmentRoleDto>> GetEngineerDepartmentsAsync(Guid engineerId);
+        Task SwitchActiveDepartmentAsync(Guid engineerId, Guid departmentId);
     }
 }

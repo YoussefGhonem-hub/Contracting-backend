@@ -8,6 +8,7 @@ using Contracting.Application.Features.Users.Commands.RemoveFCMTokenNotification
 using Contracting.Application.Features.Users.Commands.ResetPasswordCommand;
 using Contracting.Application.Features.Users.Commands.RevokeRefreshTokenCommand;
 using Contracting.Application.Features.Users.Commands.VerifyResetCodeCommand;
+using Contracting.Application.Features.Users.Commands.SwitchDepartmentCommand;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -289,6 +290,31 @@ public class AuthController : APIBaseController
         var result = await _mediator.Send(command);
         return result.Match(
             value => Ok(new { Message = value }),
+            errors => Problem(errors)
+        );
+    }
+
+    /// <summary>
+    /// Switches the engineer's active department and returns new tokens.
+    /// </summary>
+    /// <remarks>
+    /// Changes the currently active department for the engineer.
+    /// The engineer must be assigned to the target department via EngineerDepartments.
+    /// Returns new access and refresh tokens with the updated department context.
+    /// </remarks>
+    /// <param name="departmentId">The department to switch to</param>
+    /// <returns>New authentication tokens with updated department</returns>
+    [HttpPost("switch-department/{departmentId:guid}")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> SwitchDepartment(Guid departmentId)
+    {
+        var command = new SwitchDepartmentCommand(departmentId);
+        var result = await _mediator.Send(command);
+        return result.Match(
+            value => Ok(value),
             errors => Problem(errors)
         );
     }

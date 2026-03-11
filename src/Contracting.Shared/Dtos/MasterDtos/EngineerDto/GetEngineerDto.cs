@@ -22,6 +22,7 @@ namespace Contracting.Shared.Dtos.MasterDtos.EngineerDto
         public GetDepartmentDto? Department { get; set; }
         public List<Guid> ProjectIds { get; set; } = new();
         public List<GetProjectDropDownDto>? Projects { get; set; }
+        public List<EngineerDepartmentRoleDto> DepartmentRoles { get; set; } = new();
     }
 
     public class GetEngineerDropDownDto

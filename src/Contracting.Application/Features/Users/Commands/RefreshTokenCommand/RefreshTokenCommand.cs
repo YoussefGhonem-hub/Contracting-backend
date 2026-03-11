@@ -58,12 +58,15 @@ public sealed class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCom
         // Get department name from Engineer entity
         var engineer = await _db.Engineers
             .Include(e => e.Department)
+                .ThenInclude(d => d.Branch)
             .FirstOrDefaultAsync(e => e.ApplicationUserId == user.Id, ct);
         
-        var departmentName = engineer?.Department?.Id;
+        var departmentId = engineer?.Department?.Id;
+        var branchId = engineer?.Department?.BranchId;
+        var engineerId = engineer?.Id;
 
         var roles = await _userManager.GetRolesAsync(user);
-        var (access, accessExp) = _tokens.GenerateAccessToken(user, roles, departmentName);
+        var (access, accessExp) = _tokens.GenerateAccessToken(user, roles, departmentId, engineerId, false, branchId);
 
         var pair = new TokenPairResponse(access, accessExp, newRefreshPlain, newRefreshExp);
         return pair;

@@ -11,6 +11,7 @@ namespace Contracting.Domain.Entities.master
         public bool hasSpecialFields { get; set; }
         public ICollection<DepartmentSpecialField> DepartmentSpecialFields { get; set; } = new List<DepartmentSpecialField>();
         public ICollection<Engineer> Engineers { get; set; }
+        public ICollection<EngineerDepartment> EngineerDepartments { get; set; } = new List<EngineerDepartment>();
 
     }
 }

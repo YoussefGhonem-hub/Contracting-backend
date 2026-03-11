@@ -43,6 +43,21 @@ namespace Contracting.Application.Features.Master.Engineer.Command.UpdateEnginee
                 }
             }
 
+            // Check TeamLead uniqueness per department in DepartmentRoles
+            if (request.Engineer.DepartmentRoles != null && request.Engineer.DepartmentRoles.Any())
+            {
+                var teamleadRoleForDepts = await _roleManager.Roles.FirstOrDefaultAsync(r => r.Name == RoleNames.Teamleadengineer, cancellationToken);
+                if (teamleadRoleForDepts != null)
+                {
+                    foreach (var dr in request.Engineer.DepartmentRoles.Where(d => d.RoleId == teamleadRoleForDepts.Id))
+                    {
+                        var hasManager = await _service.CheckDepartmentHaveManagerAsync(dr.DepartmentId, request.Engineer.Id);
+                        if (hasManager)
+                            return Error.Validation("Department.ManagerExists", $"Department already has a TeamLead.");
+                    }
+                }
+            }
+
             // Update the user details
             var userUpdateResult = await _service.UpdateUserAsync(request.Engineer.ApplicationUserId, request.Engineer);
             if (userUpdateResult is null)
@@ -55,6 +70,12 @@ namespace Contracting.Application.Features.Master.Engineer.Command.UpdateEnginee
 
             // Update the user roles
             await _service.UpdateUserRolesAsync(request.Engineer.ApplicationUserId, request.Engineer.Roles);
+
+            // Update department-role assignments if provided
+            if (request.Engineer.DepartmentRoles != null)
+            {
+                await _service.ReplaceEngineerDepartmentsAsync(request.Engineer.Id, request.Engineer.DepartmentRoles);
+            }
 
             return engineerUpdateResult;
         }
