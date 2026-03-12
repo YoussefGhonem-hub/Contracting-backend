@@ -1,5 +1,9 @@
 using Contracting.API.Controllers.Shared;
+using Contracting.Application.Features.Users.Commands.AdminResetOfficeUserPasswordCommand;
+using Contracting.Application.Features.Users.Commands.AdminResetPasswordCommand;
 using Contracting.Application.Features.Users.Commands.FCMTokenNotification;
+using Contracting.Application.Features.Users.Commands.ResetAllUsersPasswordCommand;
+using Contracting.Application.Features.Users.Commands.ResetMyPasswordCommand;
 using Contracting.Application.Features.Users.Commands.ForgotPasswordCommand;
 using Contracting.Application.Features.Users.Commands.LoginUserCommand;
 using Contracting.Application.Features.Users.Commands.RefreshTokenCommand;
@@ -286,6 +290,103 @@ public class AuthController : APIBaseController
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
     {
         var command = new ResetPasswordCommand(request);
+        var result = await _mediator.Send(command);
+        return result.Match(
+            value => Ok(new { Message = value }),
+            errors => Problem(errors)
+        );
+    }
+
+    /// <summary>
+    /// Resets the currently authenticated user's password (no user ID needed).
+    /// </summary>
+    /// <param name="request">New password and confirm password</param>
+    /// <returns>Success message confirming password was reset</returns>
+    /// <response code="200">Password reset successfully</response>
+    /// <response code="400">Validation errors or password doesn't meet requirements</response>
+    /// <response code="401">User not authenticated</response>
+    [HttpPost("reset-my-password")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ResetMyPassword([FromBody] ResetMyPasswordRequest request)
+    {
+        var command = new ResetMyPasswordCommand(request);
+        var result = await _mediator.Send(command);
+        return result.Match(
+            value => Ok(new { Message = value }),
+            errors => Problem(errors)
+        );
+    }
+
+    /// <summary>
+    /// Resets a user's password by an admin (by passing a new password directly).
+    /// </summary>
+    /// <param name="request">The user ID, new password, and confirm password</param>
+    /// <returns>Success message confirming password was reset</returns>
+    /// <response code="200">Password reset successfully</response>
+    /// <response code="400">Validation errors or password doesn't meet requirements</response>
+    /// <response code="404">User not found</response>
+    [HttpPost("admin-reset-password")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> AdminResetPassword([FromBody] AdminResetPasswordRequest request)
+    {
+        var command = new AdminResetPasswordCommand(request);
+        var result = await _mediator.Send(command);
+        return result.Match(
+            value => Ok(new { Message = value }),
+            errors => Problem(errors)
+        );
+    }
+
+    /// <summary>
+    /// Resets an office engineer's password by an admin.
+    /// </summary>
+    /// <remarks>
+    /// Only users with the "Office-engineer" role can have their password reset via this endpoint.
+    /// </remarks>
+    /// <param name="request">The user ID, new password, and confirm password</param>
+    /// <returns>Success message confirming password was reset</returns>
+    /// <response code="200">Password reset successfully</response>
+    /// <response code="400">User is not an office engineer, or validation errors</response>
+    /// <response code="404">User not found</response>
+    [HttpPost("admin-reset-office-user-password")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> AdminResetOfficeUserPassword([FromBody] AdminResetOfficeUserPasswordRequest request)
+    {
+        var command = new AdminResetOfficeUserPasswordCommand(request);
+        var result = await _mediator.Send(command);
+        return result.Match(
+            value => Ok(new { Message = value }),
+            errors => Problem(errors)
+        );
+    }
+
+    /// <summary>
+    /// Resets the password for ALL users in the system to the same new password.
+    /// </summary>
+    /// <remarks>
+    /// **WARNING: This will change the password for every user.**
+    /// Only SuperAdmin can use this endpoint.
+    /// </remarks>
+    /// <param name="request">New password and confirm password</param>
+    /// <returns>Success message with the count of updated users</returns>
+    /// <response code="200">All passwords reset successfully</response>
+    /// <response code="400">Validation errors or partial failure</response>
+    [HttpPost("reset-all-users-password")]
+    [Authorize(Roles = "SuperAdmin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ResetAllUsersPassword([FromBody] ResetAllUsersPasswordRequest request)
+    {
+        var command = new ResetAllUsersPasswordCommand(request);
         var result = await _mediator.Send(command);
         return result.Match(
             value => Ok(new { Message = value }),
