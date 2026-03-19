@@ -864,34 +864,22 @@ public class EngineerRequestService : IEngineerRequestService
     {
         try
         {
-            var engineer = await _db.Engineers
+            var roles = CurrentUser.Roles;
+            var isAdmin = roles.Any(r => r.Equals(RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase)
+                                      || r.Equals(RoleNames.Admin, StringComparison.OrdinalIgnoreCase));
+
+            var engineer = isAdmin ? null : await _db.Engineers
                 .Include(x => x.ApplicationUser)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(x => x.ApplicationUserId == Guid.Parse(CurrentUser.UserId));
 
-            if (engineer == null)
+            if (!isAdmin && engineer == null)
             {
                 return new PaginatedList<GetAllEngineerRequestDto>(
                     new List<GetAllEngineerRequestDto>(),
                     0,
                     filter.PageIndex,
                     filter.PageSize);
-            }
-
-
-            // Check if user is a team lead
-            var isTeamLead = await (from eng in _db.Engineers
-                                   join userRole in _db.UserRoles on eng.ApplicationUserId equals userRole.UserId
-                                   join role in _db.Roles on userRole.RoleId equals role.Id
-                                   where eng.Id == engineer.Id && role.Name == RoleNames.Teamleadengineer
-                                   select eng.Id)
-                       .AnyAsync();
-
-            // Check if department has a team lead
-            bool departmentHasTeamLead = false;
-            if (engineer.DepartmentId.HasValue)
-            {
-                departmentHasTeamLead = await DepartmentHasTeamLeadAsync(engineer.DepartmentId.Value);
             }
 
             var query = _db.EngineerRequests
@@ -934,24 +922,43 @@ public class EngineerRequestService : IEngineerRequestService
                 query = query.Where(r => r.DepartmentId == filter.DepartmentId.Value);
             }
 
-            if (isTeamLead && engineer.DepartmentId.HasValue)
+            if (!isAdmin)
             {
-                // Team lead: see all requests in their department OR requests they created
-                query = query.Where(r => r.DepartmentId == engineer.DepartmentId.Value || r.EngineerId == engineer.Id);
+                // Check if user is a team lead
+                var isTeamLead = await (from eng in _db.Engineers
+                                       join userRole in _db.UserRoles on eng.ApplicationUserId equals userRole.UserId
+                                       join role in _db.Roles on userRole.RoleId equals role.Id
+                                       where eng.Id == engineer.Id && role.Name == RoleNames.Teamleadengineer
+                                       select eng.Id)
+                           .AnyAsync();
+
+                // Check if department has a team lead
+                bool departmentHasTeamLead = false;
+                if (engineer.DepartmentId.HasValue)
+                {
+                    departmentHasTeamLead = await DepartmentHasTeamLeadAsync(engineer.DepartmentId.Value);
+                }
+
+                if (isTeamLead && engineer.DepartmentId.HasValue)
+                {
+                    // Team lead: see all requests in their department OR requests they created
+                    query = query.Where(r => r.DepartmentId == engineer.DepartmentId.Value || r.EngineerId == engineer.Id);
+                }
+                else if (!departmentHasTeamLead && engineer.DepartmentId.HasValue)
+                {
+                    // No team lead: show requests in department (if assignToId is null/empty or assigned to them), OR requests they created
+                    query = query.Where(r => 
+                        (r.DepartmentId == engineer.DepartmentId.Value && 
+                            (r.assignToId == null || r.assignToId == Guid.Empty || r.assignToId == engineer.Id)) 
+                        || r.EngineerId == engineer.Id);
+                }
+                else
+                {
+                    // Regular engineer: requests assigned to them OR requests they created
+                    query = query.Where(r => r.assignToId == engineer.Id || r.EngineerId == engineer.Id);
+                }
             }
-            else if (!departmentHasTeamLead && engineer.DepartmentId.HasValue)
-            {
-                // No team lead: show requests in department (if assignToId is null/empty or assigned to them), OR requests they created
-                query = query.Where(r => 
-                    (r.DepartmentId == engineer.DepartmentId.Value && 
-                        (r.assignToId == null || r.assignToId == Guid.Empty || r.assignToId == engineer.Id)) 
-                    || r.EngineerId == engineer.Id);
-            }
-            else
-            {
-                // Regular engineer: requests assigned to them OR requests they created
-                query = query.Where(r => r.assignToId == engineer.Id || r.EngineerId == engineer.Id);
-            }
+            // Admin/SuperAdmin: no role-based filter applied — sees all requests (only filtered by data params above)
 
             if (string.IsNullOrWhiteSpace(filter.Sort))
             {
