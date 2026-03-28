@@ -78,7 +78,7 @@ namespace Contracting.Infrustructure.Features
             await _db.SaveChangesAsync();
 
             await ReplaceEngineerProjectsAsync(engineer.Id, dto.ProjectIds);
-            return _mapper.Map<GetEngineerDto>(engineer);
+            return await GetEngineerByIdAsync(engineer.Id);
         }
         public async Task UpdateUserRolesAsync(Guid userId, List<Guid> roleIds)
         {
@@ -414,20 +414,13 @@ namespace Contracting.Infrustructure.Features
 
         public async Task ReplaceEngineerDepartmentsAsync(Guid engineerId, List<DepartmentRoleDto> departmentRoles)
         {
-            var existing = await _db.EngineerDepartments
-                .Where(ed => ed.EngineerId == engineerId)
-                .ToListAsync();
-
-            if (existing.Any())
-            {
-                _db.EngineerDepartments.RemoveRange(existing);
-            }
+            // Hard-delete existing records to avoid unique constraint violation
+            // (soft delete via ApplyAuditing keeps the row, conflicting with the unique index on EngineerId+DepartmentId)
+            await _db.Database.ExecuteSqlInterpolatedAsync(
+                $"DELETE FROM master.EngineerDepartments WHERE EngineerId = {engineerId}");
 
             if (departmentRoles is null || departmentRoles.Count == 0)
-            {
-                await _db.SaveChangesAsync();
                 return;
-            }
 
             var newLinks = departmentRoles.Select(dr => new EngineerDepartment
             {
@@ -471,6 +464,21 @@ namespace Contracting.Infrustructure.Features
 
             engineer.DepartmentId = departmentId;
             await _db.SaveChangesAsync();
+        }
+
+        public async Task<GenericResponse> DeleteEngineerDepartmentAsync(Guid engineerId, Guid departmentId)
+        {
+            var engineerDepartment = await _db.EngineerDepartments
+                .FirstOrDefaultAsync(ed => ed.EngineerId == engineerId && ed.DepartmentId == departmentId);
+
+            if (engineerDepartment is null)
+                return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.DepartmentNotFound]);
+
+            // Hard-delete to avoid unique constraint conflict on future re-assignment
+            await _db.Database.ExecuteSqlInterpolatedAsync(
+                $"DELETE FROM master.EngineerDepartments WHERE Id = {engineerDepartment.Id}");
+
+            return GenericResponse.SuccessResult(_localizer[SharedResourcesKeys.DepartmentRemoveSuccess]);
         }
     }
 }

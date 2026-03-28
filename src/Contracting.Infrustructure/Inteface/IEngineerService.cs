@@ -38,5 +38,6 @@ namespace Contracting.Infrustructure.Inteface
         Task ReplaceEngineerDepartmentsAsync(Guid engineerId, List<DepartmentRoleDto> departmentRoles);
         Task<List<EngineerDepartmentRoleDto>> GetEngineerDepartmentsAsync(Guid engineerId);
         Task SwitchActiveDepartmentAsync(Guid engineerId, Guid departmentId);
+        Task<GenericResponse> DeleteEngineerDepartmentAsync(Guid engineerId, Guid departmentId);
     }
 }

@@ -1,6 +1,7 @@
 using Contracting.API.Controllers.Shared;
 using Contracting.Application.Features.Master.Engineer.Command.CreateEngineer;
 using Contracting.Application.Features.Master.Engineer.Command.DeleteEngineer;
+using Contracting.Application.Features.Master.Engineer.Command.DeleteEngineerDepartment;
 using Contracting.Application.Features.Master.Engineer.Command.UpdateEngineer;
 using Contracting.Application.Features.Master.Engineer.Query.GetEngineerById;
 using Contracting.Application.Features.Master.Engineer.Query.GetEngineerDropdown;
@@ -155,6 +156,19 @@ namespace Contracting.API.Controllers
 
             return result.Match(
                 departments => Ok(departments),
+                errors => Problem(errors)
+            );
+        }
+
+        // Delete department assignment from engineer
+        [HttpDelete("{engineerId:guid}/departments/{departmentId:guid}")]
+        public async Task<IActionResult> DeleteEngineerDepartment(Guid engineerId, Guid departmentId)
+        {
+            var command = new DeleteEngineerDepartmentCommand(engineerId, departmentId);
+            var result = await _mediator.Send(command);
+
+            return result.Match(
+                success => Ok(success),
                 errors => Problem(errors)
             );
         }
