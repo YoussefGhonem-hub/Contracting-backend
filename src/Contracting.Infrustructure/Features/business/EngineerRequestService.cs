@@ -997,6 +997,18 @@ public class EngineerRequestService : IEngineerRequestService
                     .Select(ed => ed.DepartmentId)
                     .ToListAsync(cancellationToken);
 
+                // Fallback: check via legacy DepartmentId + global UserRoles
+                if (!teamLeadDeptIds.Any() && engineer.DepartmentId.HasValue)
+                {
+                    var isTeamLeadViaRoles = await (from userRole in _db.UserRoles
+                                                    join role in _db.Roles on userRole.RoleId equals role.Id
+                                                    where userRole.UserId == engineer.ApplicationUserId
+                                                          && role.Name == RoleNames.Teamleadengineer
+                                                    select role.Id).AnyAsync(cancellationToken);
+                    if (isTeamLeadViaRoles)
+                        teamLeadDeptIds.Add(engineer.DepartmentId.Value);
+                }
+
                 // Get all departments this engineer belongs to
                 var allEngineerDeptIds = await _db.EngineerDepartments
                     .Where(ed => ed.EngineerId == engineer.Id)
@@ -1125,6 +1137,18 @@ public class EngineerRequestService : IEngineerRequestService
                 .Where(ed => ed.EngineerId == engineer.Id && ed.Role != null && ed.Role.Name == RoleNames.Teamleadengineer)
                 .Select(ed => ed.DepartmentId)
                 .ToListAsync(cancellationToken);
+
+            // Fallback: check via legacy DepartmentId + global UserRoles
+            if (!teamLeadDeptIds.Any() && engineer.DepartmentId.HasValue)
+            {
+                var isTeamLeadViaRoles = await (from userRole in _db.UserRoles
+                                                join role in _db.Roles on userRole.RoleId equals role.Id
+                                                where userRole.UserId == engineer.ApplicationUserId
+                                                      && role.Name == RoleNames.Teamleadengineer
+                                                select role.Id).AnyAsync(cancellationToken);
+                if (isTeamLeadViaRoles)
+                    teamLeadDeptIds.Add(engineer.DepartmentId.Value);
+            }
 
             // Get all departments this engineer belongs to
             var allEngineerDeptIds = await _db.EngineerDepartments
@@ -1305,6 +1329,18 @@ public class EngineerRequestService : IEngineerRequestService
             .Where(ed => ed.EngineerId == engineerId && ed.Role != null && ed.Role.Name == RoleNames.Teamleadengineer)
             .Select(ed => ed.DepartmentId)
             .ToListAsync();
+
+        // Fallback: check via legacy DepartmentId + global UserRoles
+        if (!teamLeadDeptIds.Any() && engineer.DepartmentId.HasValue)
+        {
+            var isTeamLeadViaRoles = await (from userRole in _db.UserRoles
+                                            join role in _db.Roles on userRole.RoleId equals role.Id
+                                            where userRole.UserId == engineer.ApplicationUserId
+                                                  && role.Name == RoleNames.Teamleadengineer
+                                            select role.Id).AnyAsync();
+            if (isTeamLeadViaRoles)
+                teamLeadDeptIds.Add(engineer.DepartmentId.Value);
+        }
 
         // Get all departments this engineer belongs to
         var allEngineerDeptIds = await _db.EngineerDepartments
