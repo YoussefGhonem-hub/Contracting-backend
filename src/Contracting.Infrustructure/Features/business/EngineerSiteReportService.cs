@@ -107,17 +107,28 @@ namespace Contracting.Infrustructure.Features.business
                     filter.PageSize);
             }
 
+            // Get project IDs this engineer is assigned to
+            var assignedProjectIds = await _db.EngineerProjects
+                .AsNoTracking()
+                .Where(ep => ep.EngineerId == engineer.Id)
+                .Select(ep => ep.ProjectId)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
             // Get project IDs this engineer has reported on
-            var engineerProjectIds = await _db.EngineerSiteReports
+            var reportedProjectIds = await _db.EngineerSiteReports
                 .AsNoTracking()
                 .Where(r => r.EngineerId == engineer.Id && r.ProjectId != null)
                 .Select(r => r.ProjectId!.Value)
                 .Distinct()
                 .ToListAsync(cancellationToken);
 
+            // Combine both: assigned projects + reported projects
+            var allProjectIds = assignedProjectIds.Union(reportedProjectIds).Distinct().ToList();
+
             // Return all reports for those projects (by any engineer)
             var query = BuildReportQuery()
-                .Where(r => r.ProjectId != null && engineerProjectIds.Contains(r.ProjectId!.Value));
+                .Where(r => r.ProjectId != null && allProjectIds.Contains(r.ProjectId!.Value));
 
             query = ApplyDateRangeFilter(query, filter);
 
@@ -161,17 +172,28 @@ namespace Contracting.Infrustructure.Features.business
 
         public async Task<PaginatedList<GetEngineerSiteReportDto>> GetEngineerSiteReportsByEngineerIdAsync(Guid engineerId, EngineerSiteReportFilterDto filter, CancellationToken cancellationToken = default)
         {
+            // Get project IDs this engineer is assigned to
+            var assignedProjectIds = await _db.EngineerProjects
+                .AsNoTracking()
+                .Where(ep => ep.EngineerId == engineerId)
+                .Select(ep => ep.ProjectId)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
             // Get project IDs this engineer has reported on
-            var engineerProjectIds = await _db.EngineerSiteReports
+            var reportedProjectIds = await _db.EngineerSiteReports
                 .AsNoTracking()
                 .Where(r => r.EngineerId == engineerId && r.ProjectId != null)
                 .Select(r => r.ProjectId!.Value)
                 .Distinct()
                 .ToListAsync(cancellationToken);
 
+            // Combine both: assigned projects + reported projects
+            var allProjectIds = assignedProjectIds.Union(reportedProjectIds).Distinct().ToList();
+
             // Return all reports for those projects (by any engineer)
             var query = BuildReportQuery()
-                .Where(r => r.ProjectId != null && engineerProjectIds.Contains(r.ProjectId!.Value));
+                .Where(r => r.ProjectId != null && allProjectIds.Contains(r.ProjectId!.Value));
 
             query = ApplyDateRangeFilter(query, filter);
 
