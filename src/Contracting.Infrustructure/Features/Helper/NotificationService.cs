@@ -232,11 +232,27 @@ namespace Contracting.Infrustructure.Features.Helper
                 .Take(filter.PageSize)
                 .ToListAsync();
 
+            var requestIds = notifications
+                .Where(n => n.RequestId.HasValue)
+                .Select(n => n.RequestId!.Value)
+                .Distinct()
+                .ToList();
+
+            var requestTitles = requestIds.Any()
+                ? await _db.EngineerRequests
+                    .Where(r => requestIds.Contains(r.Id))
+                    .Select(r => new { r.Id, r.RequestTitle })
+                    .ToDictionaryAsync(r => r.Id, r => r.RequestTitle)
+                : new Dictionary<Guid, string?>();
+
             var dtos = notifications.Select(n =>
             {
                 var dto = _mapper.Map<GetNotificationDto>(n);
                 dto.EngineerName = n.Engineer != null
                     ? $"{n.Engineer.nameEn} / {n.Engineer.nameAr}"
+                    : null;
+                dto.RequestTitle = n.RequestId.HasValue && requestTitles.TryGetValue(n.RequestId.Value, out var title)
+                    ? title
                     : null;
                 return dto;
             }).ToList();
@@ -262,6 +278,15 @@ namespace Contracting.Infrustructure.Features.Helper
             dto.EngineerName = notification.Engineer != null
                 ? $"{notification.Engineer.nameEn} / {notification.Engineer.nameAr}"
                 : null;
+
+            if (notification.RequestId.HasValue)
+            {
+                dto.RequestTitle = await _db.EngineerRequests
+                    .Where(r => r.Id == notification.RequestId.Value)
+                    .Select(r => r.RequestTitle)
+                    .FirstOrDefaultAsync();
+            }
+
             return dto;
         }
 
