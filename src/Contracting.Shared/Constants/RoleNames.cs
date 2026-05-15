@@ -7,6 +7,8 @@ namespace Contracting.Shared.Constants
         public const string Teamleadengineer = "Teamlead-engineer";
         public const string Siteengineer = "Site-engineer";
         public const string Officeengineer = "Office-engineer";
+        public const string IT = "IT";
+        public const string Viewer = "Viewer";
         
         // Add more roles as needed
 
@@ -19,7 +21,9 @@ namespace Contracting.Shared.Constants
             Admin,
             Teamleadengineer,
             Siteengineer,
-            Officeengineer
+            Officeengineer,
+            IT,
+            Viewer
         };
 
         /// <summary>

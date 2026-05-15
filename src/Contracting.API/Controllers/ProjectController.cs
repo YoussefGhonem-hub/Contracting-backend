@@ -27,6 +27,7 @@ namespace Contracting.API.Controllers
 
         // Create Project
         [HttpPost]
+        [Authorize(Roles = "SuperAdmin,IT")]
         public async Task<IActionResult> Create([FromForm] CreateProjectDto dto)
         {
             var command = new CreateProjectCommand(dto);
@@ -40,6 +41,7 @@ namespace Contracting.API.Controllers
 
         // Update Project
         [HttpPut]
+        [Authorize(Roles = "SuperAdmin,IT")]
         public async Task<IActionResult> Update([FromForm] UpdateProjectDto dto)
         {
             var command = new UpdateProjectCommand(dto);
@@ -53,6 +55,7 @@ namespace Contracting.API.Controllers
 
         // Delete Project
         [HttpDelete("{projectId:guid}")]
+        [Authorize(Roles = "SuperAdmin,IT")]
         public async Task<IActionResult> Delete(Guid projectId)
         {
             var command = new DeleteProjectCommand(projectId);

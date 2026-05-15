@@ -26,6 +26,7 @@ namespace Contracting.API.Controllers
 
         // Create Priority
         [HttpPost]
+        [Authorize(Roles = "SuperAdmin,IT")]
         public async Task<IActionResult> Create([FromBody] CreatePriorityDto dto)
         {
             var command = new CreatePriorityCommand(dto);
@@ -39,6 +40,7 @@ namespace Contracting.API.Controllers
 
         // Update Priority
         [HttpPut]
+        [Authorize(Roles = "SuperAdmin,IT")]
         public async Task<IActionResult> Update([FromBody] UpdatePriorityDto dto)
         {
             var command = new UpdatePriorityCommand(dto);
@@ -52,6 +54,7 @@ namespace Contracting.API.Controllers
 
         // Delete Priority
         [HttpDelete("{priorityId:guid}")]
+        [Authorize(Roles = "SuperAdmin,IT")]
         public async Task<IActionResult> Delete(Guid priorityId)
         {
             var command = new DeletePriorityCommand(priorityId);

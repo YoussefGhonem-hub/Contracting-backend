@@ -27,6 +27,7 @@ namespace Contracting.API.Controllers
             _mediator = mediator;
         }
         [HttpPost]
+        [Authorize(Roles = "SuperAdmin,IT")]
         public async Task<IActionResult> Create([FromBody] CreateBranchDto dto)
         {
             var command = new CreateBranchCommand(dto);
@@ -40,6 +41,7 @@ namespace Contracting.API.Controllers
 
         // ---------------- UPDATE ----------------
         [HttpPut]
+        [Authorize(Roles = "SuperAdmin,IT")]
         public async Task<IActionResult> Update([FromBody] UpdateBranchDto dto)
         {
 
@@ -54,6 +56,7 @@ namespace Contracting.API.Controllers
 
         // ---------------- DELETE ----------------
         [HttpDelete("{id:guid}")]
+        [Authorize(Roles = "SuperAdmin,IT")]
         public async Task<IActionResult> Delete(Guid id)
         {
             var command = new DeleteBranchCommand(id);

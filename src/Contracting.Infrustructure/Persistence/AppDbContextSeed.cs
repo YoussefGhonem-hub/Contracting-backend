@@ -50,7 +50,7 @@ public static class AppDbContextSeed
 
     private static async Task SeedRolesAsync(RoleManager<ApplicationRole> roleManager)
     {
-        string[] roles = { "SuperAdmin", "Admin", "Teamlead-engineer", "Site-engineer", "Office-engineer" };
+        string[] roles = { "SuperAdmin", "Admin", "Teamlead-engineer", "Site-engineer", "Office-engineer", "IT", "Viewer" };
         foreach (var role in roles)
         {
             if (!await roleManager.RoleExistsAsync(role))
