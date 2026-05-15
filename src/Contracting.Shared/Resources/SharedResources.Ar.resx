@@ -262,6 +262,9 @@
   </data>
   <data name="RequestRejectedCannotAction" xml:space="preserve">
     <value>الطلبات المرفوضة نهائية ولا يمكن اتخاذ أي إجراء عليها أو إعادة فتحها.</value>
+  </data>
+  <data name="DeliveryDateAlreadyConfirmed" xml:space="preserve">
+    <value>تم تأكيد تاريخ التسليم مسبقاً ولا يمكن تغييره.</value>
   </data>  <data name="NameEnRequired" xml:space="preserve">
     <value>الاسم بالإنجليزية مطلوب</value>
   </data>

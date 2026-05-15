@@ -58,6 +58,7 @@
         public const string ActionTakenSuccess = "ActionTakenSuccess";
         public const string RequestRejectedCannotEdit = "RequestRejectedCannotEdit";
         public const string RequestRejectedCannotAction = "RequestRejectedCannotAction";
+        public const string DeliveryDateAlreadyConfirmed = "DeliveryDateAlreadyConfirmed";
 
         // Engineer site report
         public const string EngineerSiteReportCreateFailed = "EngineerSiteReportCreateFailed";

@@ -816,6 +816,11 @@ public class EngineerRequestService : IEngineerRequestService
         {
             request.timeDuration = actionDto.timeDuration.Value;
             request.startDate = actionDto.startDate.Value;
+
+            // Block endDate change if delivery date has already been confirmed
+            if (request.IsDeliveryDateConfirmed && actionDto.endDate != request.endDate)
+                return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.DeliveryDateAlreadyConfirmed]);
+
             request.endDate = actionDto.endDate;
         }                        
 
@@ -1607,4 +1612,23 @@ public class EngineerRequestService : IEngineerRequestService
     }
 
     private sealed record StatusKeywordProjection(Guid Id, string? NameEn, string? NameAr, string? Code);
+
+    public async Task<ErrorOr<bool>> ConfirmDeliveryDateAsync(Guid requestId)
+    {
+        var request = await _db.EngineerRequests
+            .FirstOrDefaultAsync(r => r.Id == requestId);
+
+        if (request is null)
+            return Error.NotFound("Request.NotFound", _localizer[SharedResourcesKeys.RequestNotFound]);
+
+        if (request.endDate is null)
+            return Error.Validation("Request.NoDeliveryDate", "Cannot confirm delivery date: no end date is set on this request.");
+
+        if (request.IsDeliveryDateConfirmed)
+            return Error.Conflict("Request.AlreadyConfirmed", "Delivery date is already confirmed.");
+
+        request.IsDeliveryDateConfirmed = true;
+        await _db.SaveChangesAsync();
+        return true;
+    }
 }

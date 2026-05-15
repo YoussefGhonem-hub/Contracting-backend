@@ -1,4 +1,5 @@
 using Contracting.API.Controllers.Shared;
+using Contracting.Application.Features.Business.EngineerRequest.Command.ConfirmDeliveryDate;
 using Contracting.Application.Features.Business.EngineerRequest.Command.CreateEngineerRequest;
 using Contracting.Application.Features.Business.EngineerRequest.Command.DeleteEngineerRequest;
 using Contracting.Application.Features.Business.EngineerRequest.Command.ReassignEngineerRequest;
@@ -172,6 +173,19 @@ namespace Contracting.API.Controllers
 
             return result.Match(
                 activities => Ok(activities),
+                errors => Problem(errors)
+            );
+        }
+
+        // Confirm Delivery Date — locks endDate against future changes
+        [HttpPatch("{requestId:guid}/confirm-delivery-date")]
+        public async Task<IActionResult> ConfirmDeliveryDate(Guid requestId)
+        {
+            var command = new ConfirmDeliveryDateCommand(requestId);
+            var result = await _mediator.Send(command);
+
+            return result.Match(
+                _ => NoContent(),
                 errors => Problem(errors)
             );
         }

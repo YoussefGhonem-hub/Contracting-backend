@@ -264,6 +264,9 @@
   <data name="RequestRejectedCannotAction" xml:space="preserve">
     <value>Rejected requests are final and cannot be actioned or reopened.</value>
   </data>
+  <data name="DeliveryDateAlreadyConfirmed" xml:space="preserve">
+    <value>The delivery date has already been confirmed and cannot be changed.</value>
+  </data>
   <data name="NameEnRequired" xml:space="preserve">
     <value>English name is required</value>
   </data>

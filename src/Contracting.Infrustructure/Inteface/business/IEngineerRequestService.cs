@@ -55,5 +55,7 @@ namespace Contracting.Infrustructure.Inteface.business
         // Scheduled automation
         Task ProcessScheduledStatusUpdatesAsync(CancellationToken cancellationToken = default);
 
+        // Confirm delivery date — makes endDate immutable
+        Task<ErrorOr<bool>> ConfirmDeliveryDateAsync(Guid requestId);
     }
 }

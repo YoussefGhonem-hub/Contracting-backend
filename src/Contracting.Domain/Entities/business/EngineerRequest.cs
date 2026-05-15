@@ -22,6 +22,7 @@ namespace Contracting.Domain.Entities.business
         public Engineer? assignTo { get; set; }
         public DateTime? startDate { get; set; }
         public DateTime? endDate { get; set; }
+        public bool IsDeliveryDateConfirmed { get; set; }
         public ICollection<EngineerRequestNotes> EngineerRequestNotes { get; set; }
         public ICollection<EngineerRequestActivite> EngineerRequestActivites { get; set; }
         public ICollection<EngineerRequestAttachment> EngineerRequestAttachments { get; set; }
