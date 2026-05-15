@@ -122,16 +122,16 @@ namespace Contracting.Infrustructure.Features.business
 
             var totals = CalculateCompletionTotals(items, statusSets.CompletedStatusIds);
 
-            var onHoldCount = items.Count(i => statusSets.OnHoldStatusIds.Contains(i.StatusId));
+            var pendingInfoCount = items.Count(i => statusSets.PendingInfoStatusIds.Contains(i.StatusId));
             var completedCount = items.Count(i => statusSets.CompletedStatusIds.Contains(i.StatusId));
-            var notFinishedCount = items.Count - completedCount - onHoldCount;
+            var notFinishedCount = items.Count - completedCount - pendingInfoCount;
 
             return new TeamLeadAnalysisDto
             {
                 TotalRequests = items.Count,
                 CompletedOnTime = totals.CompletedOnTime,
                 CompletedOverDeadline = totals.CompletedOverDeadline,
-                OnHoldCount = onHoldCount,
+                PendingInfoCount = pendingInfoCount,
                 NotFinishedCount = notFinishedCount < 0 ? 0 : notFinishedCount
             };
         }
@@ -600,7 +600,7 @@ namespace Contracting.Infrustructure.Features.business
 
         private List<EngineerStatusPercentageDto> BuildEngineerStatusPercentages(
             List<RequestAnalysisItem> items,
-            (HashSet<Guid> CompletedStatusIds, HashSet<Guid> OnHoldStatusIds) statusSets)
+            (HashSet<Guid> CompletedStatusIds, HashSet<Guid> PendingInfoStatusIds) statusSets)
         {
             var today = Contracting.Shared.Common.DateTimeHelper.Today;
 
@@ -632,7 +632,7 @@ namespace Contracting.Infrustructure.Features.business
 
                     var openOverdue = g
                         .Where(i => !statusSets.CompletedStatusIds.Contains(i.StatusId)
-                                    && !statusSets.OnHoldStatusIds.Contains(i.StatusId))
+                                    && !statusSets.PendingInfoStatusIds.Contains(i.StatusId))
                         .Count(i => i.EndDate.HasValue && i.EndDate.Value.Date < today);
 
                     var delayed = completedLate + openOverdue;
@@ -745,7 +745,7 @@ namespace Contracting.Infrustructure.Features.business
             return (completedOnTime, completedOverDeadline);
         }
 
-        private async Task<(HashSet<Guid> CompletedStatusIds, HashSet<Guid> OnHoldStatusIds)> GetStatusSetsAsync(CancellationToken cancellationToken)
+        private async Task<(HashSet<Guid> CompletedStatusIds, HashSet<Guid> PendingInfoStatusIds)> GetStatusSetsAsync(CancellationToken cancellationToken)
         {
             var statuses = await _db.Statuses.AsNoTracking().ToListAsync(cancellationToken);
 
@@ -754,9 +754,9 @@ namespace Contracting.Infrustructure.Features.business
                 "completed", "complete", "done", "finished", "finish", "closed"
             };
 
-            var onHoldKeywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            var pendingInfoKeywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
-                "on hold", "hold", "paused", "pause", "suspend", "suspended"
+                "missing information", "missing info", "missing_information"
             };
 
             bool HasKeyword(string? value, HashSet<string> keywords)
@@ -773,14 +773,14 @@ namespace Contracting.Infrustructure.Features.business
                 .Select(s => s.Id)
                 .ToHashSet();
 
-            var onHoldIds = statuses
-                .Where(s => HasKeyword(s.Code, onHoldKeywords)
-                         || HasKeyword(s.nameEn, onHoldKeywords)
-                         || HasKeyword(s.nameAr, onHoldKeywords))
+            var pendingInfoIds = statuses
+                .Where(s => HasKeyword(s.Code, pendingInfoKeywords)
+                         || HasKeyword(s.nameEn, pendingInfoKeywords)
+                         || HasKeyword(s.nameAr, pendingInfoKeywords))
                 .Select(s => s.Id)
                 .ToHashSet();
 
-            return (completedIds, onHoldIds);
+            return (completedIds, pendingInfoIds);
         }
 
         private sealed record UserFilterContext(

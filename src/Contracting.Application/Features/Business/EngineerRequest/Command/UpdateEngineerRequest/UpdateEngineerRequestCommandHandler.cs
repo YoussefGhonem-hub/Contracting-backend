@@ -16,11 +16,7 @@ namespace Contracting.Application.Features.Business.EngineerRequest.Command.Upda
 
         public async Task<ErrorOr<GetAllEngineerRequestDto>> Handle(UpdateEngineerRequestCommand request, CancellationToken cancellationToken)
         {
-            var result = await _service.UpdateEngineerRequestAsync(request.Request);
-            
-            return result is null
-                ? Error.NotFound("Engineer request not found or has already been actioned.")
-                : result;
+            return await _service.UpdateEngineerRequestAsync(request.Request);
         }
     }
 }

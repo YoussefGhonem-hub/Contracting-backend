@@ -29,7 +29,7 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestAnalysisDtos
         public int TotalRequests { get; set; }
         public int CompletedOnTime { get; set; }
         public int CompletedOverDeadline { get; set; }
-        public int OnHoldCount { get; set; }
+        public int PendingInfoCount { get; set; }
         public int NotFinishedCount { get; set; }
     }
 

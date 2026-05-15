@@ -258,6 +258,12 @@
   <data name="ActionTakenSuccess" xml:space="preserve">
     <value>Action taken successfully</value>
   </data>
+  <data name="RequestRejectedCannotEdit" xml:space="preserve">
+    <value>Rejected requests cannot be edited. Please create a new request instead.</value>
+  </data>
+  <data name="RequestRejectedCannotAction" xml:space="preserve">
+    <value>Rejected requests are final and cannot be actioned or reopened.</value>
+  </data>
   <data name="NameEnRequired" xml:space="preserve">
     <value>English name is required</value>
   </data>
@@ -359,5 +365,14 @@
   </data>
   <data name="NotificationReassignedBody" xml:space="preserve">
     <value>A request has been reassigned to you.</value>
+  </data>
+  <data name="NotificationMissingInfoTitle" xml:space="preserve">
+    <value>Action Required: Missing Information</value>
+  </data>
+  <data name="NotificationMissingInfoBody" xml:space="preserve">
+    <value>Your request requires additional information. Please add a note with an attachment to proceed.</value>
+  </data>
+  <data name="MissingInfoRequiresNoteAndAttachment" xml:space="preserve">
+    <value>A note is required when updating a request in Missing Information status.</value>
   </data>
 </root>

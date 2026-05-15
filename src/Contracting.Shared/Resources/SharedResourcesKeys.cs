@@ -56,6 +56,8 @@
         public const string CannotReassign = "CannotReassign";
         public const string TimeDurationMismatch = "TimeDurationMismatch";
         public const string ActionTakenSuccess = "ActionTakenSuccess";
+        public const string RequestRejectedCannotEdit = "RequestRejectedCannotEdit";
+        public const string RequestRejectedCannotAction = "RequestRejectedCannotAction";
 
         // Engineer site report
         public const string EngineerSiteReportCreateFailed = "EngineerSiteReportCreateFailed";
@@ -79,6 +81,9 @@
         public const string NotificationAssignedUpdateBody = "NotificationAssignedUpdateBody";
         public const string NotificationReassignedTitle = "NotificationReassignedTitle";
         public const string NotificationReassignedBody = "NotificationReassignedBody";
+        public const string NotificationMissingInfoTitle = "NotificationMissingInfoTitle";
+        public const string NotificationMissingInfoBody = "NotificationMissingInfoBody";
+        public const string MissingInfoRequiresNoteAndAttachment = "MissingInfoRequiresNoteAndAttachment";
 
         // Validation messages - Field specific
         public const string NameEnRequired = "NameEnRequired";

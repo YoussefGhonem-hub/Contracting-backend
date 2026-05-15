@@ -11,6 +11,7 @@ using Contracting.Shared.Common;
 using Contracting.Shared.Constants;
 using Contracting.Shared.CurrentUser;
 using Contracting.Shared.Dtos;
+using ErrorOr;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
@@ -32,6 +33,14 @@ public class EngineerRequestService : IEngineerRequestService
     private static readonly string[] DelayedKeywords = { "delay", "delayed", "late", "overdue" };
     private static readonly string[] CompletedKeywords = { "completed", "complete", "done", "finished", "finish", "closed" };
     private static readonly string[] NewPendingKeywords = { "new", "pending", "open", "submitted", "created" };
+    private static readonly string[] RejectedKeywords = { "rejected", "reject", "denied", "deny" };
+    private static readonly string[] PendingInfoKeywords = { "missing information", "missing info", "missing_information" };
+
+    private static bool StatusMatchesKeywords(Contracting.Domain.Entities.master.Status status, string[] keywords)
+        => keywords.Any(k =>
+            (status.Code?.Contains(k, StringComparison.OrdinalIgnoreCase) == true) ||
+            (status.nameEn?.Contains(k, StringComparison.OrdinalIgnoreCase) == true) ||
+            (status.nameAr?.Contains(k, StringComparison.OrdinalIgnoreCase) == true));
 
 
     public EngineerRequestService(ApplicationDbContext db, IMapper mapper, INotificationService notificationService, IStringLocalizer<SharedResources> localizer, IStorageService storageService)
@@ -216,7 +225,7 @@ public class EngineerRequestService : IEngineerRequestService
     }
 
     // ---------------- UPDATE ----------------
-    public async Task<GetAllEngineerRequestDto> UpdateEngineerRequestAsync(UpdateEngineerRequestDto dto)
+    public async Task<ErrorOr<GetAllEngineerRequestDto>> UpdateEngineerRequestAsync(UpdateEngineerRequestDto dto)
     {
         var engineer = await _db.Engineers
             .AsNoTracking()
@@ -225,12 +234,28 @@ public class EngineerRequestService : IEngineerRequestService
         var request = await _db.EngineerRequests
             .Include(r => r.EngineerRequestNotes)
             .Include(r => r.SpecialFieldValues)
+            .Include(r => r.Status)
             .FirstOrDefaultAsync(r => r.Id == dto.Id);
         if (request is null)
-            return null!;
+            return Error.NotFound("Request.NotFound", _localizer[SharedResourcesKeys.RequestNotFound]);
 
-        if (request.assignToId != null && request.assignToId != Guid.Empty)
-            return null!;
+        // Rejected requests are final — cannot be edited
+        if (request.Status != null && StatusMatchesKeywords(request.Status, RejectedKeywords))
+            return Error.Forbidden("Request.Rejected", _localizer[SharedResourcesKeys.RequestRejectedCannotEdit]);
+
+        bool isPendingInfo = request.Status != null && StatusMatchesKeywords(request.Status, PendingInfoKeywords);
+
+        // Allow update only when: status is Missing Information, OR request not yet assigned
+        if (!isPendingInfo && request.assignToId != null && request.assignToId != Guid.Empty)
+            return Error.Forbidden("Request.AlreadyActioned", _localizer[SharedResourcesKeys.RequestAlreadyActioned]);
+
+        // When in Missing Information status, at least one note is mandatory (attachment is optional)
+        if (isPendingInfo)
+        {
+            bool hasNote = dto.EngineerRequestNotes != null && dto.EngineerRequestNotes.Any();
+            if (!hasNote)
+                return Error.Validation("Request.MissingNote", _localizer[SharedResourcesKeys.MissingInfoRequiresNoteAndAttachment]);
+        }
 
         // Update fields
         request.ProjectId = dto.ProjectId == Guid.Empty ? request.ProjectId : dto.ProjectId;
@@ -350,6 +375,32 @@ public class EngineerRequestService : IEngineerRequestService
         }
 
         await _db.SaveChangesAsync();
+
+        // If request was in Missing Information, auto-reset status back to New
+        if (isPendingInfo)
+        {
+            var allStatuses = await _db.Statuses
+                .AsNoTracking()
+                .OrderBy(s => s.orderNumber)
+                .ToListAsync();
+
+            var targetStatus = allStatuses.FirstOrDefault(s => StatusMatchesKeywords(s, NewPendingKeywords))
+                            ?? allStatuses.OrderBy(s => s.orderNumber).FirstOrDefault();
+
+            if (targetStatus != null && targetStatus.Id != request.StatusId)
+            {
+                request.StatusId = targetStatus.Id;
+                var resetActivity = new EngineerRequestActivite
+                {
+                    EngineerRequestId = request.Id,
+                    EngineerId = engineer?.Id,
+                    StatusId = targetStatus.Id,
+                    ActionType = AutomaticStatusActionType
+                };
+                await _db.EngineerRequestActivites.AddAsync(resetActivity);
+                await _db.SaveChangesAsync();
+            }
+        }
 
         // Reload with navigation properties (including attachments)
         var updatedRequest = await _db.EngineerRequests
@@ -622,6 +673,7 @@ public class EngineerRequestService : IEngineerRequestService
             .Include(r => r.EngineerRequestNotes)
             .Include(x=>x.Engineer).ThenInclude(x=>x.ApplicationUser)
             .Include(r => r.assignTo)
+            .Include(r => r.Status)
             .FirstOrDefaultAsync(r => r.Id == requestId);
 
 
@@ -632,6 +684,10 @@ public class EngineerRequestService : IEngineerRequestService
 
         if (request is null)
             return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.RequestNotFound]);
+
+        // Rejected requests are final — no further actions allowed
+        if (request.Status != null && StatusMatchesKeywords(request.Status, RejectedKeywords))
+            return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.RequestRejectedCannotAction]);
       
         // Get department manager
         var departmentId = request.DepartmentId;
@@ -829,6 +885,25 @@ public class EngineerRequestService : IEngineerRequestService
                 _localizer[SharedResourcesKeys.NotificationAssignedUpdateTitle],
                 _localizer[SharedResourcesKeys.NotificationAssignedUpdateBody],
                 request.Id);
+        }
+
+        // Notify request creator if status was changed to Missing Information
+        if (actionDto.statusId.HasValue)
+        {
+            var newStatus = await _db.Statuses.FindAsync(request.StatusId);
+            if (newStatus != null && StatusMatchesKeywords(newStatus, PendingInfoKeywords)
+                && request.EngineerId.HasValue)
+            {
+                var creatorAppUserId = request.Engineer?.ApplicationUserId ?? Guid.Empty;
+                if (creatorAppUserId != Guid.Empty)
+                {
+                    await _notificationService.SendNotificationToUserAsync(
+                        creatorAppUserId,
+                        _localizer[SharedResourcesKeys.NotificationMissingInfoTitle],
+                        _localizer[SharedResourcesKeys.NotificationMissingInfoBody],
+                        request.Id);
+                }
+            }
         }
 
         return GenericResponse.SuccessResult(_localizer[SharedResourcesKeys.ActionTakenSuccess]);

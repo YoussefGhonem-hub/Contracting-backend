@@ -257,6 +257,11 @@
   </data>
   <data name="ActionTakenSuccess" xml:space="preserve">
     <value>تم اتخاذ الإجراء بنجاح</value>
+  </data>  <data name="RequestRejectedCannotEdit" xml:space="preserve">
+    <value>لا يمكن تعديل الطلبات المرفوضة. يرجى إنشاء طلب جديد.</value>
+  </data>
+  <data name="RequestRejectedCannotAction" xml:space="preserve">
+    <value>الطلبات المرفوضة نهائية ولا يمكن اتخاذ أي إجراء عليها أو إعادة فتحها.</value>
   </data>  <data name="NameEnRequired" xml:space="preserve">
     <value>الاسم بالإنجليزية مطلوب</value>
   </data>
@@ -358,5 +363,14 @@
   </data>
   <data name="NotificationReassignedBody" xml:space="preserve">
     <value>تمت إعادة إسناد طلب إليك.</value>
+  </data>
+  <data name="NotificationMissingInfoTitle" xml:space="preserve">
+    <value>إجراء مطلوب: معلومات ناقصة</value>
+  </data>
+  <data name="NotificationMissingInfoBody" xml:space="preserve">
+    <value>طلبك يحتاج إلى معلومات إضافية. يرجى إضافة ملاحظة مع مرفق للمتابعة.</value>
+  </data>
+  <data name="MissingInfoRequiresNoteAndAttachment" xml:space="preserve">
+    <value>يجب إضافة ملاحظة عند تحديث طلب في حالة المعلومات الناقصة.</value>
   </data>
 </root>

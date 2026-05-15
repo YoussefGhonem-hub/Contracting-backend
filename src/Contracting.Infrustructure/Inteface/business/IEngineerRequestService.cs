@@ -3,6 +3,7 @@ using Contracting.Shared.BusinessDtos.EngineerRequestActiviteDto;
 using Contracting.Shared.BusinessDtos.EngineerRequestDto;
 using Contracting.Shared.Common;
 using Contracting.Shared.Dtos;
+using ErrorOr;
 
 namespace Contracting.Infrustructure.Inteface.business
 {
@@ -11,8 +12,8 @@ namespace Contracting.Infrustructure.Inteface.business
         // Create
         Task<GetAllEngineerRequestDto> CreateEngineerRequestAsync(CreateEngineerRequestDto dto);
 
-        // Update (if not yet actioned)
-        Task<GetAllEngineerRequestDto> UpdateEngineerRequestAsync(UpdateEngineerRequestDto dto);
+        // Update (if not yet actioned, or if in Missing Information status)
+        Task<ErrorOr<GetAllEngineerRequestDto>> UpdateEngineerRequestAsync(UpdateEngineerRequestDto dto);
 
         // Delete
         Task<GenericResponse> DeleteEngineerRequestAsync(Guid requestId);
