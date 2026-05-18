@@ -11,7 +11,10 @@ using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequest
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequestById;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequestCreatedOrApplyToEngineer;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequestsByStatusForEngineer;
+using Contracting.Application.Features.Business.PurchaseRequest.Command.CreateGoodsReceipt;
+using Contracting.Application.Features.Business.PurchaseRequest.Query.GetGoodsReceipts;
 using Contracting.Shared.BusinessDtos.EngineerRequestDto;
+using Contracting.Shared.BusinessDtos.PurchaseRequestDto;
 using Contracting.Shared.Dtos;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -188,6 +191,24 @@ namespace Contracting.API.Controllers
                 _ => NoContent(),
                 errors => Problem(errors)
             );
+        }
+
+        // Goods receipt — record received quantities
+        [HttpPost("{requestId:guid}/receipts")]
+        public async Task<IActionResult> CreateGoodsReceipt(
+            Guid requestId,
+            [FromBody] CreateGoodsReceiptDto dto)
+        {
+            var result = await _mediator.Send(new CreateGoodsReceiptCommand(requestId, dto));
+            return result.Match(r => Ok(r), errors => Problem(errors));
+        }
+
+        // Goods receipts — list all receipt records for a request (audit trail)
+        [HttpGet("{requestId:guid}/receipts")]
+        public async Task<IActionResult> GetGoodsReceipts(Guid requestId)
+        {
+            var result = await _mediator.Send(new GetGoodsReceiptsQuery(requestId));
+            return result.Match(r => Ok(r), errors => Problem(errors));
         }
     }
 }

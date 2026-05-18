@@ -1,6 +1,7 @@
 ﻿using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Shared.BusinessDtos.EngineerRequestActiviteDto;
 using Contracting.Shared.BusinessDtos.EngineerRequestDto;
+using Contracting.Shared.BusinessDtos.PurchaseRequestDto;
 using Contracting.Shared.Common;
 using Contracting.Shared.Dtos;
 using ErrorOr;
@@ -57,5 +58,9 @@ namespace Contracting.Infrustructure.Inteface.business
 
         // Confirm delivery date — makes endDate immutable
         Task<ErrorOr<bool>> ConfirmDeliveryDateAsync(Guid requestId);
+
+        // Goods receipt
+        Task<ErrorOr<GetAllEngineerRequestDto>> CreateGoodsReceiptAsync(Guid requestId, CreateGoodsReceiptDto dto);
+        Task<ErrorOr<List<GetGoodsReceiptDto>>> GetGoodsReceiptsAsync(Guid requestId);
     }
 }

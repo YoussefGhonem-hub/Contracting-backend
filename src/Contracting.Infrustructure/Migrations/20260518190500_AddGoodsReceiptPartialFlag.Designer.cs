@@ -4,6 +4,7 @@ using Contracting.Infrustructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Contracting.Infrustructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260518190500_AddGoodsReceiptPartialFlag")]
+    partial class AddGoodsReceiptPartialFlag
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -237,9 +240,6 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.Property<DateTimeOffset?>("ModifiedDate")
                         .HasColumnType("datetimeoffset");
-
-                    b.Property<bool>("NeedsReceiptConfirmation")
-                        .HasColumnType("bit");
 
                     b.Property<Guid?>("PriorityId")
                         .HasColumnType("uniqueidentifier");
@@ -1492,19 +1492,11 @@ namespace Contracting.Infrustructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
-                    b.Property<string>("ItemCode")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.Property<Guid?>("ModifiedBy")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset?>("ModifiedDate")
                         .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("Unit")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("nameAr")
                         .HasMaxLength(200)
@@ -1550,9 +1542,6 @@ namespace Contracting.Infrustructure.Migrations
 
                     b.Property<DateTimeOffset?>("ModifiedDate")
                         .HasColumnType("datetimeoffset");
-
-                    b.Property<bool>("RequiresGoodsReceipt")
-                        .HasColumnType("bit");
 
                     b.Property<bool>("hasSpecialFields")
                         .HasColumnType("bit");

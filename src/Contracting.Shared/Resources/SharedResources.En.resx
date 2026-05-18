@@ -339,6 +339,27 @@
   <data name="SiteEngineerOnlyCreateRequest" xml:space="preserve">
     <value>Only Site-engineer role can create request.</value>
   </data>
+  <data name="PurchaseRequestItemsRequired" xml:space="preserve">
+    <value>Purchase request must include at least one item.</value>
+  </data>
+  <data name="PurchaseRequestNotFound" xml:space="preserve">
+    <value>Purchase request not found.</value>
+  </data>
+  <data name="PurchaseRequestAlreadyClosed" xml:space="preserve">
+    <value>Purchase request is already closed.</value>
+  </data>
+  <data name="GoodsReceiptItemsRequired" xml:space="preserve">
+    <value>Goods receipt must include at least one item.</value>
+  </data>
+  <data name="GoodsReceiptQuantityExceedsRequested" xml:space="preserve">
+    <value>Received quantity exceeds the remaining requested quantity for one or more items.</value>
+  </data>
+  <data name="GoodsReceiptItemNotPartOfRequest" xml:space="preserve">
+    <value>One or more receipt items do not belong to this purchase request.</value>
+  </data>
+  <data name="GoodsReceiptQuantityMustBePositive" xml:space="preserve">
+    <value>Received quantity must be greater than zero.</value>
+  </data>
   <data name="NotificationNewRequestTitle" xml:space="preserve">
     <value>New Request Created</value>
   </data>
@@ -377,5 +398,23 @@
   </data>
   <data name="MissingInfoRequiresNoteAndAttachment" xml:space="preserve">
     <value>A note is required when updating a request in Missing Information status.</value>
+  </data>
+  <data name="NotificationPartialReceiptTitle" xml:space="preserve">
+    <value>Partial Receipt Submitted</value>
+  </data>
+  <data name="NotificationPartialReceiptBody" xml:space="preserve">
+    <value>A partial goods receipt has been recorded. Please review and follow up with the site engineer.</value>
+  </data>
+  <data name="NotificationReceiptConfirmedTitle" xml:space="preserve">
+    <value>Goods Receipt Confirmed</value>
+  </data>
+  <data name="NotificationReceiptConfirmedBody" xml:space="preserve">
+    <value>The site engineer has confirmed receipt of goods. The request has been closed.</value>
+  </data>
+  <data name="NotificationReceiptRequiredTitle" xml:space="preserve">
+    <value>Receipt Confirmation Required</value>
+  </data>
+  <data name="NotificationReceiptRequiredBody" xml:space="preserve">
+    <value>The office engineer has marked this request as complete. Please confirm goods receipt to close the request.</value>
   </data>
 </root>

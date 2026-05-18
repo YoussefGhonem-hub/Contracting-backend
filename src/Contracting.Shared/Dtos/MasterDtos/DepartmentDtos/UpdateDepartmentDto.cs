@@ -6,6 +6,7 @@
         public string? nameEn { get; set; }
         public string? nameAr { get; set; }
         public bool hasSpecialFields { get; set; }
+        public bool RequiresGoodsReceipt { get; set; }
         public List<CreateDepartmentSpecialFieldDto> SpecialFields { get; set; } = new();
     }
 }

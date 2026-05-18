@@ -71,6 +71,15 @@
         // Authorization
         public const string SiteEngineerOnlyCreateRequest = "SiteEngineerOnlyCreateRequest";
 
+        // Purchase Request
+        public const string PurchaseRequestItemsRequired = "PurchaseRequestItemsRequired";
+        public const string PurchaseRequestNotFound = "PurchaseRequestNotFound";
+        public const string PurchaseRequestAlreadyClosed = "PurchaseRequestAlreadyClosed";
+        public const string GoodsReceiptItemsRequired = "GoodsReceiptItemsRequired";
+        public const string GoodsReceiptQuantityExceedsRequested = "GoodsReceiptQuantityExceedsRequested";
+        public const string GoodsReceiptItemNotPartOfRequest = "GoodsReceiptItemNotPartOfRequest";
+        public const string GoodsReceiptQuantityMustBePositive = "GoodsReceiptQuantityMustBePositive";
+
         // Notifications
         public const string NotificationNewRequestTitle = "NotificationNewRequestTitle";
         public const string NotificationNewRequestBody = "NotificationNewRequestBody";
@@ -84,6 +93,12 @@
         public const string NotificationReassignedBody = "NotificationReassignedBody";
         public const string NotificationMissingInfoTitle = "NotificationMissingInfoTitle";
         public const string NotificationMissingInfoBody = "NotificationMissingInfoBody";
+        public const string NotificationPartialReceiptTitle = "NotificationPartialReceiptTitle";
+        public const string NotificationPartialReceiptBody = "NotificationPartialReceiptBody";
+        public const string NotificationReceiptConfirmedTitle = "NotificationReceiptConfirmedTitle";
+        public const string NotificationReceiptConfirmedBody = "NotificationReceiptConfirmedBody";
+        public const string NotificationReceiptRequiredTitle = "NotificationReceiptRequiredTitle";
+        public const string NotificationReceiptRequiredBody = "NotificationReceiptRequiredBody";
         public const string MissingInfoRequiresNoteAndAttachment = "MissingInfoRequiresNoteAndAttachment";
 
         // Validation messages - Field specific

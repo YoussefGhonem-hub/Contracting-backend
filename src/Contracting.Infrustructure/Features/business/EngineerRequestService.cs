@@ -1,5 +1,6 @@
 using Contracting.Shared.Resources;
 using Contracting.Domain.Entities.business;
+using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Extensions;
 using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Infrustructure.Inteface.business;
@@ -7,6 +8,7 @@ using Contracting.Infrustructure.Inteface.Helper;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.BusinessDtos.EngineerRequestActiviteDto;
 using Contracting.Shared.BusinessDtos.EngineerRequestDto;
+using Contracting.Shared.BusinessDtos.PurchaseRequestDto;
 using Contracting.Shared.Common;
 using Contracting.Shared.Constants;
 using Contracting.Shared.CurrentUser;
@@ -634,11 +636,23 @@ public class EngineerRequestService : IEngineerRequestService
             .Include(r => r.SpecialFieldValues)
                 .ThenInclude(v => v.DepartmentSpecialField)
                     .ThenInclude(psf => psf.SpecialField)
+            .Include(r => r.PurchaseReceipts)
+                .ThenInclude(rc => rc.ReceivedBy)
             .AsSplitQuery()
             .AsNoTracking()
             .FirstOrDefaultAsync(r => r.Id == requestId);
 
-        return request is null ? null! : _mapper.Map<GetAllEngineerRequestDto>(request);
+        if (request is null) return null!;
+
+        var dto = _mapper.Map<GetAllEngineerRequestDto>(request);
+
+        // Manually populate goods receipt fields (not covered by Mapster auto-map)
+        dto.Receipts = request.PurchaseReceipts?
+            .OrderByDescending(rc => rc.ReceiptDate)
+            .Select(MapReceiptToDto)
+            .ToList() ?? new();
+
+        return dto;
     }
 
     // ---------------- CHECK IF ENGINEER IS MANAGER ----------------
@@ -674,6 +688,7 @@ public class EngineerRequestService : IEngineerRequestService
             .Include(x=>x.Engineer).ThenInclude(x=>x.ApplicationUser)
             .Include(r => r.assignTo)
             .Include(r => r.Status)
+            .Include(r => r.Department)
             .FirstOrDefaultAsync(r => r.Id == requestId);
 
 
@@ -909,6 +924,26 @@ public class EngineerRequestService : IEngineerRequestService
                         request.Id);
                 }
             }
+
+            // When office engineer sets status to completed/confirmed → require site engineer receipt confirmation
+            // Only applies to departments that have RequiresGoodsReceipt enabled (e.g. Procurement)
+            if (newStatus != null && StatusMatchesKeywords(newStatus, CompletedKeywords)
+                && request.EngineerId.HasValue
+                && request.Department != null && request.Department.RequiresGoodsReceipt)
+            {
+                request.NeedsReceiptConfirmation = true;
+                await _db.SaveChangesAsync();
+
+                var creatorAppUserId = request.Engineer?.ApplicationUserId ?? Guid.Empty;
+                if (creatorAppUserId != Guid.Empty)
+                {
+                    await _notificationService.SendNotificationToUserAsync(
+                        creatorAppUserId,
+                        _localizer[SharedResourcesKeys.NotificationReceiptRequiredTitle],
+                        _localizer[SharedResourcesKeys.NotificationReceiptRequiredBody],
+                        request.Id);
+                }
+            }
         }
 
         return GenericResponse.SuccessResult(_localizer[SharedResourcesKeys.ActionTakenSuccess]);
@@ -1054,6 +1089,11 @@ public class EngineerRequestService : IEngineerRequestService
             if (filter.ProjectId.HasValue && filter.ProjectId.Value != Guid.Empty)
             {
                 query = query.Where(r => r.ProjectId == filter.ProjectId.Value);
+            }
+
+            if (filter.StatusId.HasValue && filter.StatusId.Value != Guid.Empty)
+            {
+                query = query.Where(r => r.StatusId == filter.StatusId.Value);
             }
 
             // AssignToId filter: only apply for admins as a data filter.
@@ -1631,4 +1671,172 @@ public class EngineerRequestService : IEngineerRequestService
         await _db.SaveChangesAsync();
         return true;
     }
+
+    // ===== GOODS RECEIPT =====
+
+    private static readonly string[] PurchaseClosedKeywords =
+        { "closed", "completed", "complete", "done", "finished", "finish" };
+
+    public async Task<ErrorOr<GetAllEngineerRequestDto>> CreateGoodsReceiptAsync(
+        Guid requestId,
+        CreateGoodsReceiptDto dto)
+    {
+        var request = await _db.EngineerRequests
+            .Include(r => r.Status)
+            .Include(r => r.Department)
+            .Include(r => r.assignTo)
+            .FirstOrDefaultAsync(r => r.Id == requestId);
+
+        if (request is null)
+            return Error.NotFound("Request.NotFound", _localizer[SharedResourcesKeys.PurchaseRequestNotFound]);
+
+        if (request.Department == null || !request.Department.RequiresGoodsReceipt)
+            return Error.Validation("Request.NotProcurement", "Goods receipts are only supported for procurement department requests.");
+
+        if (IsPurchaseClosed(request.Status))
+            return Error.Conflict("Request.AlreadyClosed", _localizer[SharedResourcesKeys.PurchaseRequestAlreadyClosed]);
+
+        var engineer = await _db.Engineers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.ApplicationUserId == Guid.Parse(CurrentUser.UserId));
+
+        var receipt = new PurchaseRequestReceipt
+        {
+            EngineerRequestId = request.Id,
+            ReceivedById = engineer?.Id,
+            ReceiptDate = dto.ReceiptDate ?? DateTimeHelper.Now.DateTime,
+            IsPartialReceipt = dto.IsPartialReceipt,
+            IsConfirmed = dto.IsConfirmed,
+            Notes = dto.Notes,
+        };
+
+        await _db.PurchaseRequestReceipts.AddAsync(receipt);
+
+        Guid newStatusId = request.StatusId;
+        string actionType;
+
+        if (dto.IsConfirmed)
+        {
+            // Full or partial receipt confirmed → close the request
+            var closedStatus = await GetPurchaseClosedStatusAsync();
+            if (closedStatus != null)
+            {
+                newStatusId = closedStatus.Id;
+                request.StatusId = closedStatus.Id;
+            }
+            request.NeedsReceiptConfirmation = false;
+            actionType = "ClosedOnReceipt";
+        }
+        else if (dto.IsPartialReceipt)
+        {
+            // Partial receipt not yet confirmed → return to office engineer (in-progress)
+            var statuses = await _db.Statuses
+                .AsNoTracking()
+                .Select(s => new StatusKeywordProjection(s.Id, s.nameEn, s.nameAr, s.Code))
+                .ToListAsync();
+            var inProgressStatusId = FindStatusIdByKeywords(statuses, InProgressKeywords);
+            if (inProgressStatusId.HasValue)
+            {
+                newStatusId = inProgressStatusId.Value;
+                request.StatusId = inProgressStatusId.Value;
+            }
+            actionType = "PartialReceiptPendingReview";
+        }
+        else
+        {
+            actionType = "GoodsReceiptRecorded";
+        }
+
+        await _db.EngineerRequestActivites.AddAsync(new EngineerRequestActivite
+        {
+            EngineerRequestId = request.Id,
+            EngineerId = engineer?.Id,
+            StatusId = newStatusId,
+            ActionType = actionType,
+        });
+
+        await _db.SaveChangesAsync();
+
+        // Notify assigned office engineer on partial receipt (not confirmed) — needs review
+        if (dto.IsPartialReceipt && !dto.IsConfirmed && request.assignToId.HasValue)
+        {
+            var assignedEngineer = request.assignTo
+                ?? await _db.Engineers.FirstOrDefaultAsync(e => e.Id == request.assignToId.Value);
+
+            if (assignedEngineer?.ApplicationUserId is not null && assignedEngineer.ApplicationUserId != Guid.Empty)
+            {
+                await _notificationService.SendNotificationToUserAsync(
+                    assignedEngineer.ApplicationUserId,
+                    _localizer[SharedResourcesKeys.NotificationPartialReceiptTitle],
+                    _localizer[SharedResourcesKeys.NotificationPartialReceiptBody],
+                    request.Id);
+            }
+        }
+
+        // Notify assigned office engineer when receipt is confirmed (request closed)
+        if (dto.IsConfirmed && request.assignToId.HasValue)
+        {
+            var assignedEngineer = request.assignTo
+                ?? await _db.Engineers.FirstOrDefaultAsync(e => e.Id == request.assignToId.Value);
+
+            if (assignedEngineer?.ApplicationUserId is not null && assignedEngineer.ApplicationUserId != Guid.Empty)
+            {
+                await _notificationService.SendNotificationToUserAsync(
+                    assignedEngineer.ApplicationUserId,
+                    _localizer[SharedResourcesKeys.NotificationReceiptConfirmedTitle],
+                    _localizer[SharedResourcesKeys.NotificationReceiptConfirmedBody],
+                    request.Id);
+            }
+        }
+
+        return await GetEngineerRequestByIdAsync(requestId);
+    }
+
+    public async Task<ErrorOr<List<GetGoodsReceiptDto>>> GetGoodsReceiptsAsync(Guid requestId)
+    {
+        var request = await _db.EngineerRequests
+            .AsNoTracking()
+            .Include(r => r.Department)
+            .FirstOrDefaultAsync(r => r.Id == requestId);
+
+        if (request is null)
+            return Error.NotFound("Request.NotFound", _localizer[SharedResourcesKeys.PurchaseRequestNotFound]);
+
+        if (request.Department == null || !request.Department.RequiresGoodsReceipt)
+            return Error.Validation("Request.NotProcurement", "Goods receipts are only supported for procurement department requests.");
+
+        var receipts = await _db.PurchaseRequestReceipts
+            .AsNoTracking()
+            .Where(r => r.EngineerRequestId == requestId)
+            .Include(r => r.ReceivedBy)
+            .OrderByDescending(r => r.ReceiptDate)
+            .ToListAsync();
+
+        return receipts.Select(MapReceiptToDto).ToList();
+    }
+
+    private static bool IsPurchaseClosed(Status? status)
+        => status != null && PurchaseClosedKeywords.Any(k =>
+            (status.Code?.Contains(k, StringComparison.OrdinalIgnoreCase) == true) ||
+            (status.nameEn?.Contains(k, StringComparison.OrdinalIgnoreCase) == true) ||
+            (status.nameAr?.Contains(k, StringComparison.OrdinalIgnoreCase) == true));
+
+    private async Task<Status?> GetPurchaseClosedStatusAsync()
+    {
+        var statuses = await _db.Statuses.AsNoTracking().ToListAsync();
+        return statuses.FirstOrDefault(s => IsPurchaseClosed(s))
+               ?? statuses.OrderByDescending(s => s.orderNumber).FirstOrDefault();
+    }
+
+    private GetGoodsReceiptDto MapReceiptToDto(PurchaseRequestReceipt rc)
+        => new()
+        {
+            Id = rc.Id,
+            ReceiptDate = rc.ReceiptDate,
+            IsPartialReceipt = rc.IsPartialReceipt,
+            IsConfirmed = rc.IsConfirmed,
+            Notes = rc.Notes,
+            ReceivedById = rc.ReceivedById,
+            ReceivedBy = rc.ReceivedBy is null ? null : _mapper.Map<Contracting.Shared.Dtos.MasterDtos.EngineerDto.GetEngineerDto>(rc.ReceivedBy),
+        };
 }

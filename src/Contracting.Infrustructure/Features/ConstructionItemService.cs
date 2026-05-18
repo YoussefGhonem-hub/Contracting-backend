@@ -42,6 +42,8 @@ namespace Contracting.Infrustructure.Features
 
             entity.nameEn = dto.nameEn;
             entity.nameAr = dto.nameAr;
+            entity.Unit = dto.Unit;
+            entity.ItemCode = dto.ItemCode;
 
             await _db.SaveChangesAsync();
             return _mapper.Map<GetConstructionItemDto>(entity);

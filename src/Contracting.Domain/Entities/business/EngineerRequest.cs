@@ -23,10 +23,14 @@ namespace Contracting.Domain.Entities.business
         public DateTime? startDate { get; set; }
         public DateTime? endDate { get; set; }
         public bool IsDeliveryDateConfirmed { get; set; }
+        // True when office engineer marks as complete but site engineer hasn't confirmed receipt yet
+        public bool NeedsReceiptConfirmation { get; set; }
         public ICollection<EngineerRequestNotes> EngineerRequestNotes { get; set; }
         public ICollection<EngineerRequestActivite> EngineerRequestActivites { get; set; }
         public ICollection<EngineerRequestAttachment> EngineerRequestAttachments { get; set; }
         public ICollection<EngineerRequestSpecialFieldValue> SpecialFieldValues { get; set; } = new List<EngineerRequestSpecialFieldValue>();
 
+        // Goods receipt records (Purchase Request workflow)
+        public ICollection<PurchaseRequestReceipt> PurchaseReceipts { get; set; } = new List<PurchaseRequestReceipt>();
     }
 }
