@@ -59,6 +59,9 @@ public static class DependencyInjection
         services.AddScoped<IConstructionItemService, ConstructionItemService>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IRoleService, RoleService>();
+        services.AddScoped<ITransferRequestService, TransferRequestService>();
+        services.AddScoped<IFinancialClearanceService, FinancialClearanceService>();
+        services.AddScoped<ILaborAttendanceService, LaborAttendanceService>();
 
         services.AddHttpContextAccessor();
 
