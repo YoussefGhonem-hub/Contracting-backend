@@ -1,6 +1,7 @@
 using Contracting.Domain.Common;
 using Contracting.Domain.Entities;
 using Contracting.Domain.Entities.business;
+using Contracting.Domain.Entities.client;
 using Contracting.Domain.Entities.helper;
 using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Extensions;
@@ -47,6 +48,23 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<ExceptionLog> ExceptionLogs => Set<ExceptionLog>();
     public DbSet<PasswordResetCode> PasswordResetCodes => Set<PasswordResetCode>();
     public DbSet<UserSignature> UserSignatures => Set<UserSignature>();
+
+    // Client portal
+    public DbSet<Contracting.Domain.Entities.client.Client> Clients => Set<Contracting.Domain.Entities.client.Client>();
+    public DbSet<ClientProject> ClientProjects => Set<ClientProject>();
+    public DbSet<ChatGroup> ChatGroups => Set<ChatGroup>();
+    public DbSet<ChatGroupMember> ChatGroupMembers => Set<ChatGroupMember>();
+    public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
+    public DbSet<ChatMessageAttachment> ChatMessageAttachments => Set<ChatMessageAttachment>();
+    public DbSet<ClientMonthlyReport> ClientMonthlyReports => Set<ClientMonthlyReport>();
+    public DbSet<ClientMonthlyReportAttachment> ClientMonthlyReportAttachments => Set<ClientMonthlyReportAttachment>();
+    public DbSet<ProjectInvoice> ProjectInvoices => Set<ProjectInvoice>();
+    public DbSet<InvoicePayment> InvoicePayments => Set<InvoicePayment>();
+    public DbSet<VariationOrder> VariationOrders => Set<VariationOrder>();
+    public DbSet<VariationOrderAttachment> VariationOrderAttachments => Set<VariationOrderAttachment>();
+    public DbSet<TenderDocument> TenderDocuments => Set<TenderDocument>();
+    public DbSet<ProjectSchedule> ProjectSchedules => Set<ProjectSchedule>();
+    public DbSet<ProjectDrawing> ProjectDrawings => Set<ProjectDrawing>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
