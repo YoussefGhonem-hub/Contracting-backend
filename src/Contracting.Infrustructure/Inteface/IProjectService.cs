@@ -16,6 +16,9 @@ namespace Contracting.Infrustructure.Inteface
         // Update status with transition validation
         Task<GetProjectDto?> UpdateProjectStatusAsync(Guid projectId, ProjectStatus newStatus);
 
+        // Auto-update statuses based on date rules (called by Hangfire)
+        Task ProcessProjectStatusUpdatesAsync(CancellationToken cancellationToken = default);
+
         // Delete
         Task<GenericResponse> DeleteProjectAsync(Guid projectId);
 

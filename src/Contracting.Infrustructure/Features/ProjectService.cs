@@ -72,6 +72,7 @@ namespace Contracting.Infrustructure.Features
             project.Code = dto.Code;
             project.Area = dto.Area;
             project.StartDate = dto.StartDate;
+            project.ExpectedEndDate = dto.ExpectedEndDate;
             project.ProjectStatus = dto.ProjectStatus;
 
             // Handle image upload
@@ -138,6 +139,55 @@ namespace Contracting.Infrustructure.Features
             ProjectStatus.Cancelled    => new HashSet<ProjectStatus>(),   // terminal
             _                          => new HashSet<ProjectStatus>()
         };
+
+        /// <summary>
+        /// Automatic status transitions driven by date rules. Called by a Hangfire recurring job (daily).
+        /// Rules:
+        ///   - Planning  → Active  : when StartDate has arrived (StartDate &lt;= now)
+        ///   - Active    → Delayed : when ExpectedEndDate has passed (ExpectedEndDate &lt; now)
+        ///   - OnHold    → Active  : when StartDate has arrived AND project was put on hold (re-activates after StartDate if somehow missed)
+        ///   - Delayed   → (stays) : already flagged; no further auto-transition
+        /// Terminal states (Completed, Cancelled) are never touched automatically.
+        /// </summary>
+        public async Task ProcessProjectStatusUpdatesAsync(CancellationToken cancellationToken = default)
+        {
+            var now = Contracting.Shared.Common.DateTimeHelper.DateTimeNow;
+
+            // 1. Planning → Active: StartDate has arrived
+            var planningToActive = await _db.Projects
+                .Where(p => p.ProjectStatus == ProjectStatus.Planning
+                            && p.StartDate.HasValue
+                            && p.StartDate.Value <= now)
+                .ToListAsync(cancellationToken);
+
+            foreach (var project in planningToActive)
+                project.ProjectStatus = ProjectStatus.Active;
+
+            // 2. Active → Delayed: ExpectedEndDate has passed and project is not yet completed/cancelled
+            var activeToDelayed = await _db.Projects
+                .Where(p => p.ProjectStatus == ProjectStatus.Active
+                            && p.ExpectedEndDate.HasValue
+                            && p.ExpectedEndDate.Value < now)
+                .ToListAsync(cancellationToken);
+
+            foreach (var project in activeToDelayed)
+                project.ProjectStatus = ProjectStatus.Delayed;
+
+            // 3. OnHold → Active: OnHold projects whose StartDate has arrived
+            //    (covers cases where a project was put on hold before it started and StartDate passes)
+            var onHoldToActive = await _db.Projects
+                .Where(p => p.ProjectStatus == ProjectStatus.OnHold
+                            && p.StartDate.HasValue
+                            && p.StartDate.Value <= now
+                            && (!p.ExpectedEndDate.HasValue || p.ExpectedEndDate.Value >= now))
+                .ToListAsync(cancellationToken);
+
+            foreach (var project in onHoldToActive)
+                project.ProjectStatus = ProjectStatus.Active;
+
+            if (planningToActive.Count + activeToDelayed.Count + onHoldToActive.Count > 0)
+                await _db.SaveChangesAsync(cancellationToken);
+        }
 
         public async Task<GenericResponse> DeleteProjectAsync(Guid projectId)
         {

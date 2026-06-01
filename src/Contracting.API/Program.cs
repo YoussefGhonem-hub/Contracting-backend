@@ -5,6 +5,7 @@ using Contracting.Domain.Entities;
 using Contracting.Infrustructure;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Infrustructure.Inteface.business;
+using Contracting.Infrustructure.Inteface;
 using Contracting.Shared.Common;
 using Contracting.Shared.CurrentUser;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -158,6 +159,13 @@ RecurringJob.AddOrUpdate<IEngineerRequestService>(
     "engineer-request-status-automation",
     service => service.ProcessScheduledStatusUpdatesAsync(CancellationToken.None),
     Cron.Hourly(),
+    TimeZoneInfo.Utc
+);
+
+RecurringJob.AddOrUpdate<IProjectService>(
+    "project-status-automation",
+    service => service.ProcessProjectStatusUpdatesAsync(CancellationToken.None),
+    Cron.Daily(),
     TimeZoneInfo.Utc
 );
 

@@ -11,6 +11,7 @@ public class GetClientProjectListItemDto
     public string? ImageUrl { get; set; }
     public decimal? Area { get; set; }
     public DateTimeOffset? StartDate { get; set; }
+    public DateTimeOffset? ExpectedEndDate { get; set; }
     public ProjectStatus? ProjectStatus { get; set; }
     public string? Code { get; set; }
 }

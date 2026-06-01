@@ -24,7 +24,7 @@ Used in project-related responses and the admin project create/update endpoints.
 ---
 
 ## 1. Get My Projects (Select Project Screen)
-
+![alt text](image.png)
 Returns all projects assigned to the currently logged-in client.
 
 ```
@@ -71,7 +71,7 @@ Authorization: Bearer <token>
 ---
 
 ## 2. Get Site Reports for a Project (Site Reports List Screen)
-
+![alt text](image-1.png)
 Returns all monthly site reports for a specific project, ordered newest first.
 
 ```
@@ -131,7 +131,7 @@ Authorization: Bearer eyJhbGciOiJSUzI1NiIsIn...
 ---
 
 ## 3. Get Site Report Details (Report Detail Screen)
-
+![alt text](image-2.png)
 Returns the full details of a single site report including attachments.
 
 ```
