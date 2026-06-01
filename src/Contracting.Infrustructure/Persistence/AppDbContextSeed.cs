@@ -16,12 +16,10 @@ public static class AppDbContextSeed
     {
         await SeedRolesAsync(roleManager);
         await SeedUsersAsync(userManager, context);
+        await SeedClientUserAsync(userManager);
 
         //var adminId = await GetAdminUserIdAsync(userManager);
         //var customerId = await GetFirstUserIdInRoleAsync(userManager, "SuperAdmin");
-
-
-
     }
 
     private static async Task<Guid?> GetFirstUserIdInRoleAsync(UserManager<ApplicationUser> userManager, string role)
@@ -50,7 +48,7 @@ public static class AppDbContextSeed
 
     private static async Task SeedRolesAsync(RoleManager<ApplicationRole> roleManager)
     {
-        string[] roles = { "SuperAdmin", "Admin", "Teamlead-engineer", "Site-engineer", "Office-engineer" };
+        string[] roles = { "SuperAdmin", "Admin", "Teamlead-engineer", "Site-engineer", "Office-engineer", "Client" };
         foreach (var role in roles)
         {
             if (!await roleManager.RoleExistsAsync(role))
@@ -110,6 +108,27 @@ public static class AppDbContextSeed
         else
         {
             await SeedEngineerForUserAsync(context, admin, "System Admin", "systemAdminEngineer");
+        }
+    }
+
+    private static async Task SeedClientUserAsync(UserManager<ApplicationUser> userManager)
+    {
+        var clientEmail = "client@shop.com";
+        var client = await userManager.FindByEmailAsync(clientEmail);
+        if (client is null)
+        {
+            client = new ApplicationUser
+            {
+                UserName = clientEmail,
+                Email = clientEmail,
+                EmailConfirmed = true,
+                FullName = "Default Client",
+                IsActive = true
+            };
+            if ((await userManager.CreateAsync(client, "Client@123")).Succeeded)
+            {
+                await userManager.AddToRoleAsync(client, "Client");
+            }
         }
     }
 
