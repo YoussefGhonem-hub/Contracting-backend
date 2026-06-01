@@ -66,6 +66,7 @@ public static class DependencyInjection
         services.AddScoped<IClientInvoiceService, ClientInvoiceService>();
         services.AddScoped<IClientTenderService, ClientTenderService>();
         services.AddScoped<IClientVariationOrderService, ClientVariationOrderService>();
+        services.AddScoped<IClientScheduleService, ClientScheduleService>();
 
         services.AddHttpContextAccessor();
 
