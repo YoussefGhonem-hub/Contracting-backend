@@ -1,3 +1,4 @@
+using Contracting.Domain.Common.Enums;
 using Contracting.Domain.Entities.client;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -12,6 +13,10 @@ public class ChatMessageAttachmentConfiguration : IEntityTypeConfiguration<ChatM
         builder.Property(a => a.FileName).HasMaxLength(500);
         builder.Property(a => a.Extension).HasMaxLength(20);
         builder.Property(a => a.Url).HasMaxLength(2000);
+        builder.Property(a => a.AttachmentType)
+            .HasConversion<string>()
+            .HasMaxLength(50)
+            .HasDefaultValue(ChatMessageType.Document);
 
         builder.HasOne(a => a.ChatMessage)
             .WithMany(m => m.Attachments)

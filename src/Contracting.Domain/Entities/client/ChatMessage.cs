@@ -1,4 +1,5 @@
 using Contracting.Domain.Common;
+using Contracting.Domain.Common.Enums;
 
 namespace Contracting.Domain.Entities.client;
 
@@ -10,5 +11,6 @@ public class ChatMessage : BaseAuditableEntity
     public ApplicationUser Sender { get; set; } = null!;
     public string? Content { get; set; }
     public bool IsRead { get; set; }
+    public ChatMessageType MessageType { get; set; } = ChatMessageType.Text;
     public ICollection<ChatMessageAttachment> Attachments { get; set; } = new List<ChatMessageAttachment>();
 }

@@ -2,6 +2,7 @@ using Contracting.Domain.Entities;
 using Contracting.Infrustructure.Features;
 using Contracting.Infrustructure.Features.business;
 using Contracting.Infrustructure.Features.client;
+using Contracting.Infrustructure.Features.Firebase;
 using Contracting.Infrustructure.Features.Helper;
 using Contracting.Infrustructure.Files;
 using Contracting.Infrustructure.Identity;
@@ -67,8 +68,13 @@ public static class DependencyInjection
         services.AddScoped<IClientTenderService, ClientTenderService>();
         services.AddScoped<IClientVariationOrderService, ClientVariationOrderService>();
         services.AddScoped<IClientScheduleService, ClientScheduleService>();
+        services.AddScoped<IChatService, ChatService>();
+        services.AddScoped<IFirebaseService, FirebaseService>();
 
         services.AddHttpContextAccessor();
+
+        // Firebase options
+        services.Configure<FirebaseOptions>(configuration.GetSection("Firebase"));
 
         // File storage
         services.AddScoped<IFileStorage, LocalFileStorage>();

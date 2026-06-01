@@ -1,4 +1,5 @@
 using Contracting.Domain.Common;
+using Contracting.Domain.Common.Enums;
 
 namespace Contracting.Domain.Entities.client;
 
@@ -11,4 +12,5 @@ public class ChatMessageAttachment : BaseAuditableEntity
     public string? Extension { get; set; }
     public long? FileSize { get; set; }
     public string? Url { get; set; }
+    public ChatMessageType AttachmentType { get; set; } = ChatMessageType.Document;
 }

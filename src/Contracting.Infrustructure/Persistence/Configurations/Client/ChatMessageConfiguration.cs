@@ -1,3 +1,4 @@
+using Contracting.Domain.Common.Enums;
 using Contracting.Domain.Entities.client;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -10,6 +11,10 @@ public class ChatMessageConfiguration : IEntityTypeConfiguration<ChatMessage>
     {
         builder.ToTable("ChatMessages", "client");
         builder.Property(m => m.Content).HasMaxLength(4000);
+        builder.Property(m => m.MessageType)
+            .HasConversion<string>()
+            .HasMaxLength(50)
+            .HasDefaultValue(ChatMessageType.Text);
 
         builder.HasOne(m => m.ChatGroup)
             .WithMany(g => g.Messages)
