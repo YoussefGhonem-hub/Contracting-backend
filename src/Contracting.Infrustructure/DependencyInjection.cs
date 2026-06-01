@@ -1,11 +1,13 @@
 using Contracting.Domain.Entities;
 using Contracting.Infrustructure.Features;
 using Contracting.Infrustructure.Features.business;
+using Contracting.Infrustructure.Features.client;
 using Contracting.Infrustructure.Features.Helper;
 using Contracting.Infrustructure.Files;
 using Contracting.Infrustructure.Identity;
 using Contracting.Infrustructure.Inteface;
 using Contracting.Infrustructure.Inteface.business;
+using Contracting.Infrustructure.Inteface.client;
 using Contracting.Infrustructure.Inteface.Helper;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.Storage;
@@ -59,6 +61,8 @@ public static class DependencyInjection
         services.AddScoped<IConstructionItemService, ConstructionItemService>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IRoleService, RoleService>();
+        services.AddScoped<IClientProjectService, ClientProjectService>();
+        services.AddScoped<IClientSiteReportService, ClientSiteReportService>();
 
         services.AddHttpContextAccessor();
 
