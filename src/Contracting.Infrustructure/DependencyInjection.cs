@@ -64,6 +64,8 @@ public static class DependencyInjection
         services.AddScoped<IClientProjectService, ClientProjectService>();
         services.AddScoped<IClientSiteReportService, ClientSiteReportService>();
         services.AddScoped<IClientInvoiceService, ClientInvoiceService>();
+        services.AddScoped<IClientTenderService, ClientTenderService>();
+        services.AddScoped<IClientVariationOrderService, ClientVariationOrderService>();
 
         services.AddHttpContextAccessor();
 

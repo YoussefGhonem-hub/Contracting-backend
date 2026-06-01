@@ -12,6 +12,7 @@ public class VariationOrderConfiguration : IEntityTypeConfiguration<VariationOrd
         builder.Property(v => v.Title).HasMaxLength(500);
         builder.Property(v => v.Description).HasMaxLength(4000);
         builder.Property(v => v.Cost).HasColumnType("decimal(18,2)");
+        builder.Property(v => v.ClientRejectionReason).HasMaxLength(2000);
         builder.Property(v => v.Status).HasConversion<string>().HasMaxLength(50);
         builder.Property(v => v.ClientRejectionReason).HasMaxLength(2000);
 

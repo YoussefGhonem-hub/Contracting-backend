@@ -201,6 +201,11 @@ Authorization: Bearer eyJhbGciOiJSUzI1NiIsIn...
 | 3 | `GET` | `/api/mobile/client/site-reports/{reportId}` | Full details of a single site report | Report Detail |
 | 4 | `GET` | `/api/mobile/client/projects/{projectId}/invoices` | List invoices with payment summary | Invoices & Payments |
 | 5 | `GET` | `/api/mobile/client/projects/{projectId}/invoices/financial-summary` | Contract financial summary | Contract Financial Summary |
+| 6 | `GET` | `/api/mobile/client/projects/{projectId}/tender-documents` | List tender package documents | Tender Package |
+| 7 | `GET` | `/api/mobile/client/projects/{projectId}/variation-orders` | List VOs with aggregate summary | Variation Orders List |
+| 8 | `GET` | `/api/mobile/client/variation-orders/{voId}` | Full detail of a single VO | Variation Order Detail |
+| 9 | `POST` | `/api/mobile/client/variation-orders/{voId}/approve` | Client approves a pending VO | Variation Order Detail |
+| 10 | `POST` | `/api/mobile/client/variation-orders/{voId}/reject` | Client rejects a pending VO | Variation Order Detail |
 
 ---
 
@@ -353,6 +358,246 @@ Authorization: Bearer eyJhbGciOiJSUzI1NiIsIn...
 | `401 Unauthorized` | Missing or invalid token |
 | `403 Forbidden` | Authenticated user does not have the `Client` role |
 | `404 Not Found` | Project not found or this client has no access to it |
+
+---
+
+## 6. Get Tender Package Documents (Tender Package Screen)
+![alt text](image-5.png)
+Returns all tender documents uploaded for the project, ordered by upload date. Each item includes the file metadata and a direct download URL.
+
+```
+GET /api/mobile/client/projects/{projectId}/tender-documents
+Authorization: Bearer <token>
+```
+
+### Path Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `projectId` | `guid` | ID of the project |
+
+### Sample Request
+
+```
+GET /api/mobile/client/projects/3fa85f64-5717-4562-b3fc-2c963f66afa6/tender-documents
+Authorization: Bearer eyJhbGciOiJSUzI1NiIsIn...
+```
+
+### Sample Response `200 OK`
+
+```json
+[
+  {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "title": "Tender Invitation Letter",
+    "fileName": "Tender-Invitation-Letter.xlsx",
+    "extension": ".xlsx",
+    "fileSize": 1258291,
+    "url": "https://storage.example.com/tender/tender-invitation-letter.xlsx"
+  },
+  {
+    "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+    "title": "Bill of Quantities (BOQ)",
+    "fileName": "BOQ.pdf",
+    "extension": ".pdf",
+    "fileSize": 4718592,
+    "url": "https://storage.example.com/tender/boq.pdf"
+  },
+  {
+    "id": "c3d4e5f6-a7b8-9012-cdef-012345678902",
+    "title": "Technical Specifications",
+    "fileName": "Technical-Specifications.pdf",
+    "extension": ".pdf",
+    "fileSize": 4718592,
+    "url": "https://storage.example.com/tender/technical-specs.pdf"
+  }
+]
+```
+
+> `fileSize` is in bytes. Display logic: `1.2 MB = 1258291 bytes`.
+
+### Error Responses
+
+| Status | Description |
+|--------|-------------|
+| `401 Unauthorized` | Missing or invalid token |
+| `403 Forbidden` | Authenticated user does not have the `Client` role |
+| `404 Not Found` | Project not found or this client has no access to it |
+
+---
+
+## 7. Get Variation Orders (Variation Orders List Screen)
+![alt text](image-6.png)
+Returns the variation orders for a project with aggregate totals (total approved cost, total pending cost).
+
+```
+GET /api/mobile/client/projects/{projectId}/variation-orders
+Authorization: Bearer <token>
+```
+
+### Query Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `status` | `string` | No | Filter: `Approved`, `Pending`, `Rejected`. Omit for **All**. |
+
+### Sample Response `200 OK`
+
+```json
+{
+  "totalApproved": 730000.00,
+  "totalPending": 620000.00,
+  "variationOrders": [
+    {
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "voNumber": 3,
+      "title": "Kitchen Upgrade - Premium Appliances",
+      "cost": 45000.00,
+      "status": "Pending",
+      "issueDate": "2024-03-01T00:00:00+02:00",
+      "dueDate": "2024-03-15T00:00:00+02:00"
+    },
+    {
+      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+      "voNumber": 2,
+      "title": "Master Bathroom Marble Change",
+      "cost": 28500.00,
+      "status": "Approved",
+      "issueDate": "2024-03-01T00:00:00+02:00",
+      "dueDate": "2024-03-15T00:00:00+02:00"
+    }
+  ]
+}
+```
+
+> `totalApproved` and `totalPending` always reflect ALL VOs for the project, regardless of the `status` filter.
+
+### VOStatus Values
+
+| Value | Description |
+|-------|-------------|
+| `Pending` | Awaiting client decision |
+| `Approved` | Client approved the variation |
+| `Rejected` | Client rejected the variation |
+
+### Error Responses
+
+| Status | Description |
+|--------|-------------|
+| `401 Unauthorized` | Missing or invalid token |
+| `403 Forbidden` | Authenticated user does not have the `Client` role |
+| `404 Not Found` | Project not found or this client has no access to it |
+
+---
+
+## 8. Get Variation Order Detail (Variation Order Detail Screen)
+![alt text](image-7.png)
+Returns the full detail of a single VO including attachments.
+
+```
+GET /api/mobile/client/variation-orders/{voId}
+Authorization: Bearer <token>
+```
+
+### Sample Response `200 OK`
+
+```json
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "voNumber": 3,
+  "title": "Kitchen Upgrade - Premium Appliances",
+  "description": "Upgrade kitchen appliances to premium Miele brand as per client request. Includes built-in coffee machine, steam oven, and wine cooler.",
+  "cost": 45000.00,
+  "status": "Pending",
+  "issueDate": "2024-03-01T00:00:00+02:00",
+  "dueDate": "2024-03-15T00:00:00+02:00",
+  "clientActionDate": null,
+  "clientRejectionReason": null,
+  "attachments": [
+    {
+      "id": "d4e5f6a7-b8c9-0123-def0-123456789012",
+      "fileName": "Kitchen Layout.pdf",
+      "extension": ".pdf",
+      "fileSize": 4718592,
+      "url": "https://storage.example.com/vo/kitchen-layout.pdf"
+    },
+    {
+      "id": "e5f6a7b8-c9d0-1234-ef01-234567890123",
+      "fileName": "Cost Breakdown.xlsx",
+      "extension": ".xlsx",
+      "fileSize": 4718592,
+      "url": "https://storage.example.com/vo/cost-breakdown.xlsx"
+    }
+  ]
+}
+```
+
+### Error Responses
+
+| Status | Description |
+|--------|-------------|
+| `401 Unauthorized` | Missing or invalid token |
+| `403 Forbidden` | Authenticated user does not have the `Client` role |
+| `404 Not Found` | VO not found or this client has no access to it |
+
+---
+
+## 9. Approve Variation Order
+
+Client approves a **Pending** variation order. Returns `422` if the VO is not in `Pending` status.
+
+```
+POST /api/mobile/client/variation-orders/{voId}/approve
+Authorization: Bearer <token>
+```
+
+### Sample Response `200 OK`
+
+Returns the updated VO detail (same shape as endpoint 8) with `"status": "Approved"` and `clientActionDate` set.
+
+### Error Responses
+
+| Status | Description |
+|--------|-------------|
+| `401 Unauthorized` | Missing or invalid token |
+| `403 Forbidden` | Authenticated user does not have the `Client` role |
+| `422 Unprocessable Entity` | VO not found, not accessible, or not in `Pending` status |
+
+---
+
+## 10. Reject Variation Order
+
+Client rejects a **Pending** variation order with an optional reason. Returns `422` if the VO is not in `Pending` status.
+
+```
+POST /api/mobile/client/variation-orders/{voId}/reject
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+### Request Body
+
+```json
+{
+  "rejectionReason": "Budget constraints — cannot proceed at this cost."
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `rejectionReason` | `string` | No | Reason for rejection. Displayed to the engineering team. |
+
+### Sample Response `200 OK`
+
+Returns the updated VO detail with `"status": "Rejected"` and `clientRejectionReason` set.
+
+### Error Responses
+
+| Status | Description |
+|--------|-------------|
+| `401 Unauthorized` | Missing or invalid token |
+| `403 Forbidden` | Authenticated user does not have the `Client` role |
+| `422 Unprocessable Entity` | VO not found, not accessible, or not in `Pending` status |
 
 ---
 

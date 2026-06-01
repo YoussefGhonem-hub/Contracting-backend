@@ -8,9 +8,12 @@ public class VariationOrder : BaseAuditableEntity
 {
     public Guid ProjectId { get; set; }
     public Project Project { get; set; } = null!;
+    public int? VONumber { get; set; }
     public string? Title { get; set; }
     public string? Description { get; set; }
     public decimal Cost { get; set; }
+    public DateTimeOffset? IssueDate { get; set; }
+    public DateTimeOffset? DueDate { get; set; }
     public VOStatus Status { get; set; } = VOStatus.Pending;
     public Guid CreatedByEngineerId { get; set; }
     public Engineer CreatedByEngineer { get; set; } = null!;
