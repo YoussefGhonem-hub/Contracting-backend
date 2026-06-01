@@ -17,8 +17,7 @@ namespace Contracting.Application.Features.Master.Project.Query.GetAllProjects
 
         public async Task<ErrorOr<PaginatedList<GetProjectDto>>> Handle(GetAllProjectsQuery request, CancellationToken cancellationToken)
         {
-            // ? UPDATED: Pass BranchId to service
-            var result = await _service.GetAllProjectsAsync(request.BranchId, request.Filter, cancellationToken);
+            var result = await _service.GetAllProjectsAsync(request.BranchId, request.Filter, request.Status, cancellationToken);
             
             return result;
         }

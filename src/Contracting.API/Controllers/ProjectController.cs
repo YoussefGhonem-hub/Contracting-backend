@@ -2,9 +2,11 @@ using Contracting.API.Controllers.Shared;
 using Contracting.Application.Features.Master.Project.Command.CreateProject;
 using Contracting.Application.Features.Master.Project.Command.DeleteProject;
 using Contracting.Application.Features.Master.Project.Command.UpdateProject;
+using Contracting.Application.Features.Master.Project.Command.UpdateProjectStatus;
 using Contracting.Application.Features.Master.Project.Query.GetAllProjects;
 using Contracting.Application.Features.Master.Project.Query.GetProjectById;
 using Contracting.Application.Features.Master.Project.Query.GetProjectDropdown;
+using Contracting.Shared.Common.Enums;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.ProjectDtos;
 using MediatR;
@@ -66,9 +68,9 @@ namespace Contracting.API.Controllers
 
         // Get All Projects (Paginated)
         [HttpGet]
-        public async Task<IActionResult> GetAll([FromQuery] Guid? branchId, [FromQuery] BaseFilterDto filter)
+        public async Task<IActionResult> GetAll([FromQuery] Guid? branchId, [FromQuery] BaseFilterDto filter, [FromQuery] ProjectStatus? status = null)
         {
-            var query = new GetAllProjectsQuery(branchId, filter);
+            var query = new GetAllProjectsQuery(branchId, filter, status);
             var result = await _mediator.Send(query);
 
             return result.Match(
@@ -99,6 +101,19 @@ namespace Contracting.API.Controllers
 
             return result.Match(
                 projects => Ok(projects),
+                errors => Problem(errors)
+            );
+        }
+
+        // Update Project Status (with transition validation)
+        [HttpPatch("{projectId:guid}/status")]
+        public async Task<IActionResult> UpdateStatus(Guid projectId, [FromBody] ProjectStatus newStatus)
+        {
+            var command = new UpdateProjectStatusCommand(projectId, newStatus);
+            var result = await _mediator.Send(command);
+
+            return result.Match(
+                project => Ok(project),
                 errors => Problem(errors)
             );
         }

@@ -3,6 +3,7 @@ using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Extensions;
 using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Infrustructure.Inteface;
+using Contracting.Shared.Common.Enums;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.Common;
 using Contracting.Shared.Dtos;
@@ -69,6 +70,9 @@ namespace Contracting.Infrustructure.Features
             project.nameAr = dto.nameAr;
             project.location = dto.location;
             project.Code = dto.Code;
+            project.Area = dto.Area;
+            project.StartDate = dto.StartDate;
+            project.ProjectStatus = dto.ProjectStatus;
 
             // Handle image upload
             if (dto.Image != null)
@@ -101,6 +105,40 @@ namespace Contracting.Infrustructure.Features
             return await GetProjectByIdAsync(project.Id);
         }
 
+        public async Task<GetProjectDto?> UpdateProjectStatusAsync(Guid projectId, ProjectStatus newStatus)
+        {
+            var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId);
+            if (project is null)
+                return null;
+
+            var currentStatus = project.ProjectStatus;
+
+            // Validate business transition rules
+            var validTransitions = GetValidTransitions(currentStatus);
+            if (!validTransitions.Contains(newStatus))
+                return null; // caller treats this as invalid transition
+
+            project.ProjectStatus = newStatus;
+            await _db.SaveChangesAsync();
+
+            return await GetProjectByIdAsync(project.Id);
+        }
+
+        /// <summary>
+        /// Returns the set of states that can be legally transitioned to from the given current state.
+        /// </summary>
+        private static HashSet<ProjectStatus> GetValidTransitions(ProjectStatus? current) => current switch
+        {
+            null                       => new HashSet<ProjectStatus> { ProjectStatus.Planning, ProjectStatus.Active, ProjectStatus.Cancelled },
+            ProjectStatus.Planning     => new HashSet<ProjectStatus> { ProjectStatus.Active, ProjectStatus.Cancelled },
+            ProjectStatus.Active       => new HashSet<ProjectStatus> { ProjectStatus.OnHold, ProjectStatus.Delayed, ProjectStatus.Completed, ProjectStatus.Cancelled },
+            ProjectStatus.OnHold       => new HashSet<ProjectStatus> { ProjectStatus.Active, ProjectStatus.Cancelled },
+            ProjectStatus.Delayed      => new HashSet<ProjectStatus> { ProjectStatus.Active, ProjectStatus.OnHold, ProjectStatus.Cancelled },
+            ProjectStatus.Completed    => new HashSet<ProjectStatus>(),   // terminal
+            ProjectStatus.Cancelled    => new HashSet<ProjectStatus>(),   // terminal
+            _                          => new HashSet<ProjectStatus>()
+        };
+
         public async Task<GenericResponse> DeleteProjectAsync(Guid projectId)
         {
             var project = await _db.Projects.FindAsync(projectId);
@@ -116,6 +154,7 @@ namespace Contracting.Infrustructure.Features
         public async Task<PaginatedList<GetProjectDto>> GetAllProjectsAsync(
             Guid? branchId,
             BaseFilterDto filter,
+            ProjectStatus? status = null,
             CancellationToken cancellationToken = default)
         {
             try
@@ -130,6 +169,12 @@ namespace Contracting.Infrustructure.Features
                 if (branchId.HasValue && branchId.Value != Guid.Empty)
                 {
                     query = query.Where(p => p.BranchId == branchId.Value);
+                }
+
+                // Filter by status if provided
+                if (status.HasValue)
+                {
+                    query = query.Where(p => p.ProjectStatus == status.Value);
                 }
 
                 if (string.IsNullOrWhiteSpace(filter.Sort))

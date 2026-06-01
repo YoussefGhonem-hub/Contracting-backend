@@ -1,5 +1,6 @@
 ﻿using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Shared.Common;
+using Contracting.Shared.Common.Enums;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.ProjectDtos;
 
@@ -12,11 +13,14 @@ namespace Contracting.Infrustructure.Inteface
         // Update
         Task<GetProjectDto> UpdateProjectAsync(UpdateProjectDto dto);
 
+        // Update status with transition validation
+        Task<GetProjectDto?> UpdateProjectStatusAsync(Guid projectId, ProjectStatus newStatus);
+
         // Delete
         Task<GenericResponse> DeleteProjectAsync(Guid projectId);
 
         // Get All with Pagination
-        Task<PaginatedList<GetProjectDto>> GetAllProjectsAsync(Guid? branchId, BaseFilterDto filter, CancellationToken cancellationToken = default);
+        Task<PaginatedList<GetProjectDto>> GetAllProjectsAsync(Guid? branchId, BaseFilterDto filter, ProjectStatus? status = null, CancellationToken cancellationToken = default);
 
         // Get By Id
         Task<GetProjectDto> GetProjectByIdAsync(Guid projectId);
