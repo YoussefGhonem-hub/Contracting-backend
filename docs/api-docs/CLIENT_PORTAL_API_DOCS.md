@@ -199,6 +199,160 @@ Authorization: Bearer eyJhbGciOiJSUzI1NiIsIn...
 | 1 | `GET` | `/api/mobile/client/projects` | Get all projects for the logged-in client | Select Project |
 | 2 | `GET` | `/api/mobile/client/projects/{projectId}/site-reports` | List all site reports for a project | Site Reports List |
 | 3 | `GET` | `/api/mobile/client/site-reports/{reportId}` | Full details of a single site report | Report Detail |
+| 4 | `GET` | `/api/mobile/client/projects/{projectId}/invoices` | List invoices with payment summary | Invoices & Payments |
+| 5 | `GET` | `/api/mobile/client/projects/{projectId}/invoices/financial-summary` | Contract financial summary | Contract Financial Summary |
+
+---
+
+## 4. Get Invoices & Payment Summary (Invoices & Payments Screen)
+![alt text](image-3.png)
+Returns the list of invoices for a project together with an aggregate payment summary (total paid, remaining, settled %).
+
+```
+GET /api/mobile/client/projects/{projectId}/invoices
+Authorization: Bearer <token>
+```
+
+### Path Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `projectId` | `guid` | ID of the project |
+
+### Query Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `status` | `string` | No | Filter by invoice status: `Paid`, `Pending`, `PartiallyPaid`. Omit for **All**. |
+
+### Sample Request — All invoices
+
+```
+GET /api/mobile/client/projects/3fa85f64-5717-4562-b3fc-2c963f66afa6/invoices
+Authorization: Bearer eyJhbGciOiJSUzI1NiIsIn...
+```
+
+### Sample Request — Paid only
+
+```
+GET /api/mobile/client/projects/3fa85f64-5717-4562-b3fc-2c963f66afa6/invoices?status=Paid
+Authorization: Bearer eyJhbGciOiJSUzI1NiIsIn...
+```
+
+### Sample Response `200 OK`
+
+```json
+{
+  "totalValue": 2750000.00,
+  "totalPaid": 1850000.00,
+  "remainingAmount": 900000.00,
+  "settledPercent": 68,
+  "invoices": [
+    {
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "invoiceNumber": 1,
+      "title": "Mobilization Fee",
+      "totalValue": 250000.00,
+      "paidAmount": 0.00,
+      "status": "Pending",
+      "issueDate": "2024-03-01T00:00:00+02:00",
+      "dueDate": "2024-03-15T00:00:00+02:00"
+    },
+    {
+      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+      "invoiceNumber": 2,
+      "title": "Mobilization Fee",
+      "totalValue": 350000.00,
+      "paidAmount": 350000.00,
+      "status": "Paid",
+      "issueDate": "2024-03-01T00:00:00+02:00",
+      "dueDate": "2024-03-15T00:00:00+02:00"
+    },
+    {
+      "id": "c3d4e5f6-a7b8-9012-cdef-012345678902",
+      "invoiceNumber": 3,
+      "title": "Mobilization Fee",
+      "totalValue": 200000.00,
+      "paidAmount": 200000.00,
+      "status": "Paid",
+      "issueDate": "2024-03-01T00:00:00+02:00",
+      "dueDate": "2024-03-15T00:00:00+02:00"
+    }
+  ]
+}
+```
+
+> **Note:** `totalValue`, `totalPaid`, `remainingAmount`, and `settledPercent` always reflect ALL invoices for the project, regardless of the `status` filter. Only the `invoices` array is filtered.
+
+### PaymentStatus Values
+
+| Value | Description |
+|-------|-------------|
+| `Pending` | Invoice issued, payment not yet received |
+| `Paid` | Invoice fully paid |
+| `PartiallyPaid` | A partial payment has been recorded |
+
+### Error Responses
+
+| Status | Description |
+|--------|-------------|
+| `401 Unauthorized` | Missing or invalid token |
+| `403 Forbidden` | Authenticated user does not have the `Client` role |
+| `404 Not Found` | Project not found or this client has no access to it |
+
+---
+
+## 5. Get Contract Financial Summary (Contract Financial Summary Screen)
+![alt text](image-4.png)
+Returns the full financial breakdown for a project: initial contract value, approved variation orders, total paid, and remaining amount.
+
+```
+GET /api/mobile/client/projects/{projectId}/invoices/financial-summary
+Authorization: Bearer <token>
+```
+
+### Path Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `projectId` | `guid` | ID of the project |
+
+### Sample Request
+
+```
+GET /api/mobile/client/projects/3fa85f64-5717-4562-b3fc-2c963f66afa6/invoices/financial-summary
+Authorization: Bearer eyJhbGciOiJSUzI1NiIsIn...
+```
+
+### Sample Response `200 OK`
+
+```json
+{
+  "initialContractValue": 2650000.00,
+  "approvedVariations": 100000.00,
+  "totalContractValue": 2750000.00,
+  "totalPaid": 1850000.00,
+  "remainingAmount": 900000.00
+}
+```
+
+### Field Descriptions
+
+| Field | Source | Description |
+|-------|--------|-------------|
+| `initialContractValue` | `Project.ContractValue` | The original contract value set on the project |
+| `approvedVariations` | Sum of `VariationOrder.Cost` where `Status = Approved` | Total cost of all approved variation orders |
+| `totalContractValue` | `initialContractValue + approvedVariations` | Effective contract value |
+| `totalPaid` | Sum of `ProjectInvoice.PaidAmount` | Total amount collected so far |
+| `remainingAmount` | `totalContractValue - totalPaid` | Amount still outstanding |
+
+### Error Responses
+
+| Status | Description |
+|--------|-------------|
+| `401 Unauthorized` | Missing or invalid token |
+| `403 Forbidden` | Authenticated user does not have the `Client` role |
+| `404 Not Found` | Project not found or this client has no access to it |
 
 ---
 

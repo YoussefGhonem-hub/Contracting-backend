@@ -10,6 +10,7 @@ public class ProjectInvoiceConfiguration : IEntityTypeConfiguration<ProjectInvoi
     public void Configure(EntityTypeBuilder<ProjectInvoice> builder)
     {
         builder.ToTable("ProjectInvoices", "client");
+        builder.Property(i => i.Title).HasMaxLength(500);
         builder.Property(i => i.TotalValue).HasColumnType("decimal(18,2)");
         builder.Property(i => i.PaidAmount).HasColumnType("decimal(18,2)");
         builder.Property(i => i.Status).HasConversion<string>().HasMaxLength(50);

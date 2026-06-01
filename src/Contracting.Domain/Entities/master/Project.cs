@@ -12,6 +12,7 @@ namespace Contracting.Domain.Entities.master
         public string? imageUrl { get; set; }
         public string? imageKey { get; set; }
         public decimal? Area { get; set; }
+        public decimal? ContractValue { get; set; }
         public DateTimeOffset? StartDate { get; set; }
         public DateTimeOffset? ExpectedEndDate { get; set; }
         public ProjectStatus? ProjectStatus { get; set; }

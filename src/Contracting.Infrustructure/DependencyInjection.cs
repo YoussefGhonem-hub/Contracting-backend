@@ -63,6 +63,7 @@ public static class DependencyInjection
         services.AddScoped<IRoleService, RoleService>();
         services.AddScoped<IClientProjectService, ClientProjectService>();
         services.AddScoped<IClientSiteReportService, ClientSiteReportService>();
+        services.AddScoped<IClientInvoiceService, ClientInvoiceService>();
 
         services.AddHttpContextAccessor();
 

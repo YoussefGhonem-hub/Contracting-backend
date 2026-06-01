@@ -13,6 +13,7 @@ namespace Contracting.Infrustructure.Persistence.Configurations.Master
             builder.Property(p => p.nameEn).HasMaxLength(200);
             builder.Property(p => p.nameAr).HasMaxLength(200);
             builder.Property(p => p.Area).HasColumnType("decimal(18,2)");
+            builder.Property(p => p.ContractValue).HasColumnType("decimal(18,2)");
             builder.Property(p => p.ProjectStatus).HasConversion<string>().HasMaxLength(50);
         }
     }

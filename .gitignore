@@ -5,6 +5,7 @@
 bin
 obj
 Debug
+docs
 .vs
 
 /Dayfat/Core.MasterData/aws-logger-errors.txt
