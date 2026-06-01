@@ -78,7 +78,7 @@ namespace Contracting.Infrustructure.Features
             await _db.SaveChangesAsync();
 
             await ReplaceEngineerProjectsAsync(engineer.Id, dto.ProjectIds);
-            return _mapper.Map<GetEngineerDto>(engineer);
+            return await GetEngineerByIdAsync(engineer.Id);
         }
         public async Task UpdateUserRolesAsync(Guid userId, List<Guid> roleIds)
         {
@@ -297,6 +297,11 @@ namespace Contracting.Infrustructure.Features
                 .Include(e=>e.ApplicationUser)
                 .Include(e => e.EngineerProjects)
                     .ThenInclude(ep => ep.Project)
+                .Include(e => e.EngineerDepartments)
+                    .ThenInclude(ed => ed.Department)
+                        .ThenInclude(d => d.Branch)
+                .Include(e => e.EngineerDepartments)
+                    .ThenInclude(ed => ed.Role)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(e => e.Id == engineerId);
 
@@ -319,6 +324,16 @@ namespace Contracting.Infrustructure.Features
             dto.Roles = roles;
             dto.Projects = _mapper.Map<List<GetProjectDropDownDto>>(engineer.EngineerProjects);
             dto.ProjectIds = engineer.EngineerProjects.Select(ep => ep.ProjectId).ToList();
+
+            // Populate department roles
+            dto.DepartmentRoles = engineer.EngineerDepartments.Select(ed => new EngineerDepartmentRoleDto
+            {
+                Id = ed.Id,
+                DepartmentId = ed.DepartmentId,
+                Department = _mapper.Map<Contracting.Shared.Dtos.MasterDtos.DepartmentDtos.GetDepartmentDto>(ed.Department),
+                RoleId = ed.RoleId,
+                Role = new RoleDropDownDto { Id = ed.Role!.Id, Name = ed.Role.Name! }
+            }).ToList();
 
             return dto;
         }
@@ -395,6 +410,75 @@ namespace Contracting.Infrustructure.Features
             }
 
             return await query.AnyAsync();
+        }
+
+        public async Task ReplaceEngineerDepartmentsAsync(Guid engineerId, List<DepartmentRoleDto> departmentRoles)
+        {
+            // Hard-delete existing records to avoid unique constraint violation
+            // (soft delete via ApplyAuditing keeps the row, conflicting with the unique index on EngineerId+DepartmentId)
+            await _db.Database.ExecuteSqlInterpolatedAsync(
+                $"DELETE FROM master.EngineerDepartments WHERE EngineerId = {engineerId}");
+
+            if (departmentRoles is null || departmentRoles.Count == 0)
+                return;
+
+            var newLinks = departmentRoles.Select(dr => new EngineerDepartment
+            {
+                EngineerId = engineerId,
+                DepartmentId = dr.DepartmentId,
+                RoleId = dr.RoleId
+            });
+
+            await _db.EngineerDepartments.AddRangeAsync(newLinks);
+            await _db.SaveChangesAsync();
+        }
+
+        public async Task<List<EngineerDepartmentRoleDto>> GetEngineerDepartmentsAsync(Guid engineerId)
+        {
+            var engineerDepartments = await _db.EngineerDepartments
+                .Where(ed => ed.EngineerId == engineerId)
+                .Include(ed => ed.Department)
+                    .ThenInclude(d => d.Branch)
+                .Include(ed => ed.Role)
+                .AsNoTracking()
+                .ToListAsync();
+
+            return engineerDepartments.Select(ed => new EngineerDepartmentRoleDto
+            {
+                Id = ed.Id,
+                DepartmentId = ed.DepartmentId,
+                Department = _mapper.Map<Contracting.Shared.Dtos.MasterDtos.DepartmentDtos.GetDepartmentDto>(ed.Department),
+                RoleId = ed.RoleId,
+                Role = new Contracting.Shared.Dtos.MasterDtos.RoleDtos.RoleDropDownDto
+                {
+                    Id = ed.Role!.Id,
+                    Name = ed.Role.Name!
+                }
+            }).ToList();
+        }
+
+        public async Task SwitchActiveDepartmentAsync(Guid engineerId, Guid departmentId)
+        {
+            var engineer = await _db.Engineers.FindAsync(engineerId);
+            if (engineer is null) return;
+
+            engineer.DepartmentId = departmentId;
+            await _db.SaveChangesAsync();
+        }
+
+        public async Task<GenericResponse> DeleteEngineerDepartmentAsync(Guid engineerId, Guid departmentId)
+        {
+            var engineerDepartment = await _db.EngineerDepartments
+                .FirstOrDefaultAsync(ed => ed.EngineerId == engineerId && ed.DepartmentId == departmentId);
+
+            if (engineerDepartment is null)
+                return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.DepartmentNotFound]);
+
+            // Hard-delete to avoid unique constraint conflict on future re-assignment
+            await _db.Database.ExecuteSqlInterpolatedAsync(
+                $"DELETE FROM master.EngineerDepartments WHERE Id = {engineerDepartment.Id}");
+
+            return GenericResponse.SuccessResult(_localizer[SharedResourcesKeys.DepartmentRemoveSuccess]);
         }
     }
 }

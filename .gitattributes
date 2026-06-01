@@ -1,0 +1,4 @@
+appsettings.json merge=ours
+appsettings.*.json merge=ours
+**/appsettings.json merge=ours
+**/appsettings.*.json merge=ours

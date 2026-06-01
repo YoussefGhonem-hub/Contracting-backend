@@ -1,7 +1,9 @@
 using Contracting.Shared.Resources;
 using Contracting.Domain.Entities;
+using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Identity;
 using Contracting.Infrustructure.Persistence;
+using Contracting.Shared.Constants;
 using ErrorOr;
 using MediatR;
 using Microsoft.AspNetCore.Http;
@@ -64,19 +66,55 @@ public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, ErrorOr
         if (!signInResult.Succeeded)
             return Error.Unauthorized("Auth.Unauthorized", _localizer[SharedResourcesKeys.InvalidCredentials]);
 
-        // Get department name from Engineer entity
+        // Get engineer with departments
         var engineer = await _db.Engineers
             .Include(e => e.Department)
                 .ThenInclude(d => d.Branch)
+            .Include(e => e.EngineerDepartments)
+                .ThenInclude(ed => ed.Role)
+            .Include(e => e.EngineerDepartments)
+                .ThenInclude(ed => ed.Department)
+                    .ThenInclude(d => d.Branch)
             .FirstOrDefaultAsync(e => e.ApplicationUserId == user.Id, cancellationToken);
         
         var departmentId = engineer?.Department?.Id;
         var branchId = engineer?.Department?.BranchId;
         var engineerId = engineer?.Id;
-        bool departmentHaveTeamLeadOrNot = false;
-        if (departmentId != Guid.Empty && departmentId !=null)
+
+        // Auto-select department from EngineerDepartments if available
+        if (engineer != null && engineer.EngineerDepartments.Any())
         {
-            departmentHaveTeamLeadOrNot = await _engineerRequest.DepartmentHasTeamLeadAsync(departmentId??Guid.Empty);
+            // Prefer TeamLead department first, then fall back to first department
+            var teamleadDept = engineer.EngineerDepartments
+                .FirstOrDefault(ed => ed.Role?.Name == RoleNames.Teamleadengineer);
+            var selectedDept = teamleadDept ?? engineer.EngineerDepartments.First();
+
+            departmentId = selectedDept.DepartmentId;
+            branchId = selectedDept.Department?.BranchId;
+
+            // Update active department if different
+            if (engineer.DepartmentId != departmentId)
+            {
+                engineer.DepartmentId = departmentId;
+                await _db.SaveChangesAsync(cancellationToken);
+            }
+
+            // Sync UserRoles: replace engineer-type roles with the selected department's role
+            var engineerRoleNames = new[] { RoleNames.Teamleadengineer, RoleNames.Siteengineer, RoleNames.Officeengineer };
+            var currentRoles = await _userManager.GetRolesAsync(user);
+            var rolesToRemove = currentRoles.Where(r => engineerRoleNames.Contains(r)).ToList();
+            if (rolesToRemove.Any())
+                await _userManager.RemoveFromRolesAsync(user, rolesToRemove);
+
+            var newRoleName = selectedDept.Role?.Name;
+            if (!string.IsNullOrEmpty(newRoleName))
+                await _userManager.AddToRoleAsync(user, newRoleName);
+        }
+
+        bool departmentHaveTeamLeadOrNot = false;
+        if (departmentId != Guid.Empty && departmentId != null)
+        {
+            departmentHaveTeamLeadOrNot = await _engineerRequest.DepartmentHasTeamLeadAsync(departmentId ?? Guid.Empty);
         }
 
         var roles = await _userManager.GetRolesAsync(user);

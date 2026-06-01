@@ -213,8 +213,13 @@ namespace Contracting.Infrustructure.Features
         private IQueryable<Project> ApplyProjectAccessFilter(IQueryable<Project> query)
         {
             var roles = CurrentUser.Roles;
-            var isSiteEngineer = roles.Any(r => string.Equals(r, RoleNames.Siteengineer, StringComparison.OrdinalIgnoreCase));
-            if (!isSiteEngineer)
+
+            // SuperAdmin and Admin always see all projects
+            var isAdmin = roles.Any(r =>
+                string.Equals(r, RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(r, RoleNames.Admin, StringComparison.OrdinalIgnoreCase));
+
+            if (isAdmin)
             {
                 return query;
             }
@@ -232,12 +237,18 @@ namespace Contracting.Infrustructure.Features
 
             if (!engineerId.HasValue)
             {
-                return query.Where(_ => false);
+                return query;
             }
 
             var allowedProjects = _db.EngineerProjects
                 .Where(ep => ep.EngineerId == engineerId.Value)
                 .Select(ep => ep.ProjectId);
+
+            // If engineer has no assigned projects, return all
+            if (!allowedProjects.Any())
+            {
+                return query;
+            }
 
             return query.Where(p => allowedProjects.Contains(p.Id));
         }

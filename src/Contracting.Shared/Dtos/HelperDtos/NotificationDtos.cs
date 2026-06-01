@@ -11,6 +11,7 @@ namespace Contracting.Shared.Dtos.HelperDtos
         public string? EngineerName { get; set; }
         public Guid? DepartmentId { get; set; }
         public Guid? RequestId { get; set; }
+        public string? RequestTitle { get; set; }
         public DateTimeOffset SentAt { get; set; }
         public DateTimeOffset CreatedDate { get; set; }
     }

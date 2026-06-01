@@ -55,6 +55,11 @@ public static class MappingConfig
         config.NewConfig<Engineer, GetEngineerDropDownDto>()
         .Map(dest => dest.Department, src => src.Department);
 
+        // EngineerDepartment mappings
+        config.NewConfig<EngineerDepartment, EngineerDepartmentRoleDto>()
+            .Map(dest => dest.Department, src => src.Department)
+            .Map(dest => dest.Role, src => src.Role);
+
         config.NewConfig<Project, UpdateProjectDto>();
         config.NewConfig<Project, CreateProjectDto>();
         config.NewConfig<CreateProjectDto, Project>()
