@@ -1,6 +1,6 @@
-# Client Portal — Mobile API Documentation
+# Client Portal — API Documentation (Web + Mobile)
 
-Base URL: `/api/mobile/client`  
+Base URL: `/api/client`  
 Authentication: **Bearer token** (JWT) required on all endpoints.  
 Authorization: All endpoints require the **`Client`** role.
 
@@ -28,7 +28,7 @@ Used in project-related responses and the admin project create/update endpoints.
 Returns all projects assigned to the currently logged-in client.
 
 ```
-GET /api/mobile/client/projects
+GET /api/client/projects
 Authorization: Bearer <token>
 ```
 
@@ -75,7 +75,7 @@ Authorization: Bearer <token>
 Returns all monthly site reports for a specific project, ordered newest first.
 
 ```
-GET /api/mobile/client/projects/{projectId}/site-reports
+GET /api/client/projects/{projectId}/site-reports
 Authorization: Bearer <token>
 ```
 
@@ -88,7 +88,7 @@ Authorization: Bearer <token>
 ### Sample Request
 
 ```
-GET /api/mobile/client/projects/3fa85f64-5717-4562-b3fc-2c963f66afa6/site-reports
+GET /api/client/projects/3fa85f64-5717-4562-b3fc-2c963f66afa6/site-reports
 Authorization: Bearer eyJhbGciOiJSUzI1NiIsIn...
 ```
 
@@ -135,7 +135,7 @@ Authorization: Bearer eyJhbGciOiJSUzI1NiIsIn...
 Returns the full details of a single site report including attachments.
 
 ```
-GET /api/mobile/client/site-reports/{reportId}
+GET /api/client/site-reports/{reportId}
 Authorization: Bearer <token>
 ```
 
@@ -148,7 +148,7 @@ Authorization: Bearer <token>
 ### Sample Request
 
 ```
-GET /api/mobile/client/site-reports/a1b2c3d4-e5f6-7890-abcd-ef1234567890
+GET /api/client/site-reports/a1b2c3d4-e5f6-7890-abcd-ef1234567890
 Authorization: Bearer eyJhbGciOiJSUzI1NiIsIn...
 ```
 
@@ -196,18 +196,18 @@ Authorization: Bearer eyJhbGciOiJSUzI1NiIsIn...
 
 | # | Method | Route | Description | Screen |
 |---|--------|-------|-------------|--------|
-| 1 | `GET` | `/api/mobile/client/projects` | Get all projects for the logged-in client | Select Project |
-| 2 | `GET` | `/api/mobile/client/projects/{projectId}/site-reports` | List all site reports for a project | Site Reports List |
-| 3 | `GET` | `/api/mobile/client/site-reports/{reportId}` | Full details of a single site report | Report Detail |
-| 4 | `GET` | `/api/mobile/client/projects/{projectId}/invoices` | List invoices with payment summary | Invoices & Payments |
-| 5 | `GET` | `/api/mobile/client/projects/{projectId}/invoices/financial-summary` | Contract financial summary | Contract Financial Summary |
-| 6 | `GET` | `/api/mobile/client/projects/{projectId}/tender-documents` | List tender package documents | Tender Package |
-| 7 | `GET` | `/api/mobile/client/projects/{projectId}/variation-orders` | List VOs with aggregate summary | Variation Orders List |
-| 8 | `GET` | `/api/mobile/client/variation-orders/{voId}` | Full detail of a single VO | Variation Order Detail |
-| 9 | `POST` | `/api/mobile/client/variation-orders/{voId}/approve` | Client approves a pending VO | Variation Order Detail |
-| 10 | `POST` | `/api/mobile/client/variation-orders/{voId}/reject` | Client rejects a pending VO | Variation Order Detail |
-| 11 | `GET` | `/api/mobile/client/projects/{projectId}/schedule` | Project timeline & milestones | Planning & Schedule |
-| 12 | `GET` | `/api/mobile/client/projects/{projectId}/drawings` | Drawings & renders (2D / 3D) | Drawings & Renders |
+| 1 | `GET` | `/api/client/projects` | Get all projects for the logged-in client | Select Project |
+| 2 | `GET` | `/api/client/projects/{projectId}/site-reports` | List all site reports for a project | Site Reports List |
+| 3 | `GET` | `/api/client/site-reports/{reportId}` | Full details of a single site report | Report Detail |
+| 4 | `GET` | `/api/client/projects/{projectId}/invoices` | List invoices with payment summary | Invoices & Payments |
+| 5 | `GET` | `/api/client/projects/{projectId}/invoices/financial-summary` | Contract financial summary | Contract Financial Summary |
+| 6 | `GET` | `/api/client/projects/{projectId}/tender-documents` | List tender package documents | Tender Package |
+| 7 | `GET` | `/api/client/projects/{projectId}/variation-orders` | List VOs with aggregate summary | Variation Orders List |
+| 8 | `GET` | `/api/client/variation-orders/{voId}` | Full detail of a single VO | Variation Order Detail |
+| 9 | `POST` | `/api/client/variation-orders/{voId}/approve` | Client approves a pending VO | Variation Order Detail |
+| 10 | `POST` | `/api/client/variation-orders/{voId}/reject` | Client rejects a pending VO | Variation Order Detail |
+| 11 | `GET` | `/api/client/projects/{projectId}/schedule` | Project timeline & milestones | Planning & Schedule |
+| 12 | `GET` | `/api/client/projects/{projectId}/drawings` | Drawings & renders (2D / 3D) | Drawings & Renders |
 | 13 | `POST` | `/api/auth/change-password` | Change authenticated user's password | Profile / Settings |
 
 ---
@@ -217,7 +217,7 @@ Authorization: Bearer eyJhbGciOiJSUzI1NiIsIn...
 Returns the list of invoices for a project together with an aggregate payment summary (total paid, remaining, settled %).
 
 ```
-GET /api/mobile/client/projects/{projectId}/invoices
+GET /api/client/projects/{projectId}/invoices
 Authorization: Bearer <token>
 ```
 
@@ -236,14 +236,14 @@ Authorization: Bearer <token>
 ### Sample Request — All invoices
 
 ```
-GET /api/mobile/client/projects/3fa85f64-5717-4562-b3fc-2c963f66afa6/invoices
+GET /api/client/projects/3fa85f64-5717-4562-b3fc-2c963f66afa6/invoices
 Authorization: Bearer eyJhbGciOiJSUzI1NiIsIn...
 ```
 
 ### Sample Request — Paid only
 
 ```
-GET /api/mobile/client/projects/3fa85f64-5717-4562-b3fc-2c963f66afa6/invoices?status=Paid
+GET /api/client/projects/3fa85f64-5717-4562-b3fc-2c963f66afa6/invoices?status=Paid
 Authorization: Bearer eyJhbGciOiJSUzI1NiIsIn...
 ```
 
@@ -315,7 +315,7 @@ Authorization: Bearer eyJhbGciOiJSUzI1NiIsIn...
 Returns the full financial breakdown for a project: initial contract value, approved variation orders, total paid, and remaining amount.
 
 ```
-GET /api/mobile/client/projects/{projectId}/invoices/financial-summary
+GET /api/client/projects/{projectId}/invoices/financial-summary
 Authorization: Bearer <token>
 ```
 
@@ -328,7 +328,7 @@ Authorization: Bearer <token>
 ### Sample Request
 
 ```
-GET /api/mobile/client/projects/3fa85f64-5717-4562-b3fc-2c963f66afa6/invoices/financial-summary
+GET /api/client/projects/3fa85f64-5717-4562-b3fc-2c963f66afa6/invoices/financial-summary
 Authorization: Bearer eyJhbGciOiJSUzI1NiIsIn...
 ```
 
@@ -369,7 +369,7 @@ Authorization: Bearer eyJhbGciOiJSUzI1NiIsIn...
 Returns all tender documents uploaded for the project, ordered by upload date. Each item includes the file metadata and a direct download URL.
 
 ```
-GET /api/mobile/client/projects/{projectId}/tender-documents
+GET /api/client/projects/{projectId}/tender-documents
 Authorization: Bearer <token>
 ```
 
@@ -382,7 +382,7 @@ Authorization: Bearer <token>
 ### Sample Request
 
 ```
-GET /api/mobile/client/projects/3fa85f64-5717-4562-b3fc-2c963f66afa6/tender-documents
+GET /api/client/projects/3fa85f64-5717-4562-b3fc-2c963f66afa6/tender-documents
 Authorization: Bearer eyJhbGciOiJSUzI1NiIsIn...
 ```
 
@@ -434,7 +434,7 @@ Authorization: Bearer eyJhbGciOiJSUzI1NiIsIn...
 Returns the variation orders for a project with aggregate totals (total approved cost, total pending cost).
 
 ```
-GET /api/mobile/client/projects/{projectId}/variation-orders
+GET /api/client/projects/{projectId}/variation-orders
 Authorization: Bearer <token>
 ```
 
@@ -498,7 +498,7 @@ Authorization: Bearer <token>
 Returns the full detail of a single VO including attachments.
 
 ```
-GET /api/mobile/client/variation-orders/{voId}
+GET /api/client/variation-orders/{voId}
 Authorization: Bearer <token>
 ```
 
@@ -550,7 +550,7 @@ Authorization: Bearer <token>
 Client approves a **Pending** variation order. Returns `422` if the VO is not in `Pending` status.
 
 ```
-POST /api/mobile/client/variation-orders/{voId}/approve
+POST /api/client/variation-orders/{voId}/approve
 Authorization: Bearer <token>
 ```
 
@@ -573,7 +573,7 @@ Returns the updated VO detail (same shape as endpoint 8) with `"status": "Approv
 Client rejects a **Pending** variation order with an optional reason. Returns `422` if the VO is not in `Pending` status.
 
 ```
-POST /api/mobile/client/variation-orders/{voId}/reject
+POST /api/client/variation-orders/{voId}/reject
 Authorization: Bearer <token>
 Content-Type: application/json
 ```
@@ -609,7 +609,7 @@ Returns the updated VO detail with `"status": "Rejected"` and `clientRejectionRe
 Returns the project timeline along with its milestones (tasks) and their completion status.
 
 ```
-GET /api/mobile/client/projects/{projectId}/schedule
+GET /api/client/projects/{projectId}/schedule
 Authorization: Bearer <token>
 Role: Client
 ```
@@ -660,7 +660,7 @@ Returns the list of uploaded drawings (2D plans and 3D renders) for a project.
 Optionally filter by drawing type using the `type` query parameter.
 
 ```
-GET /api/mobile/client/projects/{projectId}/drawings?type=TwoD
+GET /api/client/projects/{projectId}/drawings?type=TwoD
 Authorization: Bearer <token>
 Role: Client
 ```
@@ -782,3 +782,4 @@ Content-Type: application/json
 | Email | `client@shop.com` |
 | Password | `Client@123` |
 | Role | `Client` |
+

@@ -16,7 +16,7 @@ public class ApproveVariationOrderCommandHandler : IRequestHandler<ApproveVariat
 
     public async Task<ErrorOr<GetClientVariationOrderDetailDto>> Handle(ApproveVariationOrderCommand request, CancellationToken cancellationToken)
     {
-        var result = await _service.ApproveVariationOrderAsync(request.VOId, cancellationToken);
+        var result = await _service.ApproveVariationOrderAsync(request.VOId, cancellationToken: cancellationToken);
 
         if (result is null)
             return Error.Validation("VO.CannotApprove", "Variation order not found, not accessible, or is not in Pending status.");

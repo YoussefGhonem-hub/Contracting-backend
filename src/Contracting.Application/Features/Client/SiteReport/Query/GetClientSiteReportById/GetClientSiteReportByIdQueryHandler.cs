@@ -16,7 +16,7 @@ public class GetClientSiteReportByIdQueryHandler : IRequestHandler<GetClientSite
 
     public async Task<ErrorOr<GetClientSiteReportDetailDto>> Handle(GetClientSiteReportByIdQuery request, CancellationToken cancellationToken)
     {
-        var result = await _service.GetClientSiteReportByIdAsync(request.ReportId, cancellationToken);
+        var result = await _service.GetClientSiteReportByIdAsync(request.ReportId, cancellationToken: cancellationToken);
         if (result is null)
             return Error.NotFound(description: "Report not found.");
         return result;

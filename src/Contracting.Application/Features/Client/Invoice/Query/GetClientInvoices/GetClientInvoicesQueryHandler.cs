@@ -16,7 +16,7 @@ public class GetClientInvoicesQueryHandler : IRequestHandler<GetClientInvoicesQu
 
     public async Task<ErrorOr<GetClientInvoicesDto>> Handle(GetClientInvoicesQuery request, CancellationToken cancellationToken)
     {
-        var result = await _service.GetClientInvoicesAsync(request.ProjectId, request.Status, cancellationToken);
+        var result = await _service.GetClientInvoicesAsync(request.ProjectId, request.Status, cancellationToken: cancellationToken);
 
         if (result is null)
             return Error.NotFound("Invoice.ProjectNotFound", "Project not found or not assigned to this client.");

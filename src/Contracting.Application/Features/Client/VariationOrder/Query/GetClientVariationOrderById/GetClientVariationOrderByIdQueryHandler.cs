@@ -16,7 +16,7 @@ public class GetClientVariationOrderByIdQueryHandler : IRequestHandler<GetClient
 
     public async Task<ErrorOr<GetClientVariationOrderDetailDto>> Handle(GetClientVariationOrderByIdQuery request, CancellationToken cancellationToken)
     {
-        var result = await _service.GetVariationOrderByIdAsync(request.VOId, cancellationToken);
+        var result = await _service.GetVariationOrderByIdAsync(request.VOId, cancellationToken: cancellationToken);
 
         if (result is null)
             return Error.NotFound("VO.NotFound", "Variation order not found or not accessible.");

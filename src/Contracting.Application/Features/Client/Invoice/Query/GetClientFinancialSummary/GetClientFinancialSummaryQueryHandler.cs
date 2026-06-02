@@ -16,7 +16,7 @@ public class GetClientFinancialSummaryQueryHandler : IRequestHandler<GetClientFi
 
     public async Task<ErrorOr<GetClientFinancialSummaryDto>> Handle(GetClientFinancialSummaryQuery request, CancellationToken cancellationToken)
     {
-        var result = await _service.GetClientFinancialSummaryAsync(request.ProjectId, cancellationToken);
+        var result = await _service.GetClientFinancialSummaryAsync(request.ProjectId, cancellationToken: cancellationToken);
 
         if (result is null)
             return Error.NotFound("Invoice.ProjectNotFound", "Project not found or not assigned to this client.");

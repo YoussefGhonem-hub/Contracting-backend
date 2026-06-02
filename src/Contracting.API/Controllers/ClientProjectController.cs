@@ -7,14 +7,14 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Contracting.API.Controllers;
 
-[Route("api/mobile/client")]
+[Route("api/client")]
 [ApiController]
 [Authorize(Roles = RoleNames.Client)]
-public class MobileClientProjectController : APIBaseController
+public class ClientProjectController : APIBaseController
 {
     private readonly IMediator _mediator;
 
-    public MobileClientProjectController(IMediator mediator)
+    public ClientProjectController(IMediator mediator)
     {
         _mediator = mediator;
     }

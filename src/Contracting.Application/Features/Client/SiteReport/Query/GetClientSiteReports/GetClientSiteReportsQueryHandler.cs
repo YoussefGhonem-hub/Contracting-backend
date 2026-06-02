@@ -16,7 +16,7 @@ public class GetClientSiteReportsQueryHandler : IRequestHandler<GetClientSiteRep
 
     public async Task<ErrorOr<List<GetClientSiteReportListItemDto>>> Handle(GetClientSiteReportsQuery request, CancellationToken cancellationToken)
     {
-        var result = await _service.GetClientSiteReportsAsync(request.ProjectId, cancellationToken);
+        var result = await _service.GetClientSiteReportsAsync(request.ProjectId, cancellationToken: cancellationToken);
         if (result is null)
             return Error.NotFound(description: "Project not found or you do not have access.");
         return result;

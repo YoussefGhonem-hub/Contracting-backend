@@ -16,7 +16,7 @@ public class GetClientDrawingsQueryHandler : IRequestHandler<GetClientDrawingsQu
 
     public async Task<ErrorOr<List<GetClientDrawingDto>>> Handle(GetClientDrawingsQuery request, CancellationToken cancellationToken)
     {
-        var result = await _service.GetDrawingsAsync(request.ProjectId, request.Type, cancellationToken);
+        var result = await _service.GetDrawingsAsync(request.ProjectId, request.Type, cancellationToken: cancellationToken);
 
         if (result is null)
             return Error.NotFound("Drawing.ProjectNotFound", "Project not found or not assigned to this client.");

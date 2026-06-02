@@ -16,7 +16,7 @@ public class GetClientScheduleQueryHandler : IRequestHandler<GetClientScheduleQu
 
     public async Task<ErrorOr<GetClientScheduleDto>> Handle(GetClientScheduleQuery request, CancellationToken cancellationToken)
     {
-        var result = await _service.GetScheduleAsync(request.ProjectId, cancellationToken);
+        var result = await _service.GetScheduleAsync(request.ProjectId, cancellationToken: cancellationToken);
 
         if (result is null)
             return Error.NotFound("Schedule.ProjectNotFound", "Project not found or not assigned to this client.");

@@ -7,14 +7,14 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Contracting.API.Controllers;
 
-[Route("api/mobile/client")]
+[Route("api/client")]
 [ApiController]
 [Authorize(Roles = RoleNames.Client)]
-public class MobileClientDrawingController : APIBaseController
+public class ClientDrawingController : APIBaseController
 {
     private readonly IMediator _mediator;
 
-    public MobileClientDrawingController(IMediator mediator)
+    public ClientDrawingController(IMediator mediator)
     {
         _mediator = mediator;
     }

@@ -16,7 +16,7 @@ public class GetClientVariationOrdersQueryHandler : IRequestHandler<GetClientVar
 
     public async Task<ErrorOr<GetClientVariationOrdersDto>> Handle(GetClientVariationOrdersQuery request, CancellationToken cancellationToken)
     {
-        var result = await _service.GetVariationOrdersAsync(request.ProjectId, request.Status, cancellationToken);
+        var result = await _service.GetVariationOrdersAsync(request.ProjectId, request.Status, cancellationToken: cancellationToken);
 
         if (result is null)
             return Error.NotFound("VO.ProjectNotFound", "Project not found or not assigned to this client.");

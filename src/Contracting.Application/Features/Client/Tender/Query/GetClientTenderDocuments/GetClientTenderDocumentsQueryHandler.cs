@@ -16,7 +16,7 @@ public class GetClientTenderDocumentsQueryHandler : IRequestHandler<GetClientTen
 
     public async Task<ErrorOr<List<GetClientTenderDocumentDto>>> Handle(GetClientTenderDocumentsQuery request, CancellationToken cancellationToken)
     {
-        var result = await _service.GetTenderDocumentsAsync(request.ProjectId, cancellationToken);
+        var result = await _service.GetTenderDocumentsAsync(request.ProjectId, cancellationToken: cancellationToken);
 
         if (result is null)
             return Error.NotFound("Tender.ProjectNotFound", "Project not found or not assigned to this client.");
