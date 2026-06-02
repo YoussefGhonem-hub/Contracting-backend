@@ -72,6 +72,9 @@ public static class DependencyInjection
         services.AddScoped<IClientDrawingService, ClientDrawingService>();
         services.AddScoped<IChatService, ChatService>();
         services.AddScoped<IFirebaseService, FirebaseService>();
+        services.AddScoped<ITransferRequestService, TransferRequestService>();
+        services.AddScoped<IFinancialClearanceService, FinancialClearanceService>();
+        services.AddScoped<ILaborAttendanceService, LaborAttendanceService>();
 
         services.AddHttpContextAccessor();
 

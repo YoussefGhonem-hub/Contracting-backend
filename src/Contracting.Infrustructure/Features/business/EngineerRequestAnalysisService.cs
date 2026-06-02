@@ -51,12 +51,51 @@ namespace Contracting.Infrustructure.Features.business
                 .OrderByDescending(x => x.Count)
                 .ToList();
 
+            // Urgent Requests Ratio: priority whose name contains "urgent"
+            var urgentCount = priorityCounts
+                .Where(p => p.PriorityName.Contains("urgent", StringComparison.OrdinalIgnoreCase))
+                .Sum(p => p.Count);
+            var urgentRatio = items.Count == 0
+                ? 0m
+                : Math.Round((decimal)urgentCount / items.Count * 100m, 2, MidpointRounding.AwayFromZero);
+
+            // Request Quality (Rework): detect requests that moved back out of completed after being completed
+            var requestIds = items.Select(i => i.Id).ToList();
+            var activities = await _db.EngineerRequestActivites
+                .AsNoTracking()
+                .Where(a => a.EngineerRequestId.HasValue && requestIds.Contains(a.EngineerRequestId.Value) && a.StatusId.HasValue)
+                .OrderBy(a => a.CreatedDate)
+                .Select(a => new { a.EngineerRequestId, a.StatusId, a.CreatedDate })
+                .ToListAsync(cancellationToken);
+
+            var reworkCount = 0;
+            foreach (var group in activities.GroupBy(a => a.EngineerRequestId!.Value))
+            {
+                var seenCompleted = false;
+                foreach (var act in group.OrderBy(a => a.CreatedDate))
+                {
+                    if (statusSets.CompletedStatusIds.Contains(act.StatusId!.Value))
+                    {
+                        seenCompleted = true;
+                        continue;
+                    }
+                    if (seenCompleted) { reworkCount++; break; }
+                }
+            }
+            var reworkRatio = items.Count == 0
+                ? 0m
+                : Math.Round((decimal)reworkCount / items.Count * 100m, 2, MidpointRounding.AwayFromZero);
+
             return new SiteEngineerAnalysisDto
             {
                 TotalRequests = items.Count,
                 CompletedOnTime = totals.CompletedOnTime,
                 CompletedOverDeadline = totals.CompletedOverDeadline,
-                RequestsByPriority = priorityCounts
+                RequestsByPriority = priorityCounts,
+                UrgentRequestsCount = urgentCount,
+                UrgentRequestsRatio = urgentRatio,
+                ReworkCount = reworkCount,
+                ReworkRatio = reworkRatio
             };
         }
 
@@ -91,13 +130,38 @@ namespace Contracting.Infrustructure.Features.business
                 ? 0m
                 : Math.Round((decimal)activeWithinDeadline / items.Count * 100m, 2, MidpointRounding.AwayFromZero);
 
+            // Response Time: average hours from assignToId being set (first activity) to first status-change activity
+            var assignedRequestIds = items
+                .Where(i => i.AssignedEngineerId.HasValue)
+                .Select(i => i.Id)
+                .ToList();
+
+            var responseActivities = await _db.EngineerRequestActivites
+                .AsNoTracking()
+                .Where(a => a.EngineerRequestId.HasValue && assignedRequestIds.Contains(a.EngineerRequestId.Value))
+                .OrderBy(a => a.CreatedDate)
+                .Select(a => new { a.EngineerRequestId, a.CreatedDate })
+                .ToListAsync(cancellationToken);
+
+            var responseTimes = new List<double>();
+            foreach (var reqGroup in responseActivities.GroupBy(a => a.EngineerRequestId!.Value))
+            {
+                var ordered = reqGroup.OrderBy(a => a.CreatedDate).ToList();
+                if (ordered.Count >= 2)
+                    responseTimes.Add((ordered[1].CreatedDate - ordered[0].CreatedDate).TotalHours);
+            }
+            var avgResponseHours = responseTimes.Count == 0
+                ? 0m
+                : Math.Round((decimal)responseTimes.Average(), 2, MidpointRounding.AwayFromZero);
+
             return new OfficeEngineerAnalysisDto
             {
                 TotalRequests = items.Count,
                 CompletedOnTime = totals.CompletedOnTime,
                 CompletedOverDeadline = totals.CompletedOverDeadline,
                 ActiveWithinDeadlineCount = activeWithinDeadline,
-                ActiveWithinDeadlinePercentage = percentage
+                ActiveWithinDeadlinePercentage = percentage,
+                AverageResponseTimeHours = avgResponseHours
             };
         }
 
@@ -122,16 +186,16 @@ namespace Contracting.Infrustructure.Features.business
 
             var totals = CalculateCompletionTotals(items, statusSets.CompletedStatusIds);
 
-            var onHoldCount = items.Count(i => statusSets.OnHoldStatusIds.Contains(i.StatusId));
+            var pendingInfoCount = items.Count(i => statusSets.PendingInfoStatusIds.Contains(i.StatusId));
             var completedCount = items.Count(i => statusSets.CompletedStatusIds.Contains(i.StatusId));
-            var notFinishedCount = items.Count - completedCount - onHoldCount;
+            var notFinishedCount = items.Count - completedCount - pendingInfoCount;
 
             return new TeamLeadAnalysisDto
             {
                 TotalRequests = items.Count,
                 CompletedOnTime = totals.CompletedOnTime,
                 CompletedOverDeadline = totals.CompletedOverDeadline,
-                OnHoldCount = onHoldCount,
+                PendingInfoCount = pendingInfoCount,
                 NotFinishedCount = notFinishedCount < 0 ? 0 : notFinishedCount
             };
         }
@@ -600,7 +664,7 @@ namespace Contracting.Infrustructure.Features.business
 
         private List<EngineerStatusPercentageDto> BuildEngineerStatusPercentages(
             List<RequestAnalysisItem> items,
-            (HashSet<Guid> CompletedStatusIds, HashSet<Guid> OnHoldStatusIds) statusSets)
+            (HashSet<Guid> CompletedStatusIds, HashSet<Guid> PendingInfoStatusIds) statusSets)
         {
             var today = Contracting.Shared.Common.DateTimeHelper.Today;
 
@@ -632,7 +696,7 @@ namespace Contracting.Infrustructure.Features.business
 
                     var openOverdue = g
                         .Where(i => !statusSets.CompletedStatusIds.Contains(i.StatusId)
-                                    && !statusSets.OnHoldStatusIds.Contains(i.StatusId))
+                                    && !statusSets.PendingInfoStatusIds.Contains(i.StatusId))
                         .Count(i => i.EndDate.HasValue && i.EndDate.Value.Date < today);
 
                     var delayed = completedLate + openOverdue;
@@ -745,7 +809,7 @@ namespace Contracting.Infrustructure.Features.business
             return (completedOnTime, completedOverDeadline);
         }
 
-        private async Task<(HashSet<Guid> CompletedStatusIds, HashSet<Guid> OnHoldStatusIds)> GetStatusSetsAsync(CancellationToken cancellationToken)
+        private async Task<(HashSet<Guid> CompletedStatusIds, HashSet<Guid> PendingInfoStatusIds)> GetStatusSetsAsync(CancellationToken cancellationToken)
         {
             var statuses = await _db.Statuses.AsNoTracking().ToListAsync(cancellationToken);
 
@@ -754,9 +818,9 @@ namespace Contracting.Infrustructure.Features.business
                 "completed", "complete", "done", "finished", "finish", "closed"
             };
 
-            var onHoldKeywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            var pendingInfoKeywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
-                "on hold", "hold", "paused", "pause", "suspend", "suspended"
+                "missing information", "missing info", "missing_information"
             };
 
             bool HasKeyword(string? value, HashSet<string> keywords)
@@ -773,14 +837,14 @@ namespace Contracting.Infrustructure.Features.business
                 .Select(s => s.Id)
                 .ToHashSet();
 
-            var onHoldIds = statuses
-                .Where(s => HasKeyword(s.Code, onHoldKeywords)
-                         || HasKeyword(s.nameEn, onHoldKeywords)
-                         || HasKeyword(s.nameAr, onHoldKeywords))
+            var pendingInfoIds = statuses
+                .Where(s => HasKeyword(s.Code, pendingInfoKeywords)
+                         || HasKeyword(s.nameEn, pendingInfoKeywords)
+                         || HasKeyword(s.nameAr, pendingInfoKeywords))
                 .Select(s => s.Id)
                 .ToHashSet();
 
-            return (completedIds, onHoldIds);
+            return (completedIds, pendingInfoIds);
         }
 
         private sealed record UserFilterContext(
@@ -858,6 +922,64 @@ namespace Contracting.Infrustructure.Features.business
             var filteredQuery = ApplyRoleFilter(baseQuery, filterContext);
 
             return await QueryRequestsAsync(filteredQuery, completedStatusIds, cancellationToken);
+        }
+
+        public async Task<DailyReportCompletionDto> GetDailyReportCompletionRateAsync(int? month = null, int? year = null, CancellationToken cancellationToken = default)
+        {
+            var now = Contracting.Shared.Common.DateTimeHelper.DateTimeNow;
+            var targetYear = year ?? now.Year;
+            var targetMonth = month ?? now.Month;
+
+            var currentUserId = CurrentUser.Id;
+            if (!currentUserId.HasValue)
+                return new DailyReportCompletionDto { Year = targetYear, Month = targetMonth };
+
+            var engineer = await _db.Engineers
+                .AsNoTracking()
+                .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId.Value, cancellationToken);
+
+            if (engineer is null)
+                return new DailyReportCompletionDto { Year = targetYear, Month = targetMonth };
+
+            var firstDay = new DateTimeOffset(new DateTime(targetYear, targetMonth, 1));
+            var lastDay = firstDay.AddMonths(1);
+
+            var submittedDates = await _db.EngineerSiteReports
+                .AsNoTracking()
+                .Where(r => r.EngineerId == engineer.Id
+                         && r.ReportDate >= firstDay
+                         && r.ReportDate < lastDay)
+                .Select(r => r.ReportDate.Date)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            // Expected = calendar working days (Mon-Fri) up to today within the month
+            var today = Contracting.Shared.Common.DateTimeHelper.DateTimeNow.Date;
+            var endBound = today < lastDay.Date ? today : lastDay.AddDays(-1).Date;
+
+            var expectedDays = new List<DateTime>();
+            for (var d = firstDay.Date; d <= endBound; d = d.AddDays(1))
+            {
+                if (d.DayOfWeek != DayOfWeek.Friday && d.DayOfWeek != DayOfWeek.Saturday)
+                    expectedDays.Add(d);
+            }
+
+            var submittedSet = submittedDates.Select(d => d).ToHashSet();
+            var missingDays = expectedDays.Where(d => !submittedSet.Contains(d)).ToList();
+
+            var completionRate = expectedDays.Count == 0
+                ? 0m
+                : Math.Round((decimal)submittedDates.Count / expectedDays.Count * 100m, 2, MidpointRounding.AwayFromZero);
+
+            return new DailyReportCompletionDto
+            {
+                Year = targetYear,
+                Month = targetMonth,
+                ExpectedWorkingDays = expectedDays.Count,
+                SubmittedDays = submittedDates.Count,
+                CompletionRate = completionRate,
+                MissingDays = missingDays
+            };
         }
     }
 }

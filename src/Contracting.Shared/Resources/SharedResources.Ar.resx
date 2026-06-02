@@ -257,6 +257,14 @@
   </data>
   <data name="ActionTakenSuccess" xml:space="preserve">
     <value>تم اتخاذ الإجراء بنجاح</value>
+  </data>  <data name="RequestRejectedCannotEdit" xml:space="preserve">
+    <value>لا يمكن تعديل الطلبات المرفوضة. يرجى إنشاء طلب جديد.</value>
+  </data>
+  <data name="RequestRejectedCannotAction" xml:space="preserve">
+    <value>الطلبات المرفوضة نهائية ولا يمكن اتخاذ أي إجراء عليها أو إعادة فتحها.</value>
+  </data>
+  <data name="DeliveryDateAlreadyConfirmed" xml:space="preserve">
+    <value>تم تأكيد تاريخ التسليم مسبقاً ولا يمكن تغييره.</value>
   </data>  <data name="NameEnRequired" xml:space="preserve">
     <value>الاسم بالإنجليزية مطلوب</value>
   </data>
@@ -329,6 +337,27 @@
   <data name="SiteEngineerOnlyCreateRequest" xml:space="preserve">
     <value>يجب أن تكون لديك صلاحية مهندس موقع لإنشاء الطلب</value>
   </data>
+  <data name="PurchaseRequestItemsRequired" xml:space="preserve">
+    <value>يجب أن يحتوي طلب الشراء على صنف واحد على الأقل.</value>
+  </data>
+  <data name="PurchaseRequestNotFound" xml:space="preserve">
+    <value>طلب الشراء غير موجود.</value>
+  </data>
+  <data name="PurchaseRequestAlreadyClosed" xml:space="preserve">
+    <value>طلب الشراء مغلق بالفعل.</value>
+  </data>
+  <data name="GoodsReceiptItemsRequired" xml:space="preserve">
+    <value>يجب أن يحتوي إذن الاستلام على صنف واحد على الأقل.</value>
+  </data>
+  <data name="GoodsReceiptQuantityExceedsRequested" xml:space="preserve">
+    <value>الكمية المستلمة تتجاوز الكمية المتبقية المطلوبة لصنف أو أكثر.</value>
+  </data>
+  <data name="GoodsReceiptItemNotPartOfRequest" xml:space="preserve">
+    <value>يوجد صنف أو أكثر في إذن الاستلام لا ينتمي إلى طلب الشراء.</value>
+  </data>
+  <data name="GoodsReceiptQuantityMustBePositive" xml:space="preserve">
+    <value>يجب أن تكون الكمية المستلمة أكبر من صفر.</value>
+  </data>
   <data name="NotificationNewRequestTitle" xml:space="preserve">
     <value>تم إنشاء طلب جديد</value>
   </data>
@@ -358,5 +387,32 @@
   </data>
   <data name="NotificationReassignedBody" xml:space="preserve">
     <value>تمت إعادة إسناد طلب إليك.</value>
+  </data>
+  <data name="NotificationMissingInfoTitle" xml:space="preserve">
+    <value>إجراء مطلوب: معلومات ناقصة</value>
+  </data>
+  <data name="NotificationMissingInfoBody" xml:space="preserve">
+    <value>طلبك يحتاج إلى معلومات إضافية. يرجى إضافة ملاحظة مع مرفق للمتابعة.</value>
+  </data>
+  <data name="MissingInfoRequiresNoteAndAttachment" xml:space="preserve">
+    <value>يجب إضافة ملاحظة عند تحديث طلب في حالة المعلومات الناقصة.</value>
+  </data>
+  <data name="NotificationPartialReceiptTitle" xml:space="preserve">
+    <value>تم تسجيل استلام جزئي</value>
+  </data>
+  <data name="NotificationPartialReceiptBody" xml:space="preserve">
+    <value>تم تسجيل استلام جزئي للبضائع. يرجى المراجعة ومتابعة مهندس الموقع.</value>
+  </data>
+  <data name="NotificationReceiptConfirmedTitle" xml:space="preserve">
+    <value>تم تأكيد استلام البضائع</value>
+  </data>
+  <data name="NotificationReceiptConfirmedBody" xml:space="preserve">
+    <value>قام مهندس الموقع بتأكيد استلام البضائع. تم إغلاق الطلب.</value>
+  </data>
+  <data name="NotificationReceiptRequiredTitle" xml:space="preserve">
+    <value>مطلوب تأكيد الاستلام</value>
+  </data>
+  <data name="NotificationReceiptRequiredBody" xml:space="preserve">
+    <value>قام مهندس المكتب بتأكيد اكتمال الطلب. يرجى تأكيد استلام البضائع لإغلاق الطلب.</value>
   </data>
 </root>

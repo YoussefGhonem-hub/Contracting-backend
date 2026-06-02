@@ -1,4 +1,5 @@
 using Contracting.API.Controllers.Shared;
+using Contracting.Application.Features.Business.EngineerRequest.Command.ConfirmDeliveryDate;
 using Contracting.Application.Features.Business.EngineerRequest.Command.CreateEngineerRequest;
 using Contracting.Application.Features.Business.EngineerRequest.Command.DeleteEngineerRequest;
 using Contracting.Application.Features.Business.EngineerRequest.Command.ReassignEngineerRequest;
@@ -10,7 +11,10 @@ using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequest
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequestById;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequestCreatedOrApplyToEngineer;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequestsByStatusForEngineer;
+using Contracting.Application.Features.Business.PurchaseRequest.Command.CreateGoodsReceipt;
+using Contracting.Application.Features.Business.PurchaseRequest.Query.GetGoodsReceipts;
 using Contracting.Shared.BusinessDtos.EngineerRequestDto;
+using Contracting.Shared.BusinessDtos.PurchaseRequestDto;
 using Contracting.Shared.Dtos;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -174,6 +178,37 @@ namespace Contracting.API.Controllers
                 activities => Ok(activities),
                 errors => Problem(errors)
             );
+        }
+
+        // Confirm Delivery Date — locks endDate against future changes
+        [HttpPatch("{requestId:guid}/confirm-delivery-date")]
+        public async Task<IActionResult> ConfirmDeliveryDate(Guid requestId)
+        {
+            var command = new ConfirmDeliveryDateCommand(requestId);
+            var result = await _mediator.Send(command);
+
+            return result.Match(
+                _ => NoContent(),
+                errors => Problem(errors)
+            );
+        }
+
+        // Goods receipt — record received quantities
+        [HttpPost("{requestId:guid}/receipts")]
+        public async Task<IActionResult> CreateGoodsReceipt(
+            Guid requestId,
+            [FromBody] CreateGoodsReceiptDto dto)
+        {
+            var result = await _mediator.Send(new CreateGoodsReceiptCommand(requestId, dto));
+            return result.Match(r => Ok(r), errors => Problem(errors));
+        }
+
+        // Goods receipts — list all receipt records for a request (audit trail)
+        [HttpGet("{requestId:guid}/receipts")]
+        public async Task<IActionResult> GetGoodsReceipts(Guid requestId)
+        {
+            var result = await _mediator.Send(new GetGoodsReceiptsQuery(requestId));
+            return result.Match(r => Ok(r), errors => Problem(errors));
         }
     }
 }

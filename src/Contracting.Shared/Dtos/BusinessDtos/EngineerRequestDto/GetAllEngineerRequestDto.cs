@@ -1,5 +1,6 @@
 ﻿using Contracting.Shared.BusinessDtos.EngineerRequestActiviteDto;
 using Contracting.Shared.BusinessDtos.EngineerRequestNotesDtos;
+using Contracting.Shared.BusinessDtos.PurchaseRequestDto;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.DepartmentDtos;
 using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
@@ -33,5 +34,10 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestDto
         public ICollection<GetEngineerRequestActiviteDto> EngineerRequestActivites { get; set; } = new List<GetEngineerRequestActiviteDto>();
         public ICollection<Contracting.Shared.Dtos.GetAttachmentDto>? EngineerRequestAttachments { get; set; } = new List<GetAttachmentDto>();
         public List<EngineerRequestSpecialFieldValueDto> SpecialFieldValues { get; set; } = new();
+
+        // Goods receipts (populated when request is a Purchase Request for Procurement dept)
+        public List<GetGoodsReceiptDto> Receipts { get; set; } = new();
+        // True = office engineer confirmed completion, but site engineer receipt confirmation is still pending
+        public bool NeedsReceiptConfirmation { get; set; }
     }
 }

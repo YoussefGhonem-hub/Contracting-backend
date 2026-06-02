@@ -8,6 +8,7 @@
         public Guid? BranchId { get; set; }
         public Contracting.Shared.Dtos.MasterDtos.BranchDto.BranchDropDownDto? Branch { get; set; }
         public bool hasSpecialFields { get; set; }
+        public bool RequiresGoodsReceipt { get; set; }
         public List<DepartmentSpecialFieldDto> SpecialFields { get; set; } = new();
     }
 }

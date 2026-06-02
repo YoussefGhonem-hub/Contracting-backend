@@ -27,6 +27,7 @@ namespace Contracting.API.Controllers
 
         // Create Department
         [HttpPost("{branchId:guid}")]
+        [Authorize(Roles = "SuperAdmin,IT")]
         public async Task<IActionResult> Create(Guid branchId, [FromBody] CreateDepartmentDto dto)
         {
             var command = new CreateDepartmentCommand(branchId, dto);
@@ -40,6 +41,7 @@ namespace Contracting.API.Controllers
 
         // Update Department
         [HttpPut]
+        [Authorize(Roles = "SuperAdmin,IT")]
         public async Task<IActionResult> Update([FromBody] UpdateDepartmentDto dto)
         {
             var command = new UpdateDepartmentCommand(dto);
@@ -66,6 +68,7 @@ namespace Contracting.API.Controllers
 
         // Remove Department
         [HttpDelete("{branchId:guid}/{departmentId:guid}")]
+        [Authorize(Roles = "SuperAdmin,IT")]
         public async Task<IActionResult> Remove(Guid branchId, Guid departmentId)
         {
             var command = new RemoveDepartmentCommand(branchId, departmentId);
@@ -102,5 +105,6 @@ namespace Contracting.API.Controllers
                 errors => Problem(errors)
             );
         }
+
     }
 }

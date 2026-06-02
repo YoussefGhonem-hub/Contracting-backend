@@ -4,6 +4,8 @@ namespace Contracting.Shared.Dtos.MasterDtos.ConstructionItemDtos
     {
         public string? nameEn { get; set; }
         public string? nameAr { get; set; }
+        public string? Unit { get; set; }
+        public string? ItemCode { get; set; }
     }
 
     public class UpdateConstructionItemDto
@@ -11,6 +13,8 @@ namespace Contracting.Shared.Dtos.MasterDtos.ConstructionItemDtos
         public Guid Id { get; set; }
         public string? nameEn { get; set; }
         public string? nameAr { get; set; }
+        public string? Unit { get; set; }
+        public string? ItemCode { get; set; }
     }
 
     public class GetConstructionItemDto
@@ -18,6 +22,8 @@ namespace Contracting.Shared.Dtos.MasterDtos.ConstructionItemDtos
         public Guid Id { get; set; }
         public string? nameEn { get; set; }
         public string? nameAr { get; set; }
+        public string? Unit { get; set; }
+        public string? ItemCode { get; set; }
     }
 
     public class GetConstructionItemDropdownDto
@@ -25,5 +31,7 @@ namespace Contracting.Shared.Dtos.MasterDtos.ConstructionItemDtos
         public Guid Id { get; set; }
         public string? nameEn { get; set; }
         public string? nameAr { get; set; }
+        public string? Unit { get; set; }
+        public string? ItemCode { get; set; }
     }
 }

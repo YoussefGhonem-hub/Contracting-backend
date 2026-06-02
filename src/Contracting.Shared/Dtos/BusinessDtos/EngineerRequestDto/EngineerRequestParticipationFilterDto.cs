@@ -8,5 +8,6 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestDto
         public Guid? ProjectId { get; set; }
         public Guid? AssignToId { get; set; }
         public Guid? DepartmentId { get; set; }
+        public Guid? StatusId { get; set; }
     }
 }

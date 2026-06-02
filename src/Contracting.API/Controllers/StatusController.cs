@@ -26,6 +26,7 @@ namespace Contracting.API.Controllers
 
         // Create Status
         [HttpPost]
+        [Authorize(Roles = "SuperAdmin,IT")]
         public async Task<IActionResult> Create([FromBody] CreateStatusDto dto)
         {
             var command = new CreateStatusCommand(dto);
@@ -39,6 +40,7 @@ namespace Contracting.API.Controllers
 
         // Update Status
         [HttpPut]
+        [Authorize(Roles = "SuperAdmin,IT")]
         public async Task<IActionResult> Update([FromBody] UpdateStatusDto dto)
         {
             var command = new UpdateStatusCommand(dto);
@@ -52,6 +54,7 @@ namespace Contracting.API.Controllers
 
         // Delete Status
         [HttpDelete("{StatusId:guid}")]
+        [Authorize(Roles = "SuperAdmin,IT")]
         public async Task<IActionResult> Delete(Guid StatusId)
         {
             var command = new DeleteStatusCommand(StatusId);

@@ -35,6 +35,7 @@ namespace Contracting.Infrustructure.Features
             var department = _mapper.Map<Department>(departmentDto);
             department.BranchId = branchId;
             department.hasSpecialFields = departmentDto.hasSpecialFields;
+            department.RequiresGoodsReceipt = departmentDto.RequiresGoodsReceipt;
 
             await _db.Departmentes.AddAsync(department);
             await _db.SaveChangesAsync();
@@ -60,6 +61,7 @@ namespace Contracting.Infrustructure.Features
             department.nameEn = departmentDto.nameEn;
             department.nameAr = departmentDto.nameAr;
             department.hasSpecialFields = departmentDto.hasSpecialFields;
+            department.RequiresGoodsReceipt = departmentDto.RequiresGoodsReceipt;
 
             await _db.SaveChangesAsync();
 

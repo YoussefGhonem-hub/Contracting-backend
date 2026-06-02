@@ -2,6 +2,7 @@ using Contracting.API.Controllers.Shared;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetAssigneePerformance;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetAssigneePerformanceByEngineerId;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetAgingReport;
+using Contracting.Application.Features.Business.EngineerRequest.Query.GetDailyReportCompletion;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetLeadCycleTime;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetOfficeEngineerAnalysis;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetOverdueRisk;
@@ -337,6 +338,27 @@ namespace Contracting.API.Controllers
         public async Task<IActionResult> GetWeeklyCompletion([FromQuery] int? month = null, [FromQuery] int? year = null, [FromQuery] Guid? engineerId = null)
         {
             var query = new GetWeeklyCompletionQuery(month, year, engineerId);
+            var result = await _mediator.Send(query);
+
+            return result.Match(
+                data => Ok(data),
+                errors => Problem(errors)
+            );
+        }
+
+        /// <summary>
+        /// Get daily report completion rate for the current site engineer.
+        /// </summary>
+        /// <param name="month">Month (1-12). Defaults to current month.</param>
+        /// <param name="year">Year. Defaults to current year.</param>
+        /// <returns>Submitted vs expected working days and missing days list.</returns>
+        /// <response code="200">Returns the daily report completion rate</response>
+        [HttpGet("daily-report-completion")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> GetDailyReportCompletion([FromQuery] int? month = null, [FromQuery] int? year = null)
+        {
+            var query = new GetDailyReportCompletionQuery(month, year);
             var result = await _mediator.Send(query);
 
             return result.Match(

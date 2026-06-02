@@ -13,6 +13,12 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestAnalysisDtos
         public int CompletedOnTime { get; set; }
         public int CompletedOverDeadline { get; set; }
         public List<PriorityCountDto> RequestsByPriority { get; set; } = new();
+        // Urgent Requests Ratio KPI
+        public int UrgentRequestsCount { get; set; }
+        public decimal UrgentRequestsRatio { get; set; }
+        // Request Quality (Rework) KPI
+        public int ReworkCount { get; set; }
+        public decimal ReworkRatio { get; set; }
     }
 
     public class OfficeEngineerAnalysisDto
@@ -22,6 +28,8 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestAnalysisDtos
         public int CompletedOverDeadline { get; set; }
         public int ActiveWithinDeadlineCount { get; set; }
         public decimal ActiveWithinDeadlinePercentage { get; set; }
+        // Response Time KPI
+        public decimal AverageResponseTimeHours { get; set; }
     }
 
     public class TeamLeadAnalysisDto
@@ -29,7 +37,7 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestAnalysisDtos
         public int TotalRequests { get; set; }
         public int CompletedOnTime { get; set; }
         public int CompletedOverDeadline { get; set; }
-        public int OnHoldCount { get; set; }
+        public int PendingInfoCount { get; set; }
         public int NotFinishedCount { get; set; }
     }
 
@@ -147,5 +155,15 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestAnalysisDtos
         public int TotalOnTime { get; set; }
         public int TotalDelayed { get; set; }
         public List<WeeklyCompletionDto> Weeks { get; set; } = new();
+    }
+
+    public class DailyReportCompletionDto
+    {
+        public int Year { get; set; }
+        public int Month { get; set; }
+        public int ExpectedWorkingDays { get; set; }
+        public int SubmittedDays { get; set; }
+        public decimal CompletionRate { get; set; }
+        public List<DateTime> MissingDays { get; set; } = new();
     }
 }

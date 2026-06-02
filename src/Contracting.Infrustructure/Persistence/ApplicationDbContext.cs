@@ -33,6 +33,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<EngineerRequestActivite> EngineerRequestActivites => Set<EngineerRequestActivite>();
     public DbSet<EngineerRequestAttachment> EngineerRequestAttachments => Set<EngineerRequestAttachment>();
     public DbSet<EngineerRequestSpecialFieldValue> EngineerRequestSpecialFieldValues => Set<EngineerRequestSpecialFieldValue>();
+    public DbSet<PurchaseRequestReceipt> PurchaseRequestReceipts => Set<PurchaseRequestReceipt>();
     public DbSet<EngineerSiteReport> EngineerSiteReports => Set<EngineerSiteReport>();
     public DbSet<EngineerSiteWorkLog> EngineerSiteWorkLogs => Set<EngineerSiteWorkLog>();
     public DbSet<EngineerSiteWorkLogAttachment> EngineerSiteWorkLogAttachments => Set<EngineerSiteWorkLogAttachment>();
@@ -65,6 +66,23 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<TenderDocument> TenderDocuments => Set<TenderDocument>();
     public DbSet<ProjectSchedule> ProjectSchedules => Set<ProjectSchedule>();
     public DbSet<ProjectDrawing> ProjectDrawings => Set<ProjectDrawing>();
+
+    // Transfer Request
+    public DbSet<TransferRequest> TransferRequests => Set<TransferRequest>();
+    public DbSet<TransferRequestItem> TransferRequestItems => Set<TransferRequestItem>();
+    public DbSet<TransferRequestAttachment> TransferRequestAttachments => Set<TransferRequestAttachment>();
+    public DbSet<TransferRequestActivity> TransferRequestActivities => Set<TransferRequestActivity>();
+
+    // Financial Clearance
+    public DbSet<FinancialClearance> FinancialClearances => Set<FinancialClearance>();
+    public DbSet<FinancialClearanceAttachment> FinancialClearanceAttachments => Set<FinancialClearanceAttachment>();
+    public DbSet<FinancialClearanceActivity> FinancialClearanceActivities => Set<FinancialClearanceActivity>();
+
+    // Labor Attendance
+    public DbSet<LaborAttendanceRequest> LaborAttendanceRequests => Set<LaborAttendanceRequest>();
+    public DbSet<LaborAttendanceRecord> LaborAttendanceRecords => Set<LaborAttendanceRecord>();
+    public DbSet<LaborAttendanceAttachment> LaborAttendanceAttachments => Set<LaborAttendanceAttachment>();
+    public DbSet<LaborAttendanceActivity> LaborAttendanceActivities => Set<LaborAttendanceActivity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

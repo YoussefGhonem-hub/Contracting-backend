@@ -8,6 +8,8 @@ namespace Contracting.Shared.Constants
         public const string Siteengineer = "Site-engineer";
         public const string Officeengineer = "Office-engineer";
         public const string Accounts = "Accounts";
+        public const string IT = "IT";
+        public const string Viewer = "Viewer";
         public const string Client = "Client";
 
         /// <summary>
@@ -21,6 +23,8 @@ namespace Contracting.Shared.Constants
             Siteengineer,
             Officeengineer,
             Accounts,
+            IT,
+            Viewer,
             Client
         };
 
