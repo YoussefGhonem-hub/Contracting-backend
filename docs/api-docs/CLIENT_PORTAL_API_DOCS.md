@@ -209,6 +209,13 @@ Authorization: Bearer eyJhbGciOiJSUzI1NiIsIn...
 | 11 | `GET` | `/api/client/projects/{projectId}/schedule` | Project timeline & milestones | Planning & Schedule |
 | 12 | `GET` | `/api/client/projects/{projectId}/drawings` | Drawings & renders (2D / 3D) | Drawings & Renders |
 | 13 | `POST` | `/api/auth/change-password` | Change authenticated user's password | Profile / Settings |
+| 14 | `POST` | `/api/backoffice/client-content/monthly-reports` | Create monthly report with attachments | Backoffice Content Management |
+| 15 | `POST` | `/api/backoffice/client-content/variation-orders` | Create variation order (technical office) | Backoffice Content Management |
+| 16 | `POST` | `/api/backoffice/client-content/drawings` | Upload 2D/3D drawings | Backoffice Content Management |
+| 17 | `POST` | `/api/backoffice/client-content/tender-documents` | Upload tender document | Backoffice Content Management |
+| 18 | `POST` | `/api/backoffice/client-content/schedules` | Upload project schedule file | Backoffice Content Management |
+| 19 | `POST` | `/api/backoffice/client-content/invoices` | Create project invoice | Backoffice Content Management |
+| 20 | `PUT` | `/api/backoffice/client-content/invoices/{invoiceId}/payment` | Update invoice payment status | Backoffice Content Management |
 
 ---
 
@@ -772,6 +779,145 @@ Content-Type: application/json
 |--------|-------------|
 | `400 Bad Request` | Validation error or incorrect current password |
 | `401 Unauthorized` | Missing or invalid token |
+
+---
+
+## 14. Backoffice Client Content Management APIs
+
+These endpoints are used by internal teams to upload/manage content that clients consume in the portal.
+
+Base URL: `/api/backoffice/client-content`  
+Authentication: **Bearer token** (JWT) required.  
+Authorization: role-based per endpoint.
+
+### 14.1 Create Monthly Report
+
+```
+POST /api/backoffice/client-content/monthly-reports
+Content-Type: multipart/form-data
+```
+
+Allowed roles: `Teamlead-engineer`, `Admin`, `SuperAdmin`
+
+Form fields:
+- `projectId` (`guid`, required)
+- `month` (`int`, required)
+- `year` (`int`, required)
+- `title` (`string`, optional)
+- `workProgress` (`string`, optional)
+- `attachments` (`file[]`, optional)
+
+### 14.2 Create Variation Order (Technical Office)
+
+```
+POST /api/backoffice/client-content/variation-orders
+Content-Type: multipart/form-data
+```
+
+Allowed roles: `Office-engineer`, `Teamlead-engineer`
+
+Form fields:
+- `projectId` (`guid`, required)
+- `title` (`string`, optional)
+- `description` (`string`, optional)
+- `cost` (`decimal`, required)
+- `issueDate` (`datetimeoffset`, optional)
+- `dueDate` (`datetimeoffset`, optional)
+- `attachments` (`file[]`, optional)
+
+### 14.3 Upload Drawing (2D/3D)
+
+```
+POST /api/backoffice/client-content/drawings
+Content-Type: multipart/form-data
+```
+
+Allowed roles: `Office-engineer`, `Teamlead-engineer`
+
+Form fields:
+- `projectId` (`guid`, required)
+- `type` (`string`, required: `TwoD` or `ThreeD`)
+- `title` (`string`, optional)
+- `file` (`file`, required)
+
+### 14.4 Upload Tender Document
+
+```
+POST /api/backoffice/client-content/tender-documents
+Content-Type: multipart/form-data
+```
+
+Allowed roles: `Office-engineer`, `Teamlead-engineer`, `Admin`, `SuperAdmin`
+
+Form fields:
+- `projectId` (`guid`, required)
+- `title` (`string`, optional)
+- `file` (`file`, required)
+
+### 14.5 Upload Schedule
+
+```
+POST /api/backoffice/client-content/schedules
+Content-Type: multipart/form-data
+```
+
+Allowed roles: `Teamlead-engineer`, `Office-engineer`, `Admin`, `SuperAdmin`
+
+Form fields:
+- `projectId` (`guid`, required)
+- `title` (`string`, optional)
+- `version` (`string`, optional)
+- `file` (`file`, required)
+
+### 14.6 Create Invoice
+
+```
+POST /api/backoffice/client-content/invoices
+Content-Type: application/json
+```
+
+Allowed roles: `Accounts`, `Admin`, `SuperAdmin`
+
+Request body:
+
+```json
+{
+  "projectId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "title": "Mobilization Fee",
+  "totalValue": 250000,
+  "paidAmount": 0,
+  "notes": "First invoice",
+  "issueDate": "2026-06-01T00:00:00+02:00",
+  "dueDate": "2026-06-15T00:00:00+02:00"
+}
+```
+
+### 14.7 Update Invoice Payment
+
+```
+PUT /api/backoffice/client-content/invoices/{invoiceId}/payment
+Content-Type: application/json
+```
+
+Allowed roles: `Accounts`, `Admin`, `SuperAdmin`
+
+Request body:
+
+```json
+{
+  "paidAmount": 100000,
+  "notes": "Partial payment received"
+}
+```
+
+### Shared Error Responses (Backoffice APIs)
+
+| Status | Description |
+|--------|-------------|
+| `400 Bad Request` | Validation error or invalid business context (e.g. user not mapped as engineer for technical VO create) |
+| `401 Unauthorized` | Missing or invalid token |
+| `403 Forbidden` | Authenticated user lacks required role |
+| `404 Not Found` | Related entity not found (project/invoice/etc.) |
 
 ---
 
