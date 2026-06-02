@@ -28,3 +28,11 @@ docs
 /src/RIS.NotificationEngine/logs
 /src/RIS.MobileAPI/Properties/PublishProfiles/FolderProfile.pubxml.user
 /src/Contracting.API/Properties/PublishProfiles/amrsherif-002-site2 - FTP.pubxml.user
+
+# Exclude test scripts and test artifacts
+/tmp/test_*.ps1
+/tmp/artifacts/
+/tmp/login.json
+
+# Exclude uploaded files
+/src/Contracting.API/wwwroot/uploads/

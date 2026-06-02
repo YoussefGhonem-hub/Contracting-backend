@@ -129,6 +129,7 @@ using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     var db = services.GetRequiredService<ApplicationDbContext>();
+    await db.Database.MigrateAsync();
     
     var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
     var roleManager = services.GetRequiredService<RoleManager<ApplicationRole>>();
