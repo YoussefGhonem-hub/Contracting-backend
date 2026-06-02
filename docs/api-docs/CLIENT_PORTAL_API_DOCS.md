@@ -788,7 +788,7 @@ These endpoints are used by internal teams to upload/manage content that clients
 
 Base URL: `/api/backoffice/client-content`  
 Authentication: **Bearer token** (JWT) required.  
-Authorization: role-based per endpoint.
+Authorization: all endpoints require authentication; explicit role restrictions currently apply only to invoice endpoints.
 
 ### 14.1 Create Monthly Report
 
@@ -797,7 +797,7 @@ POST /api/backoffice/client-content/monthly-reports
 Content-Type: multipart/form-data
 ```
 
-Allowed roles: `Teamlead-engineer`, `Admin`, `SuperAdmin`
+Allowed roles: any authenticated user
 
 Form fields:
 - `projectId` (`guid`, required)
@@ -814,7 +814,9 @@ POST /api/backoffice/client-content/variation-orders
 Content-Type: multipart/form-data
 ```
 
-Allowed roles: `Office-engineer`, `Teamlead-engineer`
+Allowed roles: any authenticated user
+
+Business rule: current user must be mapped to an engineer record; otherwise returns `400 Bad Request`.
 
 Form fields:
 - `projectId` (`guid`, required)
@@ -832,7 +834,7 @@ POST /api/backoffice/client-content/drawings
 Content-Type: multipart/form-data
 ```
 
-Allowed roles: `Office-engineer`, `Teamlead-engineer`
+Allowed roles: any authenticated user
 
 Form fields:
 - `projectId` (`guid`, required)
@@ -847,7 +849,7 @@ POST /api/backoffice/client-content/tender-documents
 Content-Type: multipart/form-data
 ```
 
-Allowed roles: `Office-engineer`, `Teamlead-engineer`, `Admin`, `SuperAdmin`
+Allowed roles: any authenticated user
 
 Form fields:
 - `projectId` (`guid`, required)
@@ -861,7 +863,7 @@ POST /api/backoffice/client-content/schedules
 Content-Type: multipart/form-data
 ```
 
-Allowed roles: `Teamlead-engineer`, `Office-engineer`, `Admin`, `SuperAdmin`
+Allowed roles: any authenticated user
 
 Form fields:
 - `projectId` (`guid`, required)
@@ -916,7 +918,7 @@ Request body:
 |--------|-------------|
 | `400 Bad Request` | Validation error or invalid business context (e.g. user not mapped as engineer for technical VO create) |
 | `401 Unauthorized` | Missing or invalid token |
-| `403 Forbidden` | Authenticated user lacks required role |
+| `403 Forbidden` | Authenticated user lacks required role (currently enforced on invoice endpoints) |
 | `404 Not Found` | Related entity not found (project/invoice/etc.) |
 
 ---
