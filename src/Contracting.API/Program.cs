@@ -118,8 +118,11 @@ else
     Console.WriteLine($"[INFO] Timezone initialized: {DateTimeHelper.TimeZone.Id} (UTC{DateTimeHelper.TimeZone.BaseUtcOffset:hh\\:mm})");
 }
 
-//app.UseSwagger();
-//app.UseSwaggerUI();
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
 // Apply migrations and seed ONCE
 using (var scope = app.Services.CreateScope())
@@ -133,9 +136,6 @@ using (var scope = app.Services.CreateScope())
 
     await AppDbContextSeed.SeedAsync(db, userManager, roleManager, env);
 }
-
-//app.UseSwagger();
-//app.UseSwaggerUI(c => { c.SwaggerEndpoint("/swagger/v1/swagger.json", "Contracting API v1"); c.RoutePrefix = string.Empty; });
 
 var options = app.Services.GetService<IOptions<RequestLocalizationOptions>>();
 app.UseRequestLocalization(options.Value);
