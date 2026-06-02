@@ -206,6 +206,9 @@ Authorization: Bearer eyJhbGciOiJSUzI1NiIsIn...
 | 8 | `GET` | `/api/mobile/client/variation-orders/{voId}` | Full detail of a single VO | Variation Order Detail |
 | 9 | `POST` | `/api/mobile/client/variation-orders/{voId}/approve` | Client approves a pending VO | Variation Order Detail |
 | 10 | `POST` | `/api/mobile/client/variation-orders/{voId}/reject` | Client rejects a pending VO | Variation Order Detail |
+| 11 | `GET` | `/api/mobile/client/projects/{projectId}/schedule` | Project timeline & milestones | Planning & Schedule |
+| 12 | `GET` | `/api/mobile/client/projects/{projectId}/drawings` | Drawings & renders (2D / 3D) | Drawings & Renders |
+| 13 | `POST` | `/api/auth/change-password` | Change authenticated user's password | Profile / Settings |
 
 ---
 
@@ -598,6 +601,177 @@ Returns the updated VO detail with `"status": "Rejected"` and `clientRejectionRe
 | `401 Unauthorized` | Missing or invalid token |
 | `403 Forbidden` | Authenticated user does not have the `Client` role |
 | `422 Unprocessable Entity` | VO not found, not accessible, or not in `Pending` status |
+
+---
+
+## 11. Get Project Schedule (Planning & Schedule Screen)
+
+Returns the project timeline along with its milestones (tasks) and their completion status.
+
+```
+GET /api/mobile/client/projects/{projectId}/schedule
+Authorization: Bearer <token>
+Role: Client
+```
+
+### Response `200 OK`
+
+```json
+{
+  "projectId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "projectName": "Villa Construction — Phase 1",
+  "startDate": "2024-01-15T00:00:00Z",
+  "endDate": "2024-12-31T00:00:00Z",
+  "overallProgress": 62,
+  "tasks": [
+    {
+      "id": "a1b2c3d4-...",
+      "name": "Foundation Works",
+      "startDate": "2024-01-15T00:00:00Z",
+      "endDate": "2024-03-01T00:00:00Z",
+      "completionPercentage": 100,
+      "status": "Completed"
+    },
+    {
+      "id": "e5f6...",
+      "name": "Framing",
+      "startDate": "2024-03-02T00:00:00Z",
+      "endDate": "2024-06-30T00:00:00Z",
+      "completionPercentage": 75,
+      "status": "InProgress"
+    }
+  ]
+}
+```
+
+### Error Responses
+
+| Status | Description |
+|--------|-------------|
+| `401 Unauthorized` | Missing or invalid token |
+| `403 Forbidden` | Authenticated user does not have the `Client` role |
+| `404 Not Found` | Project not found or not assigned to this client |
+
+---
+
+## 12. Get Drawings & Renders (Drawings Screen)
+![alt text](image-8.png)
+Returns the list of uploaded drawings (2D plans and 3D renders) for a project.  
+Optionally filter by drawing type using the `type` query parameter.
+
+```
+GET /api/mobile/client/projects/{projectId}/drawings?type=TwoD
+Authorization: Bearer <token>
+Role: Client
+```
+
+### Query Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `type` | `string` | No | Filter by type. Accepted values: `TwoD`, `ThreeD`. Omit for **all** drawings. |
+
+### Response `200 OK`
+
+```json
+[
+  {
+    "id": "d1e2f3...",
+    "title": "Ground Floor Plan",
+    "type": "TwoD",
+    "fileName": "ground-floor.pdf",
+    "extension": ".pdf",
+    "fileSize": 2048000,
+    "url": "/files/drawings/ground-floor.pdf",
+    "uploadedAt": "2024-05-20T10:30:00+03:00"
+  },
+  {
+    "id": "a7b8c9...",
+    "title": "3D Exterior Render",
+    "type": "ThreeD",
+    "fileName": "exterior-render.png",
+    "extension": ".png",
+    "fileSize": 5120000,
+    "url": "/files/drawings/exterior-render.png",
+    "uploadedAt": "2024-06-01T14:00:00+03:00"
+  }
+]
+```
+
+### DrawingType Enum
+
+| Value | Description |
+|-------|-------------|
+| `TwoD` | 2D floor plans, sections, elevations |
+| `ThreeD` | 3D renders, perspectives, visualisations |
+
+### Error Responses
+
+| Status | Description |
+|--------|-------------|
+| `401 Unauthorized` | Missing or invalid token |
+| `403 Forbidden` | Authenticated user does not have the `Client` role |
+| `404 Not Found` | Project not found or not assigned to this client |
+
+---
+
+## 13. Change Password (Profile / Settings Screen)
+![alt text](image-9.png)
+Allows any authenticated user (including clients) to change their own password.  
+Requires the current password to be provided. If the account has no password set (external login), the current password field may be left empty.
+
+```
+POST /api/auth/change-password
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+### Request Body
+
+```json
+{
+  "currentPassword": "OldPass@123",
+  "newPassword": "NewPass@456",
+  "confirmPassword": "NewPass@456"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `currentPassword` | `string` | Conditional | Required if the account already has a password |
+| `newPassword` | `string` | Yes | Must meet password complexity requirements |
+| `confirmPassword` | `string` | Yes | Must match `newPassword` |
+
+### Response `200 OK`
+
+```json
+{
+  "message": "Password changed successfully."
+}
+```
+
+### Response `400 Bad Request`
+
+```json
+{
+  "errors": ["Current password is incorrect."]
+}
+```
+
+### Password Requirements
+
+- Minimum 8 characters  
+- At least one uppercase letter  
+- At least one lowercase letter  
+- At least one number  
+- At least one special character  
+
+### Error Responses
+
+| Status | Description |
+|--------|-------------|
+| `400 Bad Request` | Validation error or incorrect current password |
+| `401 Unauthorized` | Missing or invalid token |
 
 ---
 

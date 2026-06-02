@@ -68,6 +68,7 @@ public static class DependencyInjection
         services.AddScoped<IClientTenderService, ClientTenderService>();
         services.AddScoped<IClientVariationOrderService, ClientVariationOrderService>();
         services.AddScoped<IClientScheduleService, ClientScheduleService>();
+        services.AddScoped<IClientDrawingService, ClientDrawingService>();
         services.AddScoped<IChatService, ChatService>();
         services.AddScoped<IFirebaseService, FirebaseService>();
 

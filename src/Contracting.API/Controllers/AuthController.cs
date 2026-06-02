@@ -1,5 +1,6 @@
 using Contracting.API.Controllers.Shared;
 using Contracting.Application.Features.Users.Commands.AdminResetOfficeUserPasswordCommand;
+using Contracting.Shared.Dtos;
 using Contracting.Application.Features.Users.Commands.AdminResetPasswordCommand;
 using Contracting.Application.Features.Users.Commands.FCMTokenNotification;
 using Contracting.Application.Features.Users.Commands.ResetAllUsersPasswordCommand;
@@ -12,6 +13,7 @@ using Contracting.Application.Features.Users.Commands.RemoveFCMTokenNotification
 using Contracting.Application.Features.Users.Commands.ResetPasswordCommand;
 using Contracting.Application.Features.Users.Commands.RevokeRefreshTokenCommand;
 using Contracting.Application.Features.Users.Commands.VerifyResetCodeCommand;
+using Contracting.Application.Features.Users.Commands.ChangePassword;
 using Contracting.Application.Features.Users.Commands.SwitchDepartmentCommand;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -418,5 +420,25 @@ public class AuthController : APIBaseController
             value => Ok(value),
             errors => Problem(errors)
         );
+    }
+
+    /// <summary>
+    /// Change the current user's password (requires knowing the current password).
+    /// Available to all authenticated users including clients.
+    /// </summary>
+    [HttpPost("change-password")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+    {
+        var command = new ChangePasswordCommand(request.CurrentPassword, request.NewPassword, request.ConfirmPassword);
+        var result = await _mediator.Send(command);
+
+        if (!result.Succeeded)
+            return BadRequest(new { errors = result.Errors });
+
+        return Ok(new { message = "Password changed successfully." });
     }
 }
