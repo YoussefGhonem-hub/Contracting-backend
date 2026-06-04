@@ -9,10 +9,14 @@ namespace Contracting.Domain.Entities.business
         public string? RequestNumber { get; set; }
         public Guid? ProjectId { get; set; }
         public Project? Project { get; set; }
+        public Guid? DepartmentId { get; set; }
+        public Department? Department { get; set; }
         public string? SiteName { get; set; }
         public DateTime AttendanceDate { get; set; }
         public Guid? SupervisorId { get; set; }
         public Engineer? Supervisor { get; set; }
+        public Guid? AssignedToId { get; set; }
+        public Engineer? AssignedTo { get; set; }
         public string? Notes { get; set; }
         public LaborAttendanceStatus Status { get; set; } = LaborAttendanceStatus.Draft;
 

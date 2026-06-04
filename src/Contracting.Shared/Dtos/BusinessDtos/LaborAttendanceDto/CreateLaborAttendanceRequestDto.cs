@@ -5,6 +5,7 @@ namespace Contracting.Shared.BusinessDtos.LaborAttendanceDto
     public class CreateLaborAttendanceRequestDto
     {
         public Guid? ProjectId { get; set; }
+        public Guid? DepartmentId { get; set; }
         public string? SiteName { get; set; }
         public DateTime AttendanceDate { get; set; } = DateTime.UtcNow;
         public string? Notes { get; set; }

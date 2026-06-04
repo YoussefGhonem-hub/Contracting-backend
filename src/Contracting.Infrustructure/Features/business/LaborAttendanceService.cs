@@ -7,6 +7,7 @@ using Contracting.Shared.BusinessDtos.LaborAttendanceDto;
 using Contracting.Shared.Common;
 using Contracting.Shared.CurrentUser;
 using Contracting.Shared.Dtos;
+using Contracting.Shared.Dtos.MasterDtos.DepartmentDtos;
 using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
 using Contracting.Shared.Dtos.MasterDtos.ProjectDtos;
 using ErrorOr;
@@ -37,6 +38,7 @@ namespace Contracting.Infrustructure.Features.business
             {
                 RequestNumber = await GenerateRequestNumberAsync(),
                 ProjectId = dto.ProjectId == Guid.Empty ? null : dto.ProjectId,
+                DepartmentId = dto.DepartmentId == Guid.Empty ? null : dto.DepartmentId,
                 SiteName = dto.SiteName,
                 AttendanceDate = dto.AttendanceDate,
                 SupervisorId = engineer?.Id,
@@ -115,6 +117,7 @@ namespace Contracting.Infrustructure.Features.business
                 return Error.Validation("LaborAttendance.CannotEdit", "Only Draft requests can be edited.");
 
             if (dto.ProjectId.HasValue) request.ProjectId = dto.ProjectId == Guid.Empty ? null : dto.ProjectId;
+            if (dto.DepartmentId.HasValue) request.DepartmentId = dto.DepartmentId == Guid.Empty ? null : dto.DepartmentId;
             if (dto.SiteName is not null) request.SiteName = dto.SiteName;
             if (dto.AttendanceDate.HasValue) request.AttendanceDate = dto.AttendanceDate.Value;
             if (dto.Notes is not null) request.Notes = dto.Notes;
@@ -180,7 +183,9 @@ namespace Contracting.Infrustructure.Features.business
         {
             var request = await _db.LaborAttendanceRequests
                 .Include(r => r.Project)
+                .Include(r => r.Department)
                 .Include(r => r.Supervisor)
+                .Include(r => r.AssignedTo)
                 .Include(r => r.Records)
                 .Include(r => r.Attachments)
                 .Include(r => r.Activities).ThenInclude(a => a.Engineer)
@@ -195,7 +200,9 @@ namespace Contracting.Infrustructure.Features.business
         {
             var query = _db.LaborAttendanceRequests
                 .Include(r => r.Project)
+                .Include(r => r.Department)
                 .Include(r => r.Supervisor)
+                .Include(r => r.AssignedTo)
                 .Include(r => r.Records)
                 .Include(r => r.Attachments)
                 .Include(r => r.Activities).ThenInclude(a => a.Engineer)
@@ -248,6 +255,18 @@ namespace Contracting.Infrustructure.Features.business
                     if (!request.Records.Any())
                         return Error.Validation("LaborAttendance.NoRecords", "Cannot submit a request with no labor records.");
                     toStatus = LaborAttendanceStatus.Submitted;
+                    break;
+                case "assign":
+                    if (!dto.AssignedToId.HasValue || dto.AssignedToId == Guid.Empty)
+                        return Error.Validation("LaborAttendance.AssignedToRequired", "AssignedToId is required for assign action.");
+                    
+                    var assignedEngineer = await _db.Engineers.AsNoTracking()
+                        .FirstOrDefaultAsync(e => e.Id == dto.AssignedToId.Value);
+                    if (assignedEngineer is null)
+                        return Error.NotFound("LaborAttendance.EngineerNotFound", "Assigned engineer not found.");
+                    
+                    request.AssignedToId = dto.AssignedToId.Value;
+                    toStatus = request.Status; // Status doesn't change for assignment
                     break;
                 case "validate":
                     if (request.Status != LaborAttendanceStatus.Submitted)
@@ -308,10 +327,14 @@ namespace Contracting.Infrustructure.Features.business
             RequestNumber = r.RequestNumber,
             ProjectId = r.ProjectId,
             Project = r.Project is null ? null : new GetProjectDto { Id = r.Project.Id, nameEn = r.Project.nameEn, nameAr = r.Project.nameAr },
+            DepartmentId = r.DepartmentId,
+            Department = r.Department is null ? null : new GetDepartmentDto { Id = r.Department.Id, nameEn = r.Department.nameEn, nameAr = r.Department.nameAr },
             SiteName = r.SiteName,
             AttendanceDate = r.AttendanceDate,
             SupervisorId = r.SupervisorId,
             Supervisor = r.Supervisor is null ? null : new GetEngineerDto { Id = r.Supervisor.Id, nameEn = r.Supervisor.nameEn, nameAr = r.Supervisor.nameAr },
+            AssignedToId = r.AssignedToId,
+            AssignedTo = r.AssignedTo is null ? null : new GetEngineerDto { Id = r.AssignedTo.Id, nameEn = r.AssignedTo.nameEn, nameAr = r.AssignedTo.nameAr },
             Notes = r.Notes,
             Status = r.Status.ToString(),
             TotalAmount = r.Records.Sum(rec => rec.TotalAmount),
