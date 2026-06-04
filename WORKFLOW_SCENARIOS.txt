@@ -1,0 +1,597 @@
+================================================================================
+                     BUSINESS WORKFLOW SCENARIOS & API GUIDE
+================================================================================
+
+
+================================================================================
+1. PROCUREMENT / ENGINEER REQUEST WORKFLOW
+================================================================================
+
+SCENARIO A — Normal Flow (Request Created, Assigned, Completed, Closed)
+------------------------------------------------------------------------
+
+Step 1: Site Engineer creates a new request
+  Actor : Ahmed (Site Engineer)
+  Action: Ahmed is on-site and needs steel pipes for the Al-Riyadh project.
+          He opens the app and submits a new request.
+
+  API   : POST /api/EngineerRequest
+  Body  : {
+            "projectId": "abc123",
+            "departmentId": "dept01",
+            "priorityId": "high01",
+            "requestTitle": "Steel Pipes - Al-Riyadh Project",
+            "descreption": "Need 50 units of 2-inch steel pipes",
+            "timeDuration": 3,
+            "engineerRequestNotes": [
+              { "note": "Urgent - construction starts in 3 days" }
+            ]
+          }
+  Result: Request is created with Status = "New" (first status in DB)
+          Notification is sent to the Team Lead of that department.
+
+----
+
+Step 2: Team Lead reviews and assigns the request
+  Actor : Omar (Team Lead)
+  Action: Omar receives a notification. He opens the request and assigns it
+          to a procurement engineer, setting the expected dates.
+
+  API   : POST /api/EngineerRequest/{requestId}/action
+  Body  : {
+            "actionType": "assign",
+            "assignToId": "eng456",
+            "startDate": "2026-05-24",
+            "endDate": "2026-05-27",
+            "notes": "Please process urgently"
+          }
+  Result: Status changes to "In Progress". Ahmed gets notified.
+
+----
+
+Step 3: Procurement Engineer completes the request
+  Actor : Sara (Procurement Engineer)
+  Action: Sara procures the pipes and marks the request as completed.
+
+  API   : POST /api/EngineerRequest/{requestId}/action
+  Body  : {
+            "actionType": "complete",
+            "notes": "Items dispatched to site"
+          }
+  Result: Status changes to "Completed".
+          NeedsReceiptConfirmation = true.
+          Ahmed (Site Engineer) receives a notification to confirm receipt.
+
+----
+
+Step 4: Record goods receipt (items delivered to site)
+  Actor : Sara (Procurement Engineer)
+  Action: Sara records the actual quantities received at the site.
+
+  API   : POST /api/EngineerRequest/{requestId}/receipts
+  Body  : {
+            "receivedItems": [
+              { "itemName": "Steel Pipe 2-inch", "quantityOrdered": 50, "quantityReceived": 50 }
+            ],
+            "notes": "All items received in good condition"
+          }
+  Result: Receipt record saved.
+
+----
+
+Step 5: Site Engineer confirms delivery and closes the request
+  Actor : Ahmed (Site Engineer)
+  Action: Ahmed confirms he received the items on-site.
+
+  API   : POST /api/EngineerRequest/{requestId}/action
+  Body  : {
+            "actionType": "close",
+            "notes": "Confirmed receipt on site"
+          }
+  Result: Status changes to "Closed". Workflow complete.
+
+----
+
+Step 6: View request history at any time
+  API   : GET /api/EngineerRequest/{requestId}/activities
+  Result: Full audit trail of all status changes and who did what.
+
+
+------------------------------------------------------------------------
+SCENARIO B — Request Sent Back for Missing Information
+------------------------------------------------------------------------
+
+Step 1: Ahmed creates request (same as Scenario A, Step 1)
+
+Step 2: Omar reviews and finds the description is incomplete
+  API   : POST /api/EngineerRequest/{requestId}/action
+  Body  : {
+            "actionType": "missinginfo",
+            "notes": "Please specify pipe thickness and grade"
+          }
+  Result: Status changes to "Missing Information". Ahmed is notified.
+
+Step 3: Ahmed adds the missing information
+  Actor : Ahmed
+  Action: Ahmed updates the request with the required details and adds a note.
+
+  API   : PUT /api/EngineerRequest
+  Body  : {
+            "id": "requestId",
+            "descreption": "Need 50 units of 2-inch steel pipes, grade A, thickness 3mm",
+            "engineerRequestNotes": [
+              { "note": "Pipe grade: A, thickness: 3mm as requested" }
+            ]
+          }
+  Result: Status auto-resets back to "New". Omar is notified again.
+
+Step 4: Normal flow continues from Scenario A Step 2 onwards.
+
+
+------------------------------------------------------------------------
+SCENARIO C — Request Rejected
+------------------------------------------------------------------------
+
+Step 1: Ahmed creates request (same as Scenario A, Step 1)
+
+Step 2: Omar rejects the request (budget issue or wrong department)
+  API   : POST /api/EngineerRequest/{requestId}/action
+  Body  : {
+            "actionType": "reject",
+            "notes": "Out of project budget for this month"
+          }
+  Result: Status changes to "Rejected". Ahmed is notified. FINAL STATE.
+
+------------------------------------------------------------------------
+SCENARIO D — Reassign to Another Engineer
+------------------------------------------------------------------------
+
+Step 1-2: Same as Scenario A Steps 1 and 2.
+
+Step 3: Sara is on leave. Omar reassigns to Khaled.
+  API   : POST /api/EngineerRequest/{requestId}/reassign
+  Body  : {
+            "newAssigneeId": "eng789",
+            "reason": "Sara is on sick leave"
+          }
+  Result: Request is now assigned to Khaled. He receives a notification.
+
+Step 4: Normal flow continues.
+
+
+------------------------------------------------------------------------
+SUPPORTING APIS — Procurement
+------------------------------------------------------------------------
+
+List all requests for a department (manager view):
+  GET /api/EngineerRequest/department/{departmentId}?pageIndex=1&pageSize=10
+
+Search/filter requests:
+  GET /api/EngineerRequest/filter?status=InProgress&projectId=abc123&pageIndex=1&pageSize=10
+
+My requests (what I created or was assigned to):
+  GET /api/EngineerRequest/appliedOrCreatedReqeust?pageIndex=1&pageSize=10
+
+Get requests by status for current user:
+  GET /api/EngineerRequest/byStatus?statusId=xxx&pageIndex=1&pageSize=10
+
+View receipts already recorded:
+  GET /api/EngineerRequest/{requestId}/receipts
+
+Confirm delivery date is locked (no more date changes):
+  PATCH /api/EngineerRequest/{requestId}/confirm-delivery-date
+
+Delete a request (only allowed before any assignment):
+  DELETE /api/EngineerRequest/{requestId}
+
+
+================================================================================
+2. TRANSFER REQUEST WORKFLOW
+================================================================================
+
+SCENARIO A — Normal Full Transfer
+------------------------------------------------------------------------
+
+Step 1: Engineer creates a transfer request
+  Actor : Khaled (Site Engineer at Project A)
+  Action: Khaled has extra cement bags at Project A warehouse. He wants to
+          transfer them to Project B which needs them urgently.
+
+  API   : POST /api/TransferRequest
+  Body  : {
+            "requestDate": "2026-05-23",
+            "sourceProjectId": "projectA-id",
+            "sourceWarehouse": "Warehouse 1",
+            "destinationProjectId": "projectB-id",
+            "destinationWarehouse": "Main Storage",
+            "notes": "Urgent - Project B needs this by Sunday",
+            "items": [
+              {
+                "itemCode": "CEM-001",
+                "itemName": "Cement Bags 50kg",
+                "unit": "Bag",
+                "quantity": 200,
+                "notes": "In good condition"
+              }
+            ]
+          }
+  Result: Transfer request created with RequestNumber = "TRF-2026-00001"
+          Status = Draft.
+
+----
+
+Step 2: Khaled submits the request
+  API   : POST /api/TransferRequest/{id}/action
+  Body  : { "actionType": "submit" }
+  Result: Status changes to PendingReceipt.
+          Project B team is expected to confirm when items arrive.
+
+----
+
+Step 3: Project B team confirms full receipt
+  Actor : Ali (Engineer at Project B)
+  Action: The cement bags arrived. Ali confirms all 200 bags received.
+
+  API   : POST /api/TransferRequest/{id}/action
+  Body  : { "actionType": "confirmreceipt", "comments": "All 200 bags received in good condition" }
+  Result: Status changes to Closed. Workflow complete.
+
+
+------------------------------------------------------------------------
+SCENARIO B — Partial Receipt (Items Arrive in Two Shipments)
+------------------------------------------------------------------------
+
+Step 1-2: Same as Scenario A Steps 1 and 2.
+
+Step 3: Only 120 bags arrive in first truck. Ali confirms partial receipt.
+  API   : POST /api/TransferRequest/{id}/action
+  Body  : { "actionType": "confirmpartialreceipt", "comments": "Received 120 of 200 bags - truck 1" }
+  Result: Status changes to PartiallyReceived.
+
+Step 4: Remaining 80 bags arrive next day. Ali confirms remaining receipt.
+  API   : POST /api/TransferRequest/{id}/action
+  Body  : { "actionType": "confirmreceipt", "comments": "Remaining 80 bags received - truck 2" }
+  Result: Status changes to Closed. Workflow complete.
+
+
+------------------------------------------------------------------------
+SCENARIO C — Transfer Cancelled
+------------------------------------------------------------------------
+
+Step 1: Khaled creates and submits request (Scenario A Steps 1 and 2).
+
+Step 2: Project B no longer needs the items (got a different supplier).
+  API   : POST /api/TransferRequest/{id}/action
+  Body  : { "actionType": "cancel", "comments": "Project B found alternative source" }
+  Result: Status changes to Cancelled. FINAL STATE.
+
+
+------------------------------------------------------------------------
+SUPPORTING APIS — Transfer Request
+------------------------------------------------------------------------
+
+Get single request details:
+  GET /api/TransferRequest/{id}
+
+List / filter all requests:
+  GET /api/TransferRequest?status=PendingReceipt&sourceProjectId=xxx&pageIndex=1&pageSize=10
+
+Delete a draft request (only Draft allowed):
+  DELETE /api/TransferRequest/{id}
+
+Update a draft request (change items or warehouses):
+  PUT /api/TransferRequest
+  Body: { "id": "...", "notes": "updated notes", "items": [...] }
+
+
+================================================================================
+3. LABOR ATTENDANCE REQUEST WORKFLOW
+================================================================================
+
+SCENARIO A — Normal Flow (Full Approval Cycle)
+------------------------------------------------------------------------
+
+Step 1: Supervisor records daily attendance
+  Actor : Yasser (Site Supervisor at Al-Madinah Project)
+  Action: End of workday. Yasser records attendance for all 5 workers.
+
+  API   : POST /api/LaborAttendance
+  Body  : {
+            "projectId": "project-madinah-id",
+            "siteName": "Al-Madinah Site - Block C",
+            "attendanceDate": "2026-05-23",
+            "notes": "Normal working day",
+            "records": [
+              {
+                "name": "Mohamed Hassan",
+                "jobTitle": "Mason",
+                "attendanceStatus": "Present",
+                "dailyRate": 150.00,
+                "overtimeHours": 0,
+                "notes": ""
+              },
+              {
+                "name": "Ibrahim Saad",
+                "jobTitle": "Helper",
+                "attendanceStatus": "HalfDay",
+                "dailyRate": 100.00,
+                "overtimeHours": 0,
+                "notes": "Left early - personal reason"
+              },
+              {
+                "name": "Faisal Omar",
+                "jobTitle": "Mason",
+                "attendanceStatus": "Overtime",
+                "dailyRate": 150.00,
+                "overtimeHours": 3,
+                "notes": "Worked extra to finish wall section"
+              },
+              {
+                "name": "Abdullah Ali",
+                "jobTitle": "Helper",
+                "attendanceStatus": "Absent",
+                "dailyRate": 100.00,
+                "overtimeHours": 0,
+                "notes": "No show"
+              },
+              {
+                "name": "Tariq Nasser",
+                "jobTitle": "Electrician",
+                "attendanceStatus": "Present",
+                "dailyRate": 200.00,
+                "overtimeHours": 0,
+                "notes": ""
+              }
+            ]
+          }
+  Result: Request created with RequestNumber = "LAB-2026-00041", Status = Draft.
+          System auto-calculates pay:
+            Mohamed  = 150.00  (full day)
+            Ibrahim  = 50.00   (half day = 50%)
+            Faisal   = 150 + (3 * 150/8) = 206.25  (overtime)
+            Abdullah = 0.00    (absent)
+            Tariq    = 200.00  (full day)
+            TOTAL    = 606.25
+
+----
+
+Step 2: Supervisor submits the sheet
+  API   : POST /api/LaborAttendance/{id}/action
+  Body  : { "actionType": "submit" }
+  Result: Status changes to Submitted. Validator is notified.
+
+----
+
+Step 3: Validator reviews and validates the attendance
+  Actor : Nour (Project Accountant / Validator)
+  Action: Nour checks the records, confirms attendance matches site reports.
+
+  API   : POST /api/LaborAttendance/{id}/action
+  Body  : { "actionType": "validate", "comments": "Verified against site daily report" }
+  Result: Status changes to Validated. Manager is notified.
+
+----
+
+Step 4: Manager approves
+  Actor : Dr. Samir (Project Manager)
+  Action: Manager reviews total cost and approves.
+
+  API   : POST /api/LaborAttendance/{id}/action
+  Body  : { "actionType": "approve", "comments": "Approved for payroll processing" }
+  Result: Status changes to Approved.
+
+----
+
+Step 5: Admin closes for payroll processing
+  Actor : Admin
+  Action: Payroll team processes the payments and closes the record.
+
+  API   : POST /api/LaborAttendance/{id}/action
+  Body  : { "actionType": "close", "comments": "Payroll processed on 25-May-2026" }
+  Result: Status changes to Closed. Workflow complete.
+
+
+------------------------------------------------------------------------
+SCENARIO B — Supervisor Corrects a Mistake Before Submitting
+------------------------------------------------------------------------
+
+Step 1: Yasser creates the attendance sheet (same as above) but enters wrong
+        daily rate for Faisal. Status = Draft.
+
+Step 2: Yasser realizes the mistake and updates the record.
+  API   : PUT /api/LaborAttendance
+  Body  : {
+            "id": "attendance-id",
+            "records": [
+              ... all records with corrected Faisal rate = 180.00 ...
+            ]
+          }
+  Result: Record updated. Still in Draft. No issue.
+
+Step 3: Yasser submits. Normal flow continues.
+  Note: Once submitted, records CANNOT be edited. Only Draft can be updated.
+
+
+------------------------------------------------------------------------
+SUPPORTING APIS — Labor Attendance
+------------------------------------------------------------------------
+
+Get single request:
+  GET /api/LaborAttendance/{id}
+
+List / filter:
+  GET /api/LaborAttendance?status=Submitted&projectId=xxx&supervisorId=xxx&fromDate=2026-05-01&toDate=2026-05-31&pageIndex=1&pageSize=10
+
+Delete a draft (only Draft allowed):
+  DELETE /api/LaborAttendance/{id}
+
+
+================================================================================
+4. FINANCIAL CLEARANCE WORKFLOW
+================================================================================
+
+SCENARIO A — Normal Full Approval Cycle
+------------------------------------------------------------------------
+
+Context: Engineer Rania received a 5,000 SAR cash advance for buying site
+         supplies. She spent 4,200 SAR and needs to return the remaining 800.
+
+Step 1: Rania creates the clearance request
+  Actor : Rania (Engineer)
+
+  API   : POST /api/FinancialClearance
+  Body  : {
+            "employeeName": "Rania Al-Zahrani",
+            "departmentId": "dept-engineering-id",
+            "projectId": "project-jeddah-id",
+            "requestDate": "2026-05-23",
+            "advanceAmount": 5000.00,
+            "spentAmount": 4200.00,
+            "notes": "Purchased site safety equipment and consumables"
+          }
+  Result: Clearance created with ClearanceNumber = "FIN-2026-00012", Status = Draft.
+          System auto-calculates: RemainingAmount = 5000 - 4200 = 800.00
+
+----
+
+Step 2: Rania uploads receipts/invoices as attachments
+  Action: Before submitting, Rania updates the clearance and attaches invoices.
+
+  API   : PUT /api/FinancialClearance
+  Body  : multipart/form-data
+          {
+            "id": "clearance-id",
+            "attachments": [invoice1.pdf, invoice2.pdf, receipt1.jpg],
+            "attachmentTypes": ["Invoice", "Invoice", "Receipt"]
+          }
+  Result: Files uploaded and linked to the clearance.
+
+----
+
+Step 3: Rania submits the clearance
+  API   : POST /api/FinancialClearance/{id}/action
+  Body  : { "actionType": "submit" }
+  Result: Status changes to Submitted. Finance team is notified.
+
+----
+
+Step 4: Finance officer puts it under review
+  Actor : Hassan (Finance Officer)
+  Action: Hassan opens the clearance, checks the attached invoices.
+
+  API   : POST /api/FinancialClearance/{id}/action
+  Body  : { "actionType": "review", "comments": "Invoices under verification" }
+  Result: Status changes to UnderReview.
+
+----
+
+Step 5: Finance manager approves
+  Actor : Ms. Dalal (Finance Manager)
+  Action: All invoices verified. Total matches. Rania owes 800 SAR back.
+
+  API   : POST /api/FinancialClearance/{id}/action
+  Body  : { "actionType": "approve", "comments": "All invoices verified. 800 SAR to be returned." }
+  Result: Status changes to Approved.
+
+----
+
+Step 6: Admin closes after return amount is collected
+  Actor : Admin
+  Action: Rania returns the 800 SAR. Admin closes the clearance.
+
+  API   : POST /api/FinancialClearance/{id}/action
+  Body  : { "actionType": "close", "comments": "800 SAR returned to finance on 25-May-2026" }
+  Result: Status changes to Closed. Workflow complete.
+  Note  : Closing REQUIRES at least one attachment to be present.
+
+
+------------------------------------------------------------------------
+SCENARIO B — Clearance Rejected During Review
+------------------------------------------------------------------------
+
+Step 1-4: Same as Scenario A Steps 1 through 4.
+
+Step 5: Hassan discovers invoices do not match the spent amount.
+  API   : POST /api/FinancialClearance/{id}/action
+  Body  : { "actionType": "reject", "comments": "Invoice totals only add up to 3,800. Missing 400 SAR documentation." }
+  Result: Status changes to Rejected. FINAL STATE.
+          Rania is notified. A new clearance must be created if needed.
+
+
+------------------------------------------------------------------------
+SCENARIO C — Rejected at Approval Stage
+------------------------------------------------------------------------
+
+Step 1-5: Same as Scenario A Steps 1 through 5 (Approved stage).
+
+Step 6: Finance Manager finds a budget policy violation after approval.
+  API   : POST /api/FinancialClearance/{id}/action
+  Body  : { "actionType": "reject", "comments": "Item purchased not in approved procurement list" }
+  Result: Status changes to Rejected. FINAL STATE.
+  Note  : Reject is allowed from Submitted, UnderReview, or Approved.
+          Reject is NOT allowed from Draft or Closed.
+
+
+------------------------------------------------------------------------
+SCENARIO D — Validation Error: Spent Exceeds Advance
+------------------------------------------------------------------------
+
+Rania mistakenly enters spentAmount = 5,500 (more than the 5,000 advance).
+
+  API   : POST /api/FinancialClearance
+  Body  : { "advanceAmount": 5000, "spentAmount": 5500, ... }
+  Result: ERROR 400 — "Spent amount cannot exceed advance amount."
+          The clearance is NOT created. Rania must correct the values.
+
+
+------------------------------------------------------------------------
+SUPPORTING APIS — Financial Clearance
+------------------------------------------------------------------------
+
+Get single clearance:
+  GET /api/FinancialClearance/{id}
+
+List / filter:
+  GET /api/FinancialClearance?status=UnderReview&projectId=xxx&departmentId=xxx&requestedById=xxx&fromDate=2026-05-01&toDate=2026-05-31&search=FIN-2026&pageIndex=1&pageSize=10
+
+Delete a draft (only Draft allowed):
+  DELETE /api/FinancialClearance/{id}
+
+
+================================================================================
+IMPORTANT RULES (APPLIES TO ALL WORKFLOWS)
+================================================================================
+
+1. EDIT RULE
+   Only DRAFT records can be edited (PUT) or deleted (DELETE).
+   Once submitted, the record is locked for editing.
+
+2. DELETE RULE
+   DELETE is only allowed on Draft status.
+   A submitted/approved/closed record cannot be deleted.
+
+3. ACTION SEQUENCE
+   Actions must follow the defined order.
+   Example: You cannot "approve" a Financial Clearance that is still in Draft.
+   The server will return an error if the sequence is wrong.
+
+4. AUTHENTICATION
+   Every API call requires a valid JWT token in the Authorization header.
+   Header: Authorization: Bearer {your_token}
+   Get a token from: POST /api/Auth/login
+
+5. REQUEST NUMBERS
+   Auto-generated by the server:
+     Engineer Requests  : dynamic (Status table order)
+     Transfer Requests  : TRF-{YEAR}-{SEQUENCE}   e.g. TRF-2026-00001
+     Labor Attendance   : LAB-{YEAR}-{SEQUENCE}   e.g. LAB-2026-00041
+     Financial Clearance: FIN-{YEAR}-{SEQUENCE}   e.g. FIN-2026-00012
+
+6. ACTIVITY LOG
+   Every status change is recorded automatically with:
+   - Who performed the action
+   - From status / To status
+   - Timestamp
+   - Comments
+
+================================================================================
