@@ -204,46 +204,100 @@ namespace Contracting.Infrustructure.Features.business
 
         public async Task<PaginatedList<GetLaborAttendanceRequestDto>> GetAllAsync(LaborAttendanceFilterDto filter)
         {
-            var query = _db.LaborAttendanceRequests
-                .Include(r => r.Project)
-                .Include(r => r.Department)
-                .Include(r => r.Supervisor)
-                .Include(r => r.AssignedTo)
-                .Include(r => r.Records)
-                .Include(r => r.Attachments)
-                .Include(r => r.Activities).ThenInclude(a => a.Engineer)
-                .Where(r => !r.IsDeleted)
-                .AsNoTracking();
+            try
+            {
+                var roles = CurrentUser.Roles;
+                var isAdmin = roles.Any(r => r.Equals(Contracting.Shared.Constants.RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase)
+                                          || r.Equals(Contracting.Shared.Constants.RoleNames.Admin, StringComparison.OrdinalIgnoreCase));
 
-            if (!string.IsNullOrWhiteSpace(filter.Status)
-                && Enum.TryParse<LaborAttendanceStatus>(filter.Status, true, out var statusEnum))
-                query = query.Where(r => r.Status == statusEnum);
+                var query = _db.LaborAttendanceRequests
+                    .Include(r => r.Project)
+                    .Include(r => r.Department)
+                    .Include(r => r.Supervisor)
+                    .Include(r => r.AssignedTo)
+                    .Include(r => r.Records)
+                    .Include(r => r.Attachments)
+                    .Include(r => r.Activities).ThenInclude(a => a.Engineer)
+                    .Where(r => !r.IsDeleted)
+                    .AsNoTracking();
 
-            if (filter.ProjectId.HasValue) query = query.Where(r => r.ProjectId == filter.ProjectId);
-            if (filter.SupervisorId.HasValue) query = query.Where(r => r.SupervisorId == filter.SupervisorId);
-            if (filter.FromDate.HasValue) query = query.Where(r => r.AttendanceDate >= filter.FromDate);
-            if (filter.ToDate.HasValue) query = query.Where(r => r.AttendanceDate <= filter.ToDate);
-            if (!string.IsNullOrWhiteSpace(filter.Search))
-                query = query.Where(r => r.RequestNumber!.Contains(filter.Search) || r.SiteName!.Contains(filter.Search));
+                if (!isAdmin && Guid.TryParse(CurrentUser.UserId, out var currentUserId))
+                {
+                    var engineer = await _db.Engineers.AsNoTracking()
+                        .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
 
-            var totalCount = await query.CountAsync();
-            var items = await query
-                .OrderByDescending(r => r.CreatedDate)
-                .Skip((filter.PageIndex - 1) * filter.PageSize)
-                .Take(filter.PageSize)
-                .ToListAsync();
+                    if (engineer != null)
+                    {
+                        // Get departments where this engineer is a TeamLead
+                        var teamLeadDeptIds = await (from ed in _db.EngineerDepartments
+                                                     join role in _db.Roles on ed.RoleId equals role.Id
+                                                     where ed.EngineerId == engineer.Id && role.Name == Contracting.Shared.Constants.RoleNames.Teamleadengineer
+                                                     select ed.DepartmentId)
+                                                    .ToListAsync();
 
-            return new PaginatedList<GetLaborAttendanceRequestDto>(
-                items.Select(MapToDto).ToList(),
-                totalCount, filter.PageIndex, filter.PageSize);
+                        // Fallback: check via UserRoles + engineer.DepartmentId
+                        if (!teamLeadDeptIds.Any() && engineer.DepartmentId.HasValue)
+                        {
+                            var isTeamLeadViaRoles = await (from userRole in _db.UserRoles
+                                                            join role in _db.Roles on userRole.RoleId equals role.Id
+                                                            where userRole.UserId == engineer.ApplicationUserId
+                                                                  && role.Name == Contracting.Shared.Constants.RoleNames.Teamleadengineer
+                                                            select role.Id).AnyAsync();
+                            if (isTeamLeadViaRoles)
+                                teamLeadDeptIds.Add(engineer.DepartmentId.Value);
+                        }
+
+                        if (teamLeadDeptIds.Any())
+                        {
+                            // Team lead: see all requests in their departments + assigned to them + created by them
+                            query = query.Where(r =>
+                                (r.DepartmentId.HasValue && teamLeadDeptIds.Contains(r.DepartmentId.Value))
+                                || r.AssignedToId == engineer.Id
+                                || r.SupervisorId == engineer.Id);
+                        }
+                        else
+                        {
+                            // Regular engineer: only see requests created by them or assigned to them
+                            query = query.Where(r => r.SupervisorId == engineer.Id || r.AssignedToId == engineer.Id);
+                        }
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(filter.Status)
+                    && Enum.TryParse<LaborAttendanceStatus>(filter.Status, true, out var statusEnum))
+                    query = query.Where(r => r.Status == statusEnum);
+
+                if (filter.ProjectId.HasValue) query = query.Where(r => r.ProjectId == filter.ProjectId);
+                if (filter.SupervisorId.HasValue) query = query.Where(r => r.SupervisorId == filter.SupervisorId);
+                if (filter.FromDate.HasValue) query = query.Where(r => r.AttendanceDate >= filter.FromDate);
+                if (filter.ToDate.HasValue) query = query.Where(r => r.AttendanceDate <= filter.ToDate);
+                if (!string.IsNullOrWhiteSpace(filter.Search))
+                    query = query.Where(r => r.RequestNumber!.Contains(filter.Search) || r.SiteName!.Contains(filter.Search));
+
+                var totalCount = await query.CountAsync();
+                var items = await query
+                    .OrderByDescending(r => r.CreatedDate)
+                    .Skip((filter.PageIndex - 1) * filter.PageSize)
+                    .Take(filter.PageSize)
+                    .ToListAsync();
+
+                return new PaginatedList<GetLaborAttendanceRequestDto>(
+                    items.Select(MapToDto).ToList(),
+                    totalCount, filter.PageIndex, filter.PageSize);
+            }
+            catch (Exception)
+            {
+                return new PaginatedList<GetLaborAttendanceRequestDto>(
+                    new List<GetLaborAttendanceRequestDto>(), 0, filter.PageIndex, filter.PageSize);
+            }
         }
 
         public async Task<ErrorOr<GetLaborAttendanceRequestDto>> TakeActionAsync(Guid id, LaborAttendanceActionDto dto)
         {
             var request = await _db.LaborAttendanceRequests
                 .Include(r => r.Records)
-                .Include(r => r.Activities)
                 .Include(r => r.Supervisor)
+                .AsNoTracking()
                 .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
 
             if (request is null) return Error.NotFound("LaborAttendance.NotFound", "Labor attendance request not found.");
@@ -271,47 +325,59 @@ namespace Contracting.Infrustructure.Features.business
                     if (assignedEngineer is null)
                         return Error.NotFound("LaborAttendance.EngineerNotFound", "Assigned engineer not found.");
 
-                    request.AssignedToId = dto.AssignedToId.Value;
-                    toStatus = LaborAttendanceStatus.Submitted;
+                    toStatus = LaborAttendanceStatus.Assigned;
                     break;
                 case "validate":
-                    if (request.Status != LaborAttendanceStatus.Submitted)
-                        return Error.Validation("LaborAttendance.InvalidAction", "Only Submitted requests can be validated.");
+                    if (request.Status != LaborAttendanceStatus.Assigned)
+                        return Error.Validation("LaborAttendance.InvalidAction", "Only Assigned requests can be validated.");
                     toStatus = LaborAttendanceStatus.Validated;
                     break;
                 case "reject":
-                    if (request.Status != LaborAttendanceStatus.Submitted)
-                        return Error.Validation("LaborAttendance.InvalidAction", "Only Submitted requests can be rejected.");
+                    if (request.Status != LaborAttendanceStatus.Assigned)
+                        return Error.Validation("LaborAttendance.InvalidAction", "Only Assigned requests can be rejected.");
                     toStatus = LaborAttendanceStatus.Rejected;
                     break;
                 default:
                     return Error.Validation("LaborAttendance.UnknownAction", $"Unknown action: {dto.ActionType}");
             }
 
-            request.Status = toStatus;
-            request.Activities.Add(new LaborAttendanceActivity
+            // Use ExecuteUpdateAsync to avoid EF tracking concurrency issues
+            if (assignedEngineer is not null)
             {
-                LaborAttendanceRequestId = request.Id,
+                await _db.LaborAttendanceRequests
+                    .Where(r => r.Id == id)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(r => r.Status, toStatus)
+                        .SetProperty(r => r.AssignedToId, assignedEngineer.Id));
+            }
+            else
+            {
+                await _db.LaborAttendanceRequests
+                    .Where(r => r.Id == id)
+                    .ExecuteUpdateAsync(s => s.SetProperty(r => r.Status, toStatus));
+            }
+
+            await _db.LaborAttendanceActivities.AddAsync(new LaborAttendanceActivity
+            {
+                LaborAttendanceRequestId = id,
                 EngineerId = engineer?.Id,
                 FromStatus = fromStatus,
                 ToStatus = toStatus,
                 ActionType = dto.ActionType,
                 Comments = dto.Comments
             });
-
             await _db.SaveChangesAsync();
 
-            // Send notifications after save
+            // Send notifications
             var supervisorUserId = request.Supervisor?.ApplicationUserId;
             switch (dto.ActionType.ToLower())
             {
                 case "assign":
-                    if (assignedEngineer is not null)
-                        await _notificationService.SendNotificationToUserAsync(
-                            assignedEngineer.ApplicationUserId,
-                            "Labor Attendance Request Assigned",
-                            $"Request {request.RequestNumber} has been assigned to you for review.",
-                            request.Id);
+                    await _notificationService.SendNotificationToUserAsync(
+                        assignedEngineer!.ApplicationUserId,
+                        "Labor Attendance Request Assigned",
+                        $"Request {request.RequestNumber} has been assigned to you for review.",
+                        id);
                     break;
                 case "validate":
                     if (supervisorUserId.HasValue)
@@ -319,7 +385,7 @@ namespace Contracting.Infrustructure.Features.business
                             supervisorUserId.Value,
                             "Labor Attendance Request Validated",
                             $"Your request {request.RequestNumber} has been validated.",
-                            request.Id);
+                            id);
                     break;
                 case "reject":
                     if (supervisorUserId.HasValue)
@@ -327,11 +393,11 @@ namespace Contracting.Infrustructure.Features.business
                             supervisorUserId.Value,
                             "Labor Attendance Request Rejected",
                             $"Your request {request.RequestNumber} has been rejected. {dto.Comments}",
-                            request.Id);
+                            id);
                     break;
             }
 
-            return await GetByIdAsync(request.Id);
+            return await GetByIdAsync(id);
         }
 
         private static decimal CalculateTotalAmount(WorkerAttendanceStatus status, decimal dailyRate, decimal overtimeHours)
@@ -390,7 +456,7 @@ namespace Contracting.Infrustructure.Features.business
             Activities = r.Activities.Select(a => new GetLaborAttendanceActivityDto
             {
                 Id = a.Id,
-                FromStatus = a.FromStatus?.ToString(),
+                FromStatus = a.FromStatus.HasValue ? a.FromStatus.Value.ToString() : null,
                 ToStatus = a.ToStatus.ToString(),
                 ActionType = a.ActionType,
                 Comments = a.Comments,
