@@ -31,8 +31,11 @@ namespace Contracting.Infrustructure.Features.business
 
         public async Task<ErrorOr<GetLaborAttendanceRequestDto>> CreateAsync(CreateLaborAttendanceRequestDto dto)
         {
+            if (string.IsNullOrEmpty(CurrentUser.UserId) || !Guid.TryParse(CurrentUser.UserId, out var currentUserId))
+                return Error.Unauthorized("Auth.Unauthorized", "User is not authenticated.");
+
             var engineer = await _db.Engineers.AsNoTracking()
-                .FirstOrDefaultAsync(e => e.ApplicationUserId == Guid.Parse(CurrentUser.UserId!));
+                .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
 
             if (dto.Records == null || dto.Records.Count == 0)
                 return Error.Validation("LaborAttendance.RecordsRequired", "At least one labor record must be added.");
@@ -46,7 +49,7 @@ namespace Contracting.Infrustructure.Features.business
                 AttendanceDate = dto.AttendanceDate,
                 SupervisorId = engineer?.Id,
                 Notes = dto.Notes,
-                Status = LaborAttendanceStatus.Draft
+                Status = LaborAttendanceStatus.Pending
             };
 
             foreach (var rec in dto.Records)
@@ -98,7 +101,7 @@ namespace Contracting.Infrustructure.Features.business
             request.Activities.Add(new LaborAttendanceActivity
             {
                 EngineerId = engineer?.Id,
-                ToStatus = LaborAttendanceStatus.Draft,
+                ToStatus = LaborAttendanceStatus.Pending,
                 ActionType = "Created"
             });
 
@@ -116,8 +119,8 @@ namespace Contracting.Infrustructure.Features.business
                 .FirstOrDefaultAsync(r => r.Id == dto.Id && !r.IsDeleted);
 
             if (request is null) return Error.NotFound("LaborAttendance.NotFound", "Labor attendance request not found.");
-            if (request.Status != LaborAttendanceStatus.Draft)
-                return Error.Validation("LaborAttendance.CannotEdit", "Only Draft requests can be edited.");
+            if (request.Status != LaborAttendanceStatus.Pending)
+                return Error.Validation("LaborAttendance.CannotEdit", "Only Pending requests can be edited.");
 
             if (dto.ProjectId.HasValue) request.ProjectId = dto.ProjectId == Guid.Empty ? null : dto.ProjectId;
             if (dto.DepartmentId.HasValue) request.DepartmentId = dto.DepartmentId == Guid.Empty ? null : dto.DepartmentId;
@@ -174,8 +177,8 @@ namespace Contracting.Infrustructure.Features.business
         {
             var request = await _db.LaborAttendanceRequests.FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
             if (request is null) return Error.NotFound("LaborAttendance.NotFound", "Labor attendance request not found.");
-            if (request.Status != LaborAttendanceStatus.Draft)
-                return Error.Validation("LaborAttendance.CannotDelete", "Only Draft requests can be deleted.");
+            if (request.Status != LaborAttendanceStatus.Pending)
+                return Error.Validation("LaborAttendance.CannotDelete", "Only Pending requests can be deleted.");
 
             request.MarkAsDeleted(CurrentUser.Id ?? Guid.Empty);
             await _db.SaveChangesAsync();
@@ -245,8 +248,11 @@ namespace Contracting.Infrustructure.Features.business
 
             if (request is null) return Error.NotFound("LaborAttendance.NotFound", "Labor attendance request not found.");
 
+            if (string.IsNullOrEmpty(CurrentUser.UserId) || !Guid.TryParse(CurrentUser.UserId, out var currentUserId))
+                return Error.Unauthorized("Auth.Unauthorized", "User is not authenticated.");
+
             var engineer = await _db.Engineers.AsNoTracking()
-                .FirstOrDefaultAsync(e => e.ApplicationUserId == Guid.Parse(CurrentUser.UserId!));
+                .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
 
             Domain.Entities.master.Engineer? assignedEngineer = null;
             var fromStatus = request.Status;
@@ -254,13 +260,6 @@ namespace Contracting.Infrustructure.Features.business
 
             switch (dto.ActionType.ToLower())
             {
-                case "submit":
-                    if (request.Status != LaborAttendanceStatus.Draft)
-                        return Error.Validation("LaborAttendance.InvalidAction", "Only Draft requests can be submitted.");
-                    if (!request.Records.Any())
-                        return Error.Validation("LaborAttendance.NoRecords", "Cannot submit a request with no labor records.");
-                    toStatus = LaborAttendanceStatus.Pending;
-                    break;
                 case "assign":
                     if (request.Status != LaborAttendanceStatus.Pending)
                         return Error.Validation("LaborAttendance.InvalidAction", "Only Pending requests can be assigned.");
