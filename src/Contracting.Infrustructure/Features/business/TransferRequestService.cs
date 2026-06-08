@@ -49,7 +49,7 @@ namespace Contracting.Infrustructure.Features.business
                 DestinationWarehouse = dto.DestinationWarehouse,
                 RequestedById = engineer?.Id,
                 Notes = dto.Notes,
-                Status = TransferRequestStatus.Draft
+                Status = TransferRequestStatus.PendingReceipt
             };
 
             foreach (var itemDto in dto.Items)
@@ -82,8 +82,8 @@ namespace Contracting.Infrustructure.Features.business
             request.Activities.Add(new TransferRequestActivity
             {
                 EngineerId = engineer?.Id,
-                ToStatus = TransferRequestStatus.Draft,
-                ActionType = "Created"
+                ToStatus = TransferRequestStatus.PendingReceipt,
+                ActionType = "Submitted"
             });
 
             await _db.TransferRequests.AddAsync(request);
@@ -100,8 +100,8 @@ namespace Contracting.Infrustructure.Features.business
                 .FirstOrDefaultAsync(r => r.Id == dto.Id && !r.IsDeleted);
 
             if (request is null) return Error.NotFound("TransferRequest.NotFound", "Transfer request not found.");
-            if (request.Status != TransferRequestStatus.Draft)
-                return Error.Validation("TransferRequest.CannotEdit", "Only Draft requests can be edited.");
+            if (request.Status != TransferRequestStatus.PendingReceipt)
+                return Error.Validation("TransferRequest.CannotEdit", "Only PendingReceipt requests can be edited.");
 
             if (dto.RequestDate.HasValue) request.RequestDate = dto.RequestDate.Value;
             if (dto.SourceProjectId.HasValue) request.SourceProjectId = dto.SourceProjectId == Guid.Empty ? null : dto.SourceProjectId;
@@ -147,8 +147,8 @@ namespace Contracting.Infrustructure.Features.business
         {
             var request = await _db.TransferRequests.FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
             if (request is null) return Error.NotFound("TransferRequest.NotFound", "Transfer request not found.");
-            if (request.Status != TransferRequestStatus.Draft)
-                return Error.Validation("TransferRequest.CannotDelete", "Only Draft requests can be deleted.");
+            if (request.Status != TransferRequestStatus.PendingReceipt)
+                return Error.Validation("TransferRequest.CannotDelete", "Only PendingReceipt requests can be deleted.");
 
             request.MarkAsDeleted(CurrentUser.Id ?? Guid.Empty);
             await _db.SaveChangesAsync();
@@ -217,7 +217,7 @@ namespace Contracting.Infrustructure.Features.business
         public async Task<ErrorOr<GetTransferRequestDto>> TakeActionAsync(Guid id, TransferRequestActionDto dto)
         {
             var request = await _db.TransferRequests
-                .Include(r => r.Activities)
+                .AsNoTracking()
                 .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
 
             if (request is null) return Error.NotFound("TransferRequest.NotFound", "Transfer request not found.");
@@ -254,10 +254,18 @@ namespace Contracting.Infrustructure.Features.business
                     return Error.Validation("TransferRequest.UnknownAction", $"Unknown action: {dto.ActionType}");
             }
 
-            request.Status = toStatus;
-            request.Activities.Add(new TransferRequestActivity
+            // Use direct SQL update to avoid EF Core concurrency tracking issues
+            await _db.TransferRequests
+                .Where(r => r.Id == id)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(r => r.Status, toStatus)
+                    .SetProperty(r => r.ModifiedDate, DateTimeOffset.UtcNow)
+                    .SetProperty(r => r.ModifiedBy, engineer != null ? engineer.Id : (Guid?)null));
+
+            // Insert the activity log
+            await _db.TransferRequestActivities.AddAsync(new TransferRequestActivity
             {
-                TransferRequestId = request.Id,
+                TransferRequestId = id,
                 EngineerId = engineer?.Id,
                 FromStatus = fromStatus,
                 ToStatus = toStatus,

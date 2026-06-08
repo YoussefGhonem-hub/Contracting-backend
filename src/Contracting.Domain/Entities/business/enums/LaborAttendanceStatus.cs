@@ -5,7 +5,7 @@ namespace Contracting.Domain.Entities.business.enums
         Draft = 0,
         Submitted = 1,
         Validated = 2,
-        Approved = 3,
-        Closed = 4
+        Pending = 3,
+        Rejected = 4
     }
 }

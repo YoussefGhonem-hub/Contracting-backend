@@ -1,4 +1,6 @@
+using Contracting.Shared.BusinessDtos.EngineerRequestActiviteDto;
 using Contracting.Shared.BusinessDtos.EngineerRequestDto;
+using Contracting.Shared.BusinessDtos.EngineerRequestNotesDtos;
 using Contracting.Shared.BusinessDtos.TransferRequestDto;
 using Contracting.Shared.BusinessDtos.LaborAttendanceDto;
 using Contracting.Shared.BusinessDtos.FinancialClearanceDto;
@@ -6,6 +8,8 @@ using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
 using Contracting.Shared.Dtos.MasterDtos.ProjectDtos;
 using Contracting.Shared.Dtos.MasterDtos.DepartmentDtos;
+using Contracting.Shared.Dtos.MasterDtos.PriorityDto;
+using Contracting.Shared.Dtos.MasterDtos.StatusDtos;
 
 namespace Contracting.Shared.BusinessDtos.UnifiedRequestDto
 {
@@ -23,19 +27,23 @@ namespace Contracting.Shared.BusinessDtos.UnifiedRequestDto
         public GetProjectDto? Project { get; set; }
         public Guid? RequestedById { get; set; }
         public GetEngineerDto? RequestedBy { get; set; }
-        public string? Status { get; set; }
+        public Guid? StatusId { get; set; }
+        public GetDropDownStatusDto? Status { get; set; }
         public string? Notes { get; set; }
         public DateTimeOffset CreatedDate { get; set; }
         
         // Engineer Request specific fields
         public Guid? DepartmentId { get; set; }
         public GetDepartmentDto? Department { get; set; }
+        public Guid? PriorityId { get; set; }
+        public GetDropDownPriorityDto? Priority { get; set; }
         public string? RequestTitle { get; set; }
         public string? Description { get; set; }
         public Guid? AssignedToId { get; set; }
         public GetEngineerDto? AssignedTo { get; set; }
         public DateTime? StartDate { get; set; }
         public DateTime? EndDate { get; set; }
+        public bool NeedsReceiptConfirmation { get; set; }
         
         // Transfer Request specific fields
         public Guid? SourceProjectId { get; set; }
@@ -63,7 +71,15 @@ namespace Contracting.Shared.BusinessDtos.UnifiedRequestDto
         
         // Common collections
         public List<GetAttachmentDto> Attachments { get; set; } = new();
-        
+
+        // Engineer Request special fields
+        public List<EngineerRequestSpecialFieldValueDto> SpecialFieldValues { get; set; } = new();
+        public List<GetEngineerRequestSpecialFieldItemDto> SpecialFieldItems { get; set; } = new();
+
+        // Engineer Request notes and activities
+        public List<GetEngineerRequestNotesDto> EngineerRequestNotes { get; set; } = new();
+        public List<GetEngineerRequestActiviteDto> EngineerRequestActivites { get; set; } = new();
+
         // Original request data (for detailed view)
         public object? OriginalRequest { get; set; }
     }

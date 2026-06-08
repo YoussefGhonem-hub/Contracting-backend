@@ -75,10 +75,13 @@
         public const string PurchaseRequestItemsRequired = "PurchaseRequestItemsRequired";
         public const string PurchaseRequestNotFound = "PurchaseRequestNotFound";
         public const string PurchaseRequestAlreadyClosed = "PurchaseRequestAlreadyClosed";
+        public const string PurchaseRequestNotReadyForReceipt = "PurchaseRequestNotReadyForReceipt";
         public const string GoodsReceiptItemsRequired = "GoodsReceiptItemsRequired";
         public const string GoodsReceiptQuantityExceedsRequested = "GoodsReceiptQuantityExceedsRequested";
         public const string GoodsReceiptItemNotPartOfRequest = "GoodsReceiptItemNotPartOfRequest";
         public const string GoodsReceiptQuantityMustBePositive = "GoodsReceiptQuantityMustBePositive";
+        public const string ConstructionItemNotFound = "ConstructionItemNotFound";
+        public const string InvalidConstructionItemField = "InvalidConstructionItemField";
 
         // Notifications
         public const string NotificationNewRequestTitle = "NotificationNewRequestTitle";

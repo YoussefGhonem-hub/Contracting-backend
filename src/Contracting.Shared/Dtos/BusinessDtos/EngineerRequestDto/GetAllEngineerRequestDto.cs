@@ -12,6 +12,7 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestDto
 {
     public class GetAllEngineerRequestDto
     {
+        public string RequestType { get; set; } = "EngineerRequest";
         public Guid? Id { get; set; }
         public Guid? ProjectId { get; set; }
         public GetProjectDto? Project { get; set; }
@@ -34,6 +35,7 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestDto
         public ICollection<GetEngineerRequestActiviteDto> EngineerRequestActivites { get; set; } = new List<GetEngineerRequestActiviteDto>();
         public ICollection<Contracting.Shared.Dtos.GetAttachmentDto>? EngineerRequestAttachments { get; set; } = new List<GetAttachmentDto>();
         public List<EngineerRequestSpecialFieldValueDto> SpecialFieldValues { get; set; } = new();
+        public List<GetEngineerRequestSpecialFieldItemDto> SpecialFieldItems { get; set; } = new();
 
         // Goods receipts (populated when request is a Purchase Request for Procurement dept)
         public List<GetGoodsReceiptDto> Receipts { get; set; } = new();

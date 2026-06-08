@@ -94,12 +94,19 @@ public static class MappingConfig
         config.NewConfig<UpdateStatusDto, Status>();
         config.NewConfig<Status, GetDropDownStatusDto>();
 
-        config.NewConfig<CreateEngineerRequestDto, EngineerRequest>();
-        config.NewConfig<UpdateEngineerRequestDto, EngineerRequest>();
+        config.NewConfig<CreateEngineerRequestDto, EngineerRequest>()
+            .Ignore(dest => dest.SpecialFieldValues)
+            .Ignore(dest => dest.SpecialFieldItems);
+        config.NewConfig<UpdateEngineerRequestDto, EngineerRequest>()
+            .Ignore(dest => dest.SpecialFieldValues)
+            .Ignore(dest => dest.SpecialFieldItems);
 
         config.NewConfig<EngineerRequestSpecialFieldValue, EngineerRequestSpecialFieldValueDto>()
             .Map(dest => dest.fieldName, src => src.DepartmentSpecialField != null && src.DepartmentSpecialField.SpecialField != null ? src.DepartmentSpecialField.SpecialField.name : null)
             .Map(dest => dest.fieldType, src => src.DepartmentSpecialField != null && src.DepartmentSpecialField.SpecialField != null ? src.DepartmentSpecialField.SpecialField.fieldType : null);
+
+        config.NewConfig<EngineerRequestSpecialFieldItem, GetEngineerRequestSpecialFieldItemDto>()
+            .Map(dest => dest.ConstructionItem, src => src.ConstructionItem);
 
         config.NewConfig<CrearteEngineerRequestNotesDto, EngineerRequestNotes>();
           config.NewConfig<EngineerRequestNotes, GetEngineerRequestNotesDto>()
@@ -146,7 +153,8 @@ public static class MappingConfig
                     .Map(dest => dest.Status, src => src.Status)
                     .Map(dest => dest.EngineerRequestNotes, src => src.EngineerRequestNotes)
                     .Map(dest => dest.EngineerRequestActivites, src => src.EngineerRequestActivites)
-                    .Map(dest => dest.EngineerRequestAttachments, src => src.EngineerRequestAttachments);
+                    .Map(dest => dest.EngineerRequestAttachments, src => src.EngineerRequestAttachments)
+                    .Map(dest => dest.SpecialFieldItems, src => src.SpecialFieldItems);
 
 
         config.NewConfig<CreateRoleDto, ApplicationRole>()

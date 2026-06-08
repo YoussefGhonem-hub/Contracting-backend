@@ -174,6 +174,7 @@ namespace Contracting.Infrustructure.Features
                 nameAr = x.nameAr,
                 nameEn = x.nameEn,
                 hasSpecialFields = x.hasSpecialFields || x.DepartmentSpecialFields.Any(),
+                RequiresGoodsReceipt = x.RequiresGoodsReceipt,
                 SpecialFields = x.DepartmentSpecialFields.Select(dsf => new DepartmentSpecialFieldDto
                 {
                     Id = dsf.Id,

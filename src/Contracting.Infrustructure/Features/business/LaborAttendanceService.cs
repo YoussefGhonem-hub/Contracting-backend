@@ -2,6 +2,7 @@ using Contracting.Domain.Entities.business;
 using Contracting.Domain.Entities.business.enums;
 using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Infrustructure.Inteface.business;
+using Contracting.Infrustructure.Inteface.Helper;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.BusinessDtos.LaborAttendanceDto;
 using Contracting.Shared.Common;
@@ -19,11 +20,13 @@ namespace Contracting.Infrustructure.Features.business
     {
         private readonly ApplicationDbContext _db;
         private readonly Storage.AWS3.Services.IStorageService _storageService;
+        private readonly INotificationService _notificationService;
 
-        public LaborAttendanceService(ApplicationDbContext db, Storage.AWS3.Services.IStorageService storageService)
+        public LaborAttendanceService(ApplicationDbContext db, Storage.AWS3.Services.IStorageService storageService, INotificationService notificationService)
         {
             _db = db;
             _storageService = storageService;
+            _notificationService = notificationService;
         }
 
         public async Task<ErrorOr<GetLaborAttendanceRequestDto>> CreateAsync(CreateLaborAttendanceRequestDto dto)
@@ -237,6 +240,7 @@ namespace Contracting.Infrustructure.Features.business
             var request = await _db.LaborAttendanceRequests
                 .Include(r => r.Records)
                 .Include(r => r.Activities)
+                .Include(r => r.Supervisor)
                 .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
 
             if (request is null) return Error.NotFound("LaborAttendance.NotFound", "Labor attendance request not found.");
@@ -244,6 +248,7 @@ namespace Contracting.Infrustructure.Features.business
             var engineer = await _db.Engineers.AsNoTracking()
                 .FirstOrDefaultAsync(e => e.ApplicationUserId == Guid.Parse(CurrentUser.UserId!));
 
+            Domain.Entities.master.Engineer? assignedEngineer = null;
             var fromStatus = request.Status;
             LaborAttendanceStatus toStatus;
 
@@ -254,34 +259,31 @@ namespace Contracting.Infrustructure.Features.business
                         return Error.Validation("LaborAttendance.InvalidAction", "Only Draft requests can be submitted.");
                     if (!request.Records.Any())
                         return Error.Validation("LaborAttendance.NoRecords", "Cannot submit a request with no labor records.");
-                    toStatus = LaborAttendanceStatus.Submitted;
+                    toStatus = LaborAttendanceStatus.Pending;
                     break;
                 case "assign":
+                    if (request.Status != LaborAttendanceStatus.Pending)
+                        return Error.Validation("LaborAttendance.InvalidAction", "Only Pending requests can be assigned.");
                     if (!dto.AssignedToId.HasValue || dto.AssignedToId == Guid.Empty)
                         return Error.Validation("LaborAttendance.AssignedToRequired", "AssignedToId is required for assign action.");
-                    
-                    var assignedEngineer = await _db.Engineers.AsNoTracking()
+
+                    assignedEngineer = await _db.Engineers.AsNoTracking()
                         .FirstOrDefaultAsync(e => e.Id == dto.AssignedToId.Value);
                     if (assignedEngineer is null)
                         return Error.NotFound("LaborAttendance.EngineerNotFound", "Assigned engineer not found.");
-                    
+
                     request.AssignedToId = dto.AssignedToId.Value;
-                    toStatus = request.Status; // Status doesn't change for assignment
+                    toStatus = LaborAttendanceStatus.Submitted;
                     break;
                 case "validate":
                     if (request.Status != LaborAttendanceStatus.Submitted)
                         return Error.Validation("LaborAttendance.InvalidAction", "Only Submitted requests can be validated.");
                     toStatus = LaborAttendanceStatus.Validated;
                     break;
-                case "approve":
-                    if (request.Status != LaborAttendanceStatus.Validated)
-                        return Error.Validation("LaborAttendance.InvalidAction", "Only Validated requests can be approved.");
-                    toStatus = LaborAttendanceStatus.Approved;
-                    break;
-                case "close":
-                    if (request.Status != LaborAttendanceStatus.Approved)
-                        return Error.Validation("LaborAttendance.InvalidAction", "Only Approved requests can be closed.");
-                    toStatus = LaborAttendanceStatus.Closed;
+                case "reject":
+                    if (request.Status != LaborAttendanceStatus.Submitted)
+                        return Error.Validation("LaborAttendance.InvalidAction", "Only Submitted requests can be rejected.");
+                    toStatus = LaborAttendanceStatus.Rejected;
                     break;
                 default:
                     return Error.Validation("LaborAttendance.UnknownAction", $"Unknown action: {dto.ActionType}");
@@ -299,6 +301,37 @@ namespace Contracting.Infrustructure.Features.business
             });
 
             await _db.SaveChangesAsync();
+
+            // Send notifications after save
+            var supervisorUserId = request.Supervisor?.ApplicationUserId;
+            switch (dto.ActionType.ToLower())
+            {
+                case "assign":
+                    if (assignedEngineer is not null)
+                        await _notificationService.SendNotificationToUserAsync(
+                            assignedEngineer.ApplicationUserId,
+                            "Labor Attendance Request Assigned",
+                            $"Request {request.RequestNumber} has been assigned to you for review.",
+                            request.Id);
+                    break;
+                case "validate":
+                    if (supervisorUserId.HasValue)
+                        await _notificationService.SendNotificationToUserAsync(
+                            supervisorUserId.Value,
+                            "Labor Attendance Request Validated",
+                            $"Your request {request.RequestNumber} has been validated.",
+                            request.Id);
+                    break;
+                case "reject":
+                    if (supervisorUserId.HasValue)
+                        await _notificationService.SendNotificationToUserAsync(
+                            supervisorUserId.Value,
+                            "Labor Attendance Request Rejected",
+                            $"Your request {request.RequestNumber} has been rejected. {dto.Comments}",
+                            request.Id);
+                    break;
+            }
+
             return await GetByIdAsync(request.Id);
         }
 

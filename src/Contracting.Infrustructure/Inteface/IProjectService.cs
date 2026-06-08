@@ -23,5 +23,8 @@ namespace Contracting.Infrustructure.Inteface
 
         // Dropdown
         Task<List<GetProjectDropDownDto>> GetProjectDropdownAsync(Guid? branchId);
+
+        // All projects by branch (no EngineerProject mapping filter)
+        Task<List<GetProjectDropDownDto>> GetProjectsByBranchAsync(Guid branchId, CancellationToken cancellationToken = default);
     }
 }

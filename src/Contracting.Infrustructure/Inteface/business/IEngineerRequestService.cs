@@ -12,7 +12,7 @@ namespace Contracting.Infrustructure.Inteface.business
     public interface IEngineerRequestService
     {
         // Create
-        Task<GetAllEngineerRequestDto> CreateEngineerRequestAsync(CreateEngineerRequestDto dto);
+        Task<ErrorOr<GetAllEngineerRequestDto>> CreateEngineerRequestAsync(CreateEngineerRequestDto dto);
 
         // Update (if not yet actioned, or if in Missing Information status)
         Task<ErrorOr<GetAllEngineerRequestDto>> UpdateEngineerRequestAsync(UpdateEngineerRequestDto dto);

@@ -1,9 +1,10 @@
+using Contracting.Shared.Constants;
+
 namespace Contracting.Shared.BusinessDtos.FinancialClearanceDto
 {
     public class FinancialClearanceActionDto
     {
-        /// <summary>Submit, Review, Approve, Close, Reject</summary>
-        public string ActionType { get; set; } = string.Empty;
+        public FinancialClearanceActionType ActionType { get; set; }
         public string? Comments { get; set; }
     }
 }

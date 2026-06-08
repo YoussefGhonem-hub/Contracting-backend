@@ -348,6 +348,9 @@
   <data name="PurchaseRequestAlreadyClosed" xml:space="preserve">
     <value>Purchase request is already closed.</value>
   </data>
+  <data name="PurchaseRequestNotReadyForReceipt" xml:space="preserve">
+    <value>Cannot submit receipt yet. The office engineer must first mark this request as completed.</value>
+  </data>
   <data name="GoodsReceiptItemsRequired" xml:space="preserve">
     <value>Goods receipt must include at least one item.</value>
   </data>

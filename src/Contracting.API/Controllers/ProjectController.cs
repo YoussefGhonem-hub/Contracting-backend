@@ -5,6 +5,7 @@ using Contracting.Application.Features.Master.Project.Command.UpdateProject;
 using Contracting.Application.Features.Master.Project.Query.GetAllProjects;
 using Contracting.Application.Features.Master.Project.Query.GetProjectById;
 using Contracting.Application.Features.Master.Project.Query.GetProjectDropdown;
+using Contracting.Application.Features.Master.Project.Query.GetProjectsByBranch;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.ProjectDtos;
 using MediatR;
@@ -98,6 +99,19 @@ namespace Contracting.API.Controllers
         public async Task<IActionResult> GetDropdown([FromQuery] Guid? branchId)
         {
             var query = new GetProjectDropdownQuery(branchId);
+            var result = await _mediator.Send(query);
+
+            return result.Match(
+                projects => Ok(projects),
+                errors => Problem(errors)
+            );
+        }
+
+        // Get all projects by branch — no EngineerProject mapping filter
+        [HttpGet("branch/{branchId:guid}/all")]
+        public async Task<IActionResult> GetAllByBranch(Guid branchId)
+        {
+            var query = new GetProjectsByBranchQuery(branchId);
             var result = await _mediator.Send(query);
 
             return result.Match(
