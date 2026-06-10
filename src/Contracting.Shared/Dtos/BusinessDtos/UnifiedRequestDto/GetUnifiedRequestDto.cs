@@ -70,7 +70,7 @@ namespace Contracting.Shared.BusinessDtos.UnifiedRequestDto
         public decimal? RemainingAmount { get; set; }
         
         // Common collections
-        public List<GetAttachmentDto> Attachments { get; set; } = new();
+        public List<GetAttachmentDto> EngineerRequestAttachments { get; set; } = new();
 
         // Engineer Request special fields
         public List<EngineerRequestSpecialFieldValueDto> SpecialFieldValues { get; set; } = new();

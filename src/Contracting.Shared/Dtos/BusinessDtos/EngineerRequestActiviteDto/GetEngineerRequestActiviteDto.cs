@@ -9,6 +9,7 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestActiviteDto
         public Guid? StatusId { get; set; }
         public string? StatusName { get; set; }
         public string? ActionType { get; set; }
+        public string? Comments { get; set; }
         public DateTimeOffset CreatedDate { get; set; }
     }
 }

@@ -958,7 +958,9 @@ public class EngineerRequestService : IEngineerRequestService
         if (actionDto.timeDuration.HasValue && actionDto.timeDuration != 0)
         {
             request.timeDuration = actionDto.timeDuration.Value;
-            request.startDate = actionDto.startDate.Value;
+
+            if (actionDto.startDate.HasValue)
+                request.startDate = actionDto.startDate.Value;
 
             // Block endDate change if delivery date has already been confirmed
             if (request.IsDeliveryDateConfirmed && actionDto.endDate != request.endDate)
@@ -1256,7 +1258,7 @@ public class EngineerRequestService : IEngineerRequestService
                     filter.PageSize);
             }
 
-            // Get all departments where engineer is a TeamLead (via EngineerDepartments) — single bulk query
+            // Get all departments where engineer is a TeamLead (via EngineerDepartments) ï¿½ single bulk query
             teamLeadDeptIds = await (from ed in _db.EngineerDepartments
                                      join role in _db.Roles on ed.RoleId equals role.Id
                                      where ed.EngineerId == engineer.Id && role.Name == RoleNames.Teamleadengineer
@@ -1275,7 +1277,7 @@ public class EngineerRequestService : IEngineerRequestService
                     teamLeadDeptIds.Add(engineer.DepartmentId.Value);
             }
 
-            // Get all departments this engineer belongs to — single query
+            // Get all departments this engineer belongs to ï¿½ single query
             allEngineerDeptIds = await _db.EngineerDepartments
                 .Where(ed => ed.EngineerId == engineer.Id)
                 .Select(ed => ed.DepartmentId)
@@ -1294,7 +1296,7 @@ public class EngineerRequestService : IEngineerRequestService
             }
         }
 
-        // Build base query — AsSplitQuery prevents Cartesian explosion from multiple collection includes
+        // Build base query ï¿½ AsSplitQuery prevents Cartesian explosion from multiple collection includes
         var query = _db.EngineerRequests
             .Include(r => r.Project)
             .Include(r => r.Department)
@@ -1315,6 +1317,7 @@ public class EngineerRequestService : IEngineerRequestService
                     .ThenInclude(dsf => dsf.SpecialField)
             .Include(r => r.SpecialFieldItems)
                 .ThenInclude(i => i.ConstructionItem)
+            .Include(r => r.EngineerRequestAttachments)
             .Where(r => !r.IsDeleted)
             .AsSplitQuery()
             .AsNoTracking();
@@ -1349,7 +1352,7 @@ public class EngineerRequestService : IEngineerRequestService
             }
             else if (allEngineerDeptIds.Any())
             {
-                // Office/Site engineer with departments — bulk fetch teamlead status for all their depts at once
+                // Office/Site engineer with departments ï¿½ bulk fetch teamlead status for all their depts at once
                 var deptIdsWithTeamLead = await (from ed in _db.EngineerDepartments
                                                  join role in _db.Roles on ed.RoleId equals role.Id
                                                  where allEngineerDeptIds.Contains(ed.DepartmentId)
@@ -1389,7 +1392,7 @@ public class EngineerRequestService : IEngineerRequestService
                 query = query.Where(r => r.assignToId == engineer.Id || r.EngineerId == engineer.Id);
             }
         }
-        // Admin/SuperAdmin: no role filter — sees all requests
+        // Admin/SuperAdmin: no role filter ï¿½ sees all requests
 
         // Return all without pagination at this stage - pagination happens after combining with other request types
         var requests = await query.ToListAsync(cancellationToken);
@@ -1455,6 +1458,7 @@ public class EngineerRequestService : IEngineerRequestService
             StartDate = r.startDate,
             EndDate = r.endDate,
             NeedsReceiptConfirmation = r.NeedsReceiptConfirmation,
+            EngineerRequestAttachments = r.EngineerRequestAttachments == null ? new() : r.EngineerRequestAttachments.Select(a => new GetAttachmentDto { Id = a.Id, Key = a.Key, FileName = a.FileName, Extension = a.Extension, FileSize = a.FileSize, Url = a.Url }).ToList(),
             SpecialFieldValues = r.SpecialFieldValues == null ? new() : r.SpecialFieldValues.Select(v => new EngineerRequestSpecialFieldValueDto
             {
                 Id = v.Id,
@@ -1526,6 +1530,9 @@ public class EngineerRequestService : IEngineerRequestService
             .Include(r => r.RequestedBy)
                 .ThenInclude(e => e.Department)
             .Include(r => r.Items)
+            .Include(r => r.Attachments)
+            .Include(r => r.Activities)
+                .ThenInclude(a => a.Engineer)
             .Where(r => !r.IsDeleted
                 && (r.RequestedById == engineer.Id                                  // created by this engineer
                     || (r.DestinationProjectId.HasValue                             // OR incoming to one of their projects
@@ -1594,7 +1601,18 @@ public class EngineerRequestService : IEngineerRequestService
                 Unit = i.Unit,
                 Quantity = i.Quantity,
                 Notes = i.Notes
-            }).ToList()
+            }).ToList(),
+            EngineerRequestAttachments = r.Attachments == null ? new() : r.Attachments.Select(a => new GetAttachmentDto { Id = a.Id, Key = a.Key, FileName = a.FileName, Extension = a.Extension, FileSize = a.FileSize, Url = a.Url }).ToList(),
+            EngineerRequestActivites = r.Activities == null ? new() : r.Activities.Select(a => new GetEngineerRequestActiviteDto
+            {
+                Id = a.Id,
+                EngineerRequestId = r.Id,
+                EngineerId = a.EngineerId,
+                EngineerName = a.Engineer != null ? $"{a.Engineer.nameEn} / {a.Engineer.nameAr}" : null,
+                ActionType = a.ActionType,
+                Comments = a.Comments,
+                CreatedDate = a.CreatedDate
+            }).OrderByDescending(a => a.CreatedDate).ToList()
         }).ToList();
     }
 
@@ -1614,6 +1632,9 @@ public class EngineerRequestService : IEngineerRequestService
             .Include(r => r.Supervisor)
             .Include(r => r.AssignedTo)
             .Include(r => r.Records)
+            .Include(r => r.Attachments)
+            .Include(r => r.Activities)
+                .ThenInclude(a => a.Engineer)
             .Where(r => !r.IsDeleted)
             .AsNoTracking();
 
@@ -1728,7 +1749,18 @@ public class EngineerRequestService : IEngineerRequestService
                 OvertimeHours = rec.OvertimeHours,
                 TotalAmount = rec.TotalAmount,
                 Notes = rec.Notes
-            }).ToList()
+            }).ToList(),
+            EngineerRequestAttachments = r.Attachments == null ? new() : r.Attachments.Select(a => new GetAttachmentDto { Id = a.Id, Key = a.Key, FileName = a.FileName, Extension = a.Extension, FileSize = a.FileSize, Url = a.Url }).ToList(),
+            EngineerRequestActivites = r.Activities == null ? new() : r.Activities.Select(a => new GetEngineerRequestActiviteDto
+            {
+                Id = a.Id,
+                EngineerRequestId = r.Id,
+                EngineerId = a.EngineerId,
+                EngineerName = a.Engineer != null ? $"{a.Engineer.nameEn} / {a.Engineer.nameAr}" : null,
+                ActionType = a.ActionType,
+                Comments = a.Comments,
+                CreatedDate = a.CreatedDate
+            }).OrderByDescending(a => a.CreatedDate).ToList()
         }).ToList();
     }
 
@@ -1741,6 +1773,9 @@ public class EngineerRequestService : IEngineerRequestService
             .Include(r => r.Project)
             .Include(r => r.Department)
             .Include(r => r.RequestedBy)
+            .Include(r => r.Attachments)
+            .Include(r => r.Activities)
+                .ThenInclude(a => a.Engineer)
             .Where(r => !r.IsDeleted && r.RequestedById == engineer.Id)
             .AsNoTracking();
 
@@ -1786,7 +1821,18 @@ public class EngineerRequestService : IEngineerRequestService
             EmployeeName = r.EmployeeName,
             AdvanceAmount = r.AdvanceAmount,
             SpentAmount = r.SpentAmount,
-            RemainingAmount = r.RemainingAmount
+            RemainingAmount = r.RemainingAmount,
+            EngineerRequestAttachments = r.Attachments == null ? new() : r.Attachments.Select(a => new GetAttachmentDto { Id = a.Id, Key = a.Key, FileName = a.FileName, Extension = a.Extension, FileSize = a.FileSize, Url = a.Url }).ToList(),
+            EngineerRequestActivites = r.Activities == null ? new() : r.Activities.Select(a => new GetEngineerRequestActiviteDto
+            {
+                Id = a.Id,
+                EngineerRequestId = r.Id,
+                EngineerId = a.EngineerId,
+                EngineerName = a.Engineer != null ? $"{a.Engineer.nameEn} / {a.Engineer.nameAr}" : null,
+                ActionType = a.ActionType,
+                Comments = a.Comments,
+                CreatedDate = a.CreatedDate
+            }).OrderByDescending(a => a.CreatedDate).ToList()
         }).ToList();
     }
 
