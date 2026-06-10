@@ -305,6 +305,17 @@ namespace Contracting.Infrustructure.Features
             return projectDtos;
         }
 
+        public async Task<List<GetProjectDropDownDto>> GetProjectsByBranchAsync(Guid branchId, CancellationToken cancellationToken = default)
+        {
+            var projects = await _db.Projects
+                .Include(p => p.Branch)
+                .Where(p => p.BranchId == branchId)
+                .AsNoTracking()
+                .ToListAsync(cancellationToken);
+
+            return _mapper.Map<List<GetProjectDropDownDto>>(projects);
+        }
+
         private IQueryable<Project> ApplyProjectAccessFilter(IQueryable<Project> query)
         {
             var roles = CurrentUser.Roles;

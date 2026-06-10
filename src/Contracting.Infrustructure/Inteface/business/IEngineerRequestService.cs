@@ -2,6 +2,7 @@
 using Contracting.Shared.BusinessDtos.EngineerRequestActiviteDto;
 using Contracting.Shared.BusinessDtos.EngineerRequestDto;
 using Contracting.Shared.BusinessDtos.PurchaseRequestDto;
+using Contracting.Shared.BusinessDtos.UnifiedRequestDto;
 using Contracting.Shared.Common;
 using Contracting.Shared.Dtos;
 using ErrorOr;
@@ -11,7 +12,7 @@ namespace Contracting.Infrustructure.Inteface.business
     public interface IEngineerRequestService
     {
         // Create
-        Task<GetAllEngineerRequestDto> CreateEngineerRequestAsync(CreateEngineerRequestDto dto);
+        Task<ErrorOr<GetAllEngineerRequestDto>> CreateEngineerRequestAsync(CreateEngineerRequestDto dto);
 
         // Update (if not yet actioned, or if in Missing Information status)
         Task<ErrorOr<GetAllEngineerRequestDto>> UpdateEngineerRequestAsync(UpdateEngineerRequestDto dto);
@@ -27,7 +28,10 @@ namespace Contracting.Infrustructure.Inteface.business
         Task<PaginatedList<GetAllEngineerRequestDto>> FilterEngineerRequestsAsync(
             EngineerRequestFilterDto filter,
             CancellationToken cancellationToken = default);
-        Task<PaginatedList<GetAllEngineerRequestDto>> GetCreatedRequestOrapplaied(
+        
+        // Get all unified requests (EngineerRequest, TransferRequest, LaborAttendance, FinancialClearance)
+        // Returns all request types created by or applied to the current engineer
+        Task<PaginatedList<GetUnifiedRequestDto>> GetCreatedRequestOrapplaied(
             EngineerRequestParticipationFilterDto filter,
             CancellationToken cancellationToken = default);
 

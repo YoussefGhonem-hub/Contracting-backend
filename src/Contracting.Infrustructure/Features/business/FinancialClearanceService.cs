@@ -5,6 +5,7 @@ using Contracting.Infrustructure.Inteface.business;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.BusinessDtos.FinancialClearanceDto;
 using Contracting.Shared.Common;
+using Contracting.Shared.Constants;
 using Contracting.Shared.CurrentUser;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.DepartmentDtos;
@@ -205,31 +206,31 @@ namespace Contracting.Infrustructure.Features.business
             var fromStatus = clearance.Status;
             FinancialClearanceStatus toStatus;
 
-            switch (dto.ActionType.ToLower())
+            switch (dto.ActionType)
             {
-                case "submit":
+                case FinancialClearanceActionType.Submit:
                     if (clearance.Status != FinancialClearanceStatus.Draft)
                         return Error.Validation("FinancialClearance.InvalidAction", "Only Draft clearances can be submitted.");
                     toStatus = FinancialClearanceStatus.Submitted;
                     break;
-                case "review":
+                case FinancialClearanceActionType.Review:
                     if (clearance.Status != FinancialClearanceStatus.Submitted)
                         return Error.Validation("FinancialClearance.InvalidAction", "Only Submitted clearances can be set Under Review.");
                     toStatus = FinancialClearanceStatus.UnderReview;
                     break;
-                case "approve":
+                case FinancialClearanceActionType.Approve:
                     if (clearance.Status != FinancialClearanceStatus.UnderReview)
                         return Error.Validation("FinancialClearance.InvalidAction", "Only UnderReview clearances can be approved.");
                     toStatus = FinancialClearanceStatus.Approved;
                     break;
-                case "close":
+                case FinancialClearanceActionType.Close:
                     if (clearance.Status != FinancialClearanceStatus.Approved)
                         return Error.Validation("FinancialClearance.InvalidAction", "Only Approved clearances can be closed.");
                     if (!clearance.Attachments.Any())
                         return Error.Validation("FinancialClearance.MissingAttachments", "Attachments are required before closing.");
                     toStatus = FinancialClearanceStatus.Closed;
                     break;
-                case "reject":
+                case FinancialClearanceActionType.Reject:
                     if (clearance.Status == FinancialClearanceStatus.Closed || clearance.Status == FinancialClearanceStatus.Draft)
                         return Error.Validation("FinancialClearance.InvalidAction", "Cannot reject a closed or draft clearance.");
                     toStatus = FinancialClearanceStatus.Rejected;
@@ -245,7 +246,7 @@ namespace Contracting.Infrustructure.Features.business
                 EngineerId = engineer?.Id,
                 FromStatus = fromStatus,
                 ToStatus = toStatus,
-                ActionType = dto.ActionType,
+                ActionType = dto.ActionType.ToString(),
                 Comments = dto.Comments
             });
 

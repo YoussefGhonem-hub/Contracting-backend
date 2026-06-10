@@ -98,6 +98,8 @@ namespace Contracting.API.Controllers
                 errors => Problem(errors)
             );
         }
+        // Get all unified requests (EngineerRequest, TransferRequest, LaborAttendance, FinancialClearance)
+        // Returns all request types created by or applied to the current engineer
         [HttpGet("appliedOrCreatedReqeust")]
         public async Task<IActionResult> GetAllRequestAppliedOrCreated([FromQuery] EngineerRequestParticipationFilterDto filter)
         {

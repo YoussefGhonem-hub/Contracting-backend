@@ -31,11 +31,14 @@ public class ExceptionMiddleware
         {
             _logger.LogError(ex, "Unhandled exception");
             await LogExceptionAsync(db, context, ex);
-            
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            context.Response.ContentType = "application/json";
-            var problem = new { message = _localizer[SharedResourcesKeys.GlobalException] };
-            await context.Response.WriteAsync(JsonSerializer.Serialize(problem));
+
+            if (!context.Response.HasStarted)
+            {
+                context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+                context.Response.ContentType = "application/json";
+                var problem = new { message = _localizer[SharedResourcesKeys.GlobalException] };
+                await context.Response.WriteAsync(JsonSerializer.Serialize(problem));
+            }
         }
     }
 

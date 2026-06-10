@@ -346,6 +346,9 @@
   <data name="PurchaseRequestAlreadyClosed" xml:space="preserve">
     <value>طلب الشراء مغلق بالفعل.</value>
   </data>
+  <data name="PurchaseRequestNotReadyForReceipt" xml:space="preserve">
+    <value>لا يمكن تقديم إذن الاستلام بعد. يجب على المهندس المكتبي أولاً تحديد حالة الطلب كمكتمل.</value>
+  </data>
   <data name="GoodsReceiptItemsRequired" xml:space="preserve">
     <value>يجب أن يحتوي إذن الاستلام على صنف واحد على الأقل.</value>
   </data>

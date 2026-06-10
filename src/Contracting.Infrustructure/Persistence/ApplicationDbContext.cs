@@ -33,6 +33,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<EngineerRequestActivite> EngineerRequestActivites => Set<EngineerRequestActivite>();
     public DbSet<EngineerRequestAttachment> EngineerRequestAttachments => Set<EngineerRequestAttachment>();
     public DbSet<EngineerRequestSpecialFieldValue> EngineerRequestSpecialFieldValues => Set<EngineerRequestSpecialFieldValue>();
+    public DbSet<EngineerRequestSpecialFieldItem> EngineerRequestSpecialFieldItems => Set<EngineerRequestSpecialFieldItem>();
     public DbSet<PurchaseRequestReceipt> PurchaseRequestReceipts => Set<PurchaseRequestReceipt>();
     public DbSet<EngineerSiteReport> EngineerSiteReports => Set<EngineerSiteReport>();
     public DbSet<EngineerSiteWorkLog> EngineerSiteWorkLogs => Set<EngineerSiteWorkLog>();

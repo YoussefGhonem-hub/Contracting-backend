@@ -4,6 +4,7 @@ using Contracting.Infrustructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Contracting.Infrustructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260603102700_AddDepartmentAndAssignedToLaborAttendance")]
+    partial class AddDepartmentAndAssignedToLaborAttendance
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -447,58 +450,6 @@ namespace Contracting.Infrustructure.Migrations
                     b.HasIndex("IsDeleted");
 
                     b.ToTable("EngineerRequestNotes", "business");
-                });
-
-            modelBuilder.Entity("Contracting.Domain.Entities.business.EngineerRequestSpecialFieldItem", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("ConstructionItemId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset>("CreatedDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset?>("DeletedDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<Guid>("DepartmentSpecialFieldId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("EngineerRequestId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<Guid?>("ModifiedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset?>("ModifiedDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<int>("Quantity")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ConstructionItemId");
-
-                    b.HasIndex("DepartmentSpecialFieldId");
-
-                    b.HasIndex("EngineerRequestId");
-
-                    b.HasIndex("IsDeleted");
-
-                    b.ToTable("EngineerRequestSpecialFieldItems", (string)null);
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.business.EngineerRequestSpecialFieldValue", b =>
@@ -2952,33 +2903,6 @@ namespace Contracting.Infrustructure.Migrations
                     b.Navigation("EngineerRequest");
                 });
 
-            modelBuilder.Entity("Contracting.Domain.Entities.business.EngineerRequestSpecialFieldItem", b =>
-                {
-                    b.HasOne("Contracting.Domain.Entities.master.ConstructionItem", "ConstructionItem")
-                        .WithMany()
-                        .HasForeignKey("ConstructionItemId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Contracting.Domain.Entities.master.DepartmentSpecialField", "DepartmentSpecialField")
-                        .WithMany()
-                        .HasForeignKey("DepartmentSpecialFieldId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Contracting.Domain.Entities.business.EngineerRequest", "EngineerRequest")
-                        .WithMany("SpecialFieldItems")
-                        .HasForeignKey("EngineerRequestId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ConstructionItem");
-
-                    b.Navigation("DepartmentSpecialField");
-
-                    b.Navigation("EngineerRequest");
-                });
-
             modelBuilder.Entity("Contracting.Domain.Entities.business.EngineerRequestSpecialFieldValue", b =>
                 {
                     b.HasOne("Contracting.Domain.Entities.master.DepartmentSpecialField", "DepartmentSpecialField")
@@ -3506,8 +3430,6 @@ namespace Contracting.Infrustructure.Migrations
                     b.Navigation("EngineerRequestNotes");
 
                     b.Navigation("PurchaseReceipts");
-
-                    b.Navigation("SpecialFieldItems");
 
                     b.Navigation("SpecialFieldValues");
                 });
