@@ -1,6 +1,7 @@
 using Contracting.API.Controllers.Shared;
 using Contracting.Application.Features.Business.EngineerRequest.Command.ConfirmDeliveryDate;
 using Contracting.Application.Features.Business.EngineerRequest.Command.CreateEngineerRequest;
+using Contracting.Application.Features.Business.EngineerRequest.Command.CreateInternalRequest;
 using Contracting.Application.Features.Business.EngineerRequest.Command.DeleteEngineerRequest;
 using Contracting.Application.Features.Business.EngineerRequest.Command.ReassignEngineerRequest;
 using Contracting.Application.Features.Business.EngineerRequest.Command.TakeActionOnRequest;
@@ -15,10 +16,14 @@ using Contracting.Application.Features.Business.PurchaseRequest.Command.CreateGo
 using Contracting.Application.Features.Business.PurchaseRequest.Query.GetGoodsReceipts;
 using Contracting.Shared.BusinessDtos.EngineerRequestDto;
 using Contracting.Shared.BusinessDtos.PurchaseRequestDto;
+using Contracting.Shared.Constants;
 using Contracting.Shared.Dtos;
+using Contracting.Infrustructure.Persistence;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Contracting.Shared.CurrentUser;
 
 namespace Contracting.API.Controllers
 {
@@ -28,10 +33,12 @@ namespace Contracting.API.Controllers
     public class EngineerRequestController : APIBaseController
     {
         private readonly IMediator _mediator;
+        private readonly ApplicationDbContext _db;
 
-        public EngineerRequestController(IMediator mediator)
+        public EngineerRequestController(IMediator mediator, ApplicationDbContext db)
         {
             _mediator = mediator;
+            _db = db;
         }
 
         // Create Engineer Request
@@ -211,6 +218,98 @@ namespace Contracting.API.Controllers
         {
             var result = await _mediator.Send(new GetGoodsReceiptsQuery(requestId));
             return result.Match(r => Ok(r), errors => Problem(errors));
+        }
+
+        // =========================================================================
+        // Internal Request — create
+        // Office Engineers only. Assigns directly to a peer in the same branch.
+        // =========================================================================
+        [HttpPost("internal")]
+        [Authorize(Roles = RoleNames.Officeengineer)]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> CreateInternal([FromForm] CreateInternalRequestDto dto)
+        {
+            var result = await _mediator.Send(new CreateInternalRequestCommand(dto));
+            return result.Match(r => Ok(r), errors => Problem(errors));
+        }
+
+        // =========================================================================
+        // Internal Request — dropdown: departments in the logged-in engineer's branch
+        // =========================================================================
+        [HttpGet("internal/my-branch/departments")]
+        [Authorize(Roles = RoleNames.Officeengineer)]
+        public async Task<IActionResult> GetMyBranchDepartments()
+        {
+            var userId = CurrentUser.Id ?? Guid.Empty;
+
+            var branchId = await _db.Engineers
+                .Where(e => e.ApplicationUserId == userId && !e.IsDeleted)
+                .Select(e => e.Department != null ? (Guid?)e.Department.BranchId : null)
+                .FirstOrDefaultAsync();
+
+            if (branchId is null)
+                return BadRequest(new { message = "Your account is not assigned to a branch." });
+
+            var departments = await _db.Departmentes
+                .Where(d => d.BranchId == branchId && !d.IsDeleted)
+                .OrderBy(d => d.nameEn)
+                .Select(d => new { d.Id, d.nameEn, d.nameAr })
+                .ToListAsync();
+
+            return Ok(departments);
+        }
+
+        // =========================================================================
+        // Internal Request — dropdown: engineers in a department (same branch only)
+        // =========================================================================
+        [HttpGet("internal/departments/{departmentId:guid}/engineers")]
+        [Authorize(Roles = RoleNames.Officeengineer)]
+        public async Task<IActionResult> GetDepartmentEngineers(Guid departmentId)
+        {
+            var userId = CurrentUser.Id ?? Guid.Empty;
+
+            // Resolve requester's branch
+            var requesterBranchId = await _db.Engineers
+                .Where(e => e.ApplicationUserId == userId && !e.IsDeleted)
+                .Select(e => e.Department != null ? (Guid?)e.Department.BranchId : null)
+                .FirstOrDefaultAsync();
+
+            if (requesterBranchId is null)
+                return BadRequest(new { message = "Your account is not assigned to a branch." });
+
+            // Ensure the department is in the same branch
+            var deptBranchId = await _db.Departmentes
+                .Where(d => d.Id == departmentId && !d.IsDeleted)
+                .Select(d => (Guid?)d.BranchId)
+                .FirstOrDefaultAsync();
+
+            if (deptBranchId is null)
+                return NotFound(new { message = "Department not found." });
+
+            if (deptBranchId != requesterBranchId)
+                return BadRequest(new { message = "Department does not belong to your branch." });
+
+            // Engineers via EngineerDepartments join table
+            var fromJoinTable = await _db.EngineerDepartments
+                .Where(ed => ed.DepartmentId == departmentId && !ed.Engineer!.IsDeleted)
+                .Select(ed => new { ed.Engineer!.Id, ed.Engineer.nameEn, ed.Engineer.nameAr, ed.Engineer.Email })
+                .ToListAsync();
+
+            // Engineers via legacy DepartmentId field
+            var fromLegacy = await _db.Engineers
+                .Where(e => e.DepartmentId == departmentId && !e.IsDeleted
+                            && e.ApplicationUserId != userId)    // exclude self
+                .Select(e => new { e.Id, e.nameEn, e.nameAr, e.Email })
+                .ToListAsync();
+
+            var engineers = fromJoinTable
+                .Union(fromLegacy)
+                .DistinctBy(e => e.Id)
+                .Where(e => e.Id != Guid.Empty)
+                .OrderBy(e => e.nameEn)
+                .ToList();
+
+            return Ok(engineers);
         }
     }
 }

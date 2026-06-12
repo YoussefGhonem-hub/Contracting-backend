@@ -299,6 +299,141 @@ public class EngineerRequestService : IEngineerRequestService
         return createdDto;
     }
 
+    // ---------------- CREATE INTERNAL REQUEST ----------------
+    public async Task<ErrorOr<GetAllEngineerRequestDto>> CreateInternalRequestAsync(CreateInternalRequestDto dto)
+    {
+        var roles = CurrentUser.Roles;
+        var isOfficeEngineer = roles.Any(r => r.Equals(RoleNames.Officeengineer, StringComparison.OrdinalIgnoreCase));
+        if (!isOfficeEngineer)
+            return Error.Forbidden("Auth.Forbidden", "Only Office Engineers can create Internal Requests.");
+
+        var engineer = await _db.Engineers
+            .Include(e => e.Department)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.ApplicationUserId == Guid.Parse(CurrentUser.UserId));
+
+        if (engineer is null)
+            return Error.NotFound("Engineer.NotFound", _localizer[SharedResourcesKeys.NotFound]);
+
+        // Resolve the requester's branch (via their primary department)
+        var requesterBranchId = engineer.Department?.BranchId;
+        if (requesterBranchId is null)
+            return Error.Validation("Engineer.NoBranch", "Your account is not assigned to a branch. Contact your administrator.");
+
+        // Validate the selected department belongs to the same branch
+        var targetDept = await _db.Departmentes
+            .AsNoTracking()
+            .FirstOrDefaultAsync(d => d.Id == dto.DepartmentId && !d.IsDeleted);
+
+        if (targetDept is null)
+            return Error.NotFound("Department.NotFound", _localizer[SharedResourcesKeys.NotFound]);
+
+        if (targetDept.BranchId != requesterBranchId)
+            return Error.Validation("Department.WrongBranch", "The selected department does not belong to your branch.");
+
+        // Validate the target engineer belongs to that department (via EngineerDepartments or legacy DepartmentId)
+        var assignedEngineer = await _db.Engineers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == dto.AssignToEngineerId && !e.IsDeleted);
+
+        if (assignedEngineer is null)
+            return Error.NotFound("Engineer.NotFound", _localizer[SharedResourcesKeys.NotFound]);
+
+        var engineerInDept = await _db.EngineerDepartments
+            .AnyAsync(ed => ed.EngineerId == dto.AssignToEngineerId && ed.DepartmentId == dto.DepartmentId)
+            || assignedEngineer.DepartmentId == dto.DepartmentId;
+
+        if (!engineerInDept)
+            return Error.Validation("Engineer.NotInDepartment", "The selected engineer does not belong to the chosen department.");
+
+        var firstStatus = await _db.Statuses
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.orderNumber == 1);
+
+        var request = new EngineerRequest
+        {
+            RequestType    = "InternalRequest",
+            EngineerId     = engineer.Id,
+            assignToId     = dto.AssignToEngineerId,
+            DepartmentId   = dto.DepartmentId,
+            PriorityId     = dto.PriorityId == Guid.Empty ? null : dto.PriorityId,
+            RequestTitle   = dto.RequestTitle,
+            Descreption    = dto.Descreption,
+            StatusId       = firstStatus?.Id ?? Guid.Empty,
+            EngineerRequestNotes      = new List<EngineerRequestNotes>(),
+            EngineerRequestActivites  = new List<EngineerRequestActivite>(),
+            EngineerRequestAttachments = new List<EngineerRequestAttachment>()
+        };
+
+        // Seed notes field with the Notes text if provided
+        if (!string.IsNullOrWhiteSpace(dto.Notes))
+        {
+            request.EngineerRequestNotes.Add(new EngineerRequestNotes
+            {
+                EngineerId = engineer.Id,
+                note       = dto.Notes
+            });
+        }
+
+        // Upload attachments
+        if (dto.Attachments != null && dto.Attachments.Any())
+        {
+            var uploaded = await _storageService.UploadFiles(dto.Attachments.ToList());
+            request.EngineerRequestAttachments = uploaded?.Select(f => new EngineerRequestAttachment
+            {
+                Key       = f.Key,
+                FileName  = f.FileName,
+                Extension = f.Extension,
+                FileSize  = f.FileSize,
+                Url       = f.Url
+            }).ToList() ?? new List<EngineerRequestAttachment>();
+        }
+
+        // Seed activity: Created + immediately Assigned
+        request.EngineerRequestActivites.Add(new EngineerRequestActivite
+        {
+            EngineerId = engineer.Id,
+            StatusId   = request.StatusId,
+            ActionType = EngineerRequestActionType.Created.ToString()
+        });
+        request.EngineerRequestActivites.Add(new EngineerRequestActivite
+        {
+            EngineerId = engineer.Id,
+            StatusId   = request.StatusId,
+            ActionType = EngineerRequestActionType.Assigned.ToString()
+        });
+
+        await _db.EngineerRequests.AddAsync(request);
+        await _db.SaveChangesAsync();
+
+        // Notify the assigned engineer
+        await _notificationService.SendNotificationToUserAsync(
+            assignedEngineer.ApplicationUserId,
+            _localizer[SharedResourcesKeys.NotificationAssignedTitle],
+            _localizer[SharedResourcesKeys.NotificationAssignedBody],
+            request.Id,
+            request.DepartmentId);
+
+        // Reload with navigation properties
+        var created = await _db.EngineerRequests
+            .Include(r => r.Department)
+            .Include(r => r.Priority)
+            .Include(r => r.Status)
+            .Include(r => r.Engineer)
+            .Include(r => r.assignTo)
+            .Include(r => r.EngineerRequestNotes).ThenInclude(n => n.EngineerRequestAttachments)
+            .Include(r => r.EngineerRequestNotes).ThenInclude(n => n.Engineer)
+            .Include(r => r.EngineerRequestAttachments)
+            .Include(r => r.EngineerRequestActivites)
+            .AsSplitQuery()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == request.Id);
+
+        var dto2 = _mapper.Map<GetAllEngineerRequestDto>(created);
+        dto2.RequestType = "InternalRequest";
+        return dto2;
+    }
+
     // ---------------- UPDATE ----------------
     public async Task<ErrorOr<GetAllEngineerRequestDto>> UpdateEngineerRequestAsync(UpdateEngineerRequestDto dto)
     {
@@ -1401,7 +1536,7 @@ public class EngineerRequestService : IEngineerRequestService
         {
             Id = r.Id,
             RequestNumber = $"ER-{r.Id}",
-            RequestType = "EngineerRequest",
+            RequestType = r.RequestType ?? "EngineerRequest",
             ProjectId = r.ProjectId,
             Project = r.Project == null ? null : new GetProjectDto
             {

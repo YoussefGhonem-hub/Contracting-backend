@@ -13,6 +13,7 @@ namespace Contracting.Domain.Entities.business
         public Priority? Priority { get; set; }
         public Guid? EngineerId { get; set; }
         public Engineer? Engineer { get; set; }
+        public string RequestType { get; set; } = "EngineerRequest";
         public string? RequestTitle { get; set; }
         public string? Descreption { get; set; }
         public int timeDuration { get; set; }

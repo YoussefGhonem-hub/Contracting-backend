@@ -145,6 +145,7 @@ public static class MappingConfig
             .Map(dest => dest.StatusName, src => src.Status != null ? $"{src.Status.nameEn} / {src.Status.nameAr}" : null);
         
         config.NewConfig<EngineerRequest, GetAllEngineerRequestDto>()
+                    .Map(dest => dest.RequestType, src => src.RequestType)
                     .Map(dest => dest.Project, src => src.Project)
                     .Map(dest => dest.Department, src => src.Department)
                     .Map(dest => dest.Priority, src => src.Priority)

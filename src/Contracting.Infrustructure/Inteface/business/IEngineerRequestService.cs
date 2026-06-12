@@ -14,6 +14,9 @@ namespace Contracting.Infrustructure.Inteface.business
         // Create
         Task<ErrorOr<GetAllEngineerRequestDto>> CreateEngineerRequestAsync(CreateEngineerRequestDto dto);
 
+        // Create Internal Request (Office Engineer → direct-assigned to another engineer, same branch)
+        Task<ErrorOr<GetAllEngineerRequestDto>> CreateInternalRequestAsync(CreateInternalRequestDto dto);
+
         // Update (if not yet actioned, or if in Missing Information status)
         Task<ErrorOr<GetAllEngineerRequestDto>> UpdateEngineerRequestAsync(UpdateEngineerRequestDto dto);
 
