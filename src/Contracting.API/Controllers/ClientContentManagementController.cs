@@ -312,4 +312,217 @@ public class ClientContentManagementController : APIBaseController
             invoice.Notes
         });
     }
+
+    // =========================================================================
+    // PUT /api/backoffice/client-content/invoices/{invoiceId}
+    // Full edit of an invoice. Status auto-recalculates from amounts.
+    // =========================================================================
+    [HttpPut("invoices/{invoiceId:guid}")]
+    [Authorize(Roles = RoleNames.Accounts + "," + RoleNames.Admin + "," + RoleNames.SuperAdmin)]
+    public async Task<IActionResult> UpdateInvoice(Guid invoiceId, [FromBody] UpdateInvoiceRequest request, CancellationToken cancellationToken)
+    {
+        var invoice = await _db.ProjectInvoices.FirstOrDefaultAsync(i => i.Id == invoiceId && !i.IsDeleted, cancellationToken);
+        if (invoice is null)
+            return NotFound(new { message = "Invoice not found." });
+
+        var userId = CurrentUser.Id ?? Guid.Empty;
+        if (userId == Guid.Empty)
+            return Unauthorized();
+
+        invoice.Title = request.Title;
+        invoice.TotalValue = request.TotalValue;
+        invoice.PaidAmount = request.PaidAmount;
+        invoice.Notes = request.Notes;
+        invoice.IssueDate = request.IssueDate ?? invoice.IssueDate;
+        invoice.DueDate = request.DueDate;
+        invoice.Status = request.PaidAmount <= 0
+            ? PaymentStatus.Pending
+            : request.PaidAmount >= request.TotalValue
+                ? PaymentStatus.Paid
+                : PaymentStatus.PartiallyPaid;
+        invoice.UpdatedBy = userId;
+        invoice.MarkAsModified(userId);
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            invoice.Id,
+            invoice.ProjectId,
+            invoice.InvoiceNumber,
+            invoice.Title,
+            invoice.TotalValue,
+            invoice.PaidAmount,
+            Status = invoice.Status.ToString(),
+            invoice.IssueDate,
+            invoice.DueDate,
+            invoice.Notes
+        });
+    }
+
+    // =========================================================================
+    // DELETE /api/backoffice/client-content/invoices/{invoiceId}
+    // =========================================================================
+    [HttpDelete("invoices/{invoiceId:guid}")]
+    [Authorize(Roles = RoleNames.Accounts + "," + RoleNames.Admin + "," + RoleNames.SuperAdmin)]
+    public async Task<IActionResult> DeleteInvoice(Guid invoiceId, CancellationToken cancellationToken)
+    {
+        var invoice = await _db.ProjectInvoices.FirstOrDefaultAsync(i => i.Id == invoiceId && !i.IsDeleted, cancellationToken);
+        if (invoice is null)
+            return NotFound(new { message = "Invoice not found." });
+
+        var userId = CurrentUser.Id ?? Guid.Empty;
+        if (userId == Guid.Empty)
+            return Unauthorized();
+
+        invoice.MarkAsDeleted(userId);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return Ok(new { message = "Invoice deleted successfully." });
+    }
+
+    // =========================================================================
+    // PUT /api/backoffice/client-content/variation-orders/{voId}
+    // Edit allowed ONLY while the VO is still Pending.
+    // =========================================================================
+    [HttpPut("variation-orders/{voId:guid}")]
+    public async Task<IActionResult> UpdateVariationOrder(Guid voId, [FromBody] UpdateVariationOrderRequest request, CancellationToken cancellationToken)
+    {
+        var vo = await _db.VariationOrders.FirstOrDefaultAsync(v => v.Id == voId && !v.IsDeleted, cancellationToken);
+        if (vo is null)
+            return NotFound(new { message = "Variation order not found." });
+
+        if (vo.Status != VOStatus.Pending)
+            return Conflict(new { message = "Cannot modify — already actioned." });
+
+        var userId = CurrentUser.Id ?? Guid.Empty;
+        if (userId == Guid.Empty)
+            return Unauthorized();
+
+        vo.Title = request.Title;
+        vo.Description = request.Description;
+        vo.Cost = request.Cost;
+        vo.IssueDate = request.IssueDate ?? vo.IssueDate;
+        vo.DueDate = request.DueDate;
+        vo.MarkAsModified(userId);
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            vo.Id,
+            vo.ProjectId,
+            vo.VONumber,
+            vo.Title,
+            vo.Description,
+            vo.Cost,
+            Status = vo.Status.ToString(),
+            vo.IssueDate,
+            vo.DueDate
+        });
+    }
+
+    // =========================================================================
+    // DELETE /api/backoffice/client-content/variation-orders/{voId}
+    // Delete allowed ONLY while the VO is still Pending.
+    // =========================================================================
+    [HttpDelete("variation-orders/{voId:guid}")]
+    public async Task<IActionResult> DeleteVariationOrder(Guid voId, CancellationToken cancellationToken)
+    {
+        var vo = await _db.VariationOrders.FirstOrDefaultAsync(v => v.Id == voId && !v.IsDeleted, cancellationToken);
+        if (vo is null)
+            return NotFound(new { message = "Variation order not found." });
+
+        if (vo.Status != VOStatus.Pending)
+            return Conflict(new { message = "Cannot modify — already actioned." });
+
+        var userId = CurrentUser.Id ?? Guid.Empty;
+        if (userId == Guid.Empty)
+            return Unauthorized();
+
+        vo.MarkAsDeleted(userId);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return Ok(new { message = "Variation order deleted successfully." });
+    }
+
+    // =========================================================================
+    // DELETE /api/backoffice/client-content/drawings/{drawingId}
+    // =========================================================================
+    [HttpDelete("drawings/{drawingId:guid}")]
+    public async Task<IActionResult> DeleteDrawing(Guid drawingId, CancellationToken cancellationToken)
+    {
+        var drawing = await _db.ProjectDrawings.FirstOrDefaultAsync(d => d.Id == drawingId && !d.IsDeleted, cancellationToken);
+        if (drawing is null)
+            return NotFound(new { message = "Drawing not found." });
+
+        var userId = CurrentUser.Id ?? Guid.Empty;
+        if (userId == Guid.Empty)
+            return Unauthorized();
+
+        drawing.MarkAsDeleted(userId);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return Ok(new { message = "Drawing deleted successfully." });
+    }
+
+    // =========================================================================
+    // DELETE /api/backoffice/client-content/schedules/{scheduleId}
+    // =========================================================================
+    [HttpDelete("schedules/{scheduleId:guid}")]
+    public async Task<IActionResult> DeleteSchedule(Guid scheduleId, CancellationToken cancellationToken)
+    {
+        var schedule = await _db.ProjectSchedules.FirstOrDefaultAsync(s => s.Id == scheduleId && !s.IsDeleted, cancellationToken);
+        if (schedule is null)
+            return NotFound(new { message = "Schedule not found." });
+
+        var userId = CurrentUser.Id ?? Guid.Empty;
+        if (userId == Guid.Empty)
+            return Unauthorized();
+
+        schedule.MarkAsDeleted(userId);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return Ok(new { message = "Schedule deleted successfully." });
+    }
+
+    // =========================================================================
+    // DELETE /api/backoffice/client-content/tender-documents/{tenderId}
+    // =========================================================================
+    [HttpDelete("tender-documents/{tenderId:guid}")]
+    public async Task<IActionResult> DeleteTenderDocument(Guid tenderId, CancellationToken cancellationToken)
+    {
+        var tender = await _db.TenderDocuments.FirstOrDefaultAsync(t => t.Id == tenderId && !t.IsDeleted, cancellationToken);
+        if (tender is null)
+            return NotFound(new { message = "Tender document not found." });
+
+        var userId = CurrentUser.Id ?? Guid.Empty;
+        if (userId == Guid.Empty)
+            return Unauthorized();
+
+        tender.MarkAsDeleted(userId);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return Ok(new { message = "Tender document deleted successfully." });
+    }
+
+    // =========================================================================
+    // DELETE /api/backoffice/client-content/monthly-reports/{reportId}
+    // =========================================================================
+    [HttpDelete("monthly-reports/{reportId:guid}")]
+    public async Task<IActionResult> DeleteMonthlyReport(Guid reportId, CancellationToken cancellationToken)
+    {
+        var report = await _db.ClientMonthlyReports.FirstOrDefaultAsync(r => r.Id == reportId && !r.IsDeleted, cancellationToken);
+        if (report is null)
+            return NotFound(new { message = "Report not found." });
+
+        var userId = CurrentUser.Id ?? Guid.Empty;
+        if (userId == Guid.Empty)
+            return Unauthorized();
+
+        report.MarkAsDeleted(userId);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return Ok(new { message = "Monthly report deleted successfully." });
+    }
 }

@@ -213,14 +213,9 @@ namespace Contracting.Infrustructure.Features.business
                         return Error.Validation("FinancialClearance.InvalidAction", "Only Draft clearances can be submitted.");
                     toStatus = FinancialClearanceStatus.Submitted;
                     break;
-                case FinancialClearanceActionType.Review:
-                    if (clearance.Status != FinancialClearanceStatus.Submitted)
-                        return Error.Validation("FinancialClearance.InvalidAction", "Only Submitted clearances can be set Under Review.");
-                    toStatus = FinancialClearanceStatus.UnderReview;
-                    break;
                 case FinancialClearanceActionType.Approve:
-                    if (clearance.Status != FinancialClearanceStatus.UnderReview)
-                        return Error.Validation("FinancialClearance.InvalidAction", "Only UnderReview clearances can be approved.");
+                    if (clearance.Status != FinancialClearanceStatus.Submitted)
+                        return Error.Validation("FinancialClearance.InvalidAction", "Only Submitted clearances can be approved.");
                     toStatus = FinancialClearanceStatus.Approved;
                     break;
                 case FinancialClearanceActionType.Close:
