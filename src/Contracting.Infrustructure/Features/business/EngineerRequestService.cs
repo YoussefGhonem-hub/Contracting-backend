@@ -1653,6 +1653,17 @@ public class EngineerRequestService : IEngineerRequestService
         EngineerRequestParticipationFilterDto filter,
         CancellationToken cancellationToken)
     {
+        // Transfer requests are only relevant to Site-engineer,  and admins.
+        // Office-engineers and other roles must receive an empty result.
+        var roles = CurrentUser.Roles;
+        var canSeeTransfers = roles.Any(r =>
+            r.Equals(RoleNames.Siteengineer, StringComparison.OrdinalIgnoreCase) ||
+            r.Equals(RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase) ||
+            r.Equals(RoleNames.Admin, StringComparison.OrdinalIgnoreCase));
+
+        if (!canSeeTransfers)
+            return new List<GetUnifiedRequestDto>();
+
         // Get all project IDs this engineer is assigned to (destination project visibility)
         var engineerProjectIds = await _db.EngineerProjects
             .Where(ep => ep.EngineerId == engineer.Id)
