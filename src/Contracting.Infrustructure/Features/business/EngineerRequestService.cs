@@ -8,6 +8,7 @@ using Contracting.Infrustructure.Inteface.Helper;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.BusinessDtos.EngineerRequestActiviteDto;
 using Contracting.Shared.BusinessDtos.EngineerRequestNotesDtos;
+using Contracting.Domain.Entities.business.enums;
 using Contracting.Shared.BusinessDtos.EngineerRequestDto;
 using Contracting.Shared.BusinessDtos.PurchaseRequestDto;
 using Contracting.Shared.BusinessDtos.UnifiedRequestDto;
@@ -2290,7 +2291,7 @@ public class EngineerRequestService : IEngineerRequestService
         // Create dictionary for quick lookup
         var countDict = requestCountsFromDb.ToDictionary(x => x.StatusId, x => x.Count);
 
-        // Return all statuses with their counts (0 if no requests)
+        // EngineerRequest rows — one per status from the Status table
         var requestCounts = allStatuses
             .Select(s => new GetEngineerRequestCountByStatusDto
             {
@@ -2301,6 +2302,70 @@ public class EngineerRequestService : IEngineerRequestService
             })
             .OrderBy(x => x.StatusName)
             .ToList();
+
+        // --- Transfer Request counts (enum-based, scoped to this engineer) ---
+        // Engineer sees transfers they created OR incoming to projects they're assigned to
+        var engineerProjectIds = await _db.EngineerProjects
+            .Where(ep => ep.EngineerId == engineerId)
+            .Select(ep => ep.ProjectId)
+            .ToListAsync();
+
+        var transferGroups = await _db.TransferRequests
+            .Where(r => !r.IsDeleted
+                && (r.RequestedById == engineerId
+                    || (r.DestinationProjectId.HasValue && engineerProjectIds.Contains(r.DestinationProjectId.Value))))
+            .GroupBy(r => r.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        foreach (var tg in transferGroups)
+        {
+            requestCounts.Add(new GetEngineerRequestCountByStatusDto
+            {
+                StatusId = Guid.Empty,
+                StatusName = tg.Status.ToString(),
+                StatusNameAr = tg.Status.ToString(),
+                TransferCount = tg.Count
+            });
+        }
+
+        // --- Labor Attendance counts (enum-based, scoped to this engineer) ---
+        // Engineer sees labor requests they supervise OR are assigned to
+        var laborGroups = await _db.LaborAttendanceRequests
+            .Where(r => !r.IsDeleted
+                && (r.SupervisorId == engineerId || r.AssignedToId == engineerId))
+            .GroupBy(r => r.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        foreach (var lg in laborGroups)
+        {
+            requestCounts.Add(new GetEngineerRequestCountByStatusDto
+            {
+                StatusId = Guid.Empty,
+                StatusName = lg.Status.ToString(),
+                StatusNameAr = lg.Status.ToString(),
+                LaborCount = lg.Count
+            });
+        }
+
+        // --- Financial Clearance counts (enum-based, scoped to this engineer) ---
+        var financialGroups = await _db.FinancialClearances
+            .Where(r => !r.IsDeleted && r.RequestedById == engineerId)
+            .GroupBy(r => r.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        foreach (var fg in financialGroups)
+        {
+            requestCounts.Add(new GetEngineerRequestCountByStatusDto
+            {
+                StatusId = Guid.Empty,
+                StatusName = fg.Status.ToString(),
+                StatusNameAr = fg.Status.ToString(),
+                FinancialClearanceCount = fg.Count
+            });
+        }
 
         return requestCounts;
     }
