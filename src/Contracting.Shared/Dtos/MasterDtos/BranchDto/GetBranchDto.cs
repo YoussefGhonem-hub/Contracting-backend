@@ -14,6 +14,7 @@ namespace Contracting.Shared.Dtos.MasterDtos.BranchDto
         public string? nameAr { get; set; }
         public string? address { get; set; }
         public string? location { get; set; }
+        public string? currency { get; set; }
         public List<GetDepartmentDto> Departments { get; set; } = new();
     }
 }

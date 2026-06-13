@@ -11,6 +11,7 @@ namespace Contracting.Infrustructure.Persistence.Configurations.Master
             builder.ToTable("Branches", "master");
             builder.Property(b => b.nameEn).HasMaxLength(200);
             builder.Property(b => b.nameAr).HasMaxLength(200);
+            builder.Property(b => b.currency).HasMaxLength(10);
         }
     }
 }

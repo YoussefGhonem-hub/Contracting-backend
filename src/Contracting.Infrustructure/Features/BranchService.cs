@@ -158,6 +158,7 @@ namespace Contracting.Infrustructure.Features
             branch.nameAr = dto.nameAr;
             branch.address = dto.address;
             branch.location = dto.location;
+            branch.currency = dto.currency;
 
             // Handle departments
             var incomingDeptIds = dto.Departments.Select(d => d.Id).ToList();
