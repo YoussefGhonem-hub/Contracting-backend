@@ -1,10 +1,12 @@
 using Contracting.Domain.Entities;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.Resources;
+using Emails.Mailersend.Services;
 using ErrorOr;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Localization;
 
 namespace Contracting.Application.Features.Users.Commands.ResetPasswordCommand;
@@ -14,15 +16,21 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ApplicationDbContext _db;
     private readonly IStringLocalizer<SharedResources> _localizer;
+    private readonly IEmailService _emailService;
+    private readonly IConfiguration _configuration;
 
     public ResetPasswordCommandHandler(
         UserManager<ApplicationUser> userManager,
         ApplicationDbContext db,
-        IStringLocalizer<SharedResources> localizer)
+        IStringLocalizer<SharedResources> localizer,
+        IEmailService emailService,
+        IConfiguration configuration)
     {
         _userManager = userManager;
         _db = db;
         _localizer = localizer;
+        _emailService = emailService;
+        _configuration = configuration;
     }
 
     public async Task<ErrorOr<string>> Handle(ResetPasswordCommand request, CancellationToken cancellationToken)
@@ -87,6 +95,18 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         resetCode.IsUsed = true;
         resetCode.UsedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
+
+        // Send password changed confirmation email
+        try
+        {
+            var replacements = new Dictionary<string, string>
+            {
+                { "UserName", user.FullName ?? user.Email ?? "User" },
+                { "LoginUrl", _configuration["AppSettings:FrontendBaseUrl"] ?? "" }
+            };
+            await _emailService.SendEmailAsync(user.Email!, "Password Reset Successful - Sole System", "password-changed-confirmation.html", replacements, cancellationToken);
+        }
+        catch { /* never block password reset due to email failure */ }
 
         return "Password has been reset successfully. You can now login with your new password.";
     }
