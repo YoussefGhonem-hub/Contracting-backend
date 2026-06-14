@@ -5,7 +5,6 @@ using Contracting.Infrustructure.Inteface.business;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.BusinessDtos.FinancialClearanceDto;
 using Contracting.Shared.Common;
-using Contracting.Shared.Constants;
 using Contracting.Shared.CurrentUser;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.DepartmentDtos;
@@ -216,39 +215,38 @@ namespace Contracting.Infrustructure.Features.business
             var fromStatusId = clearance.StatusId;
             Guid toStatusId;
 
-            switch (dto.ActionType)
+            switch (dto.ActionType.Trim().ToLower())
             {
-                case FinancialClearanceActionType.Submit:
+                case "submit":
                     // New → InProgress (submit for review)
                     if (clearance.StatusId != s.New)
                         return Error.Validation("FinancialClearance.InvalidAction", "Only new clearances can be submitted.");
                     toStatusId = s.InProgress;
                     break;
 
-                case FinancialClearanceActionType.Review:
+                case "review":
                     // InProgress stays InProgress, just logs the review activity
                     if (clearance.StatusId != s.InProgress)
                         return Error.Validation("FinancialClearance.InvalidAction", "Only submitted clearances can be reviewed.");
                     toStatusId = s.InProgress;
                     break;
 
-                case FinancialClearanceActionType.Approve:
+                case "approve":
                     // InProgress → Completed
                     if (clearance.StatusId != s.InProgress)
                         return Error.Validation("FinancialClearance.InvalidAction", "Only submitted clearances can be approved.");
                     toStatusId = s.Completed;
                     break;
 
-                case FinancialClearanceActionType.Close:
+                case "close":
                     // Completed → Completed (only allowed after Approve, not after Close)
                     if (clearance.StatusId != s.Completed)
                         return Error.Validation("FinancialClearance.InvalidAction", "Only approved clearances can be closed.");
 
-                    // Distinguish Approved vs already Closed by checking the last activity
                     var lastActionType = clearance.Activities
                         .OrderByDescending(a => a.CreatedDate)
                         .FirstOrDefault()?.ActionType;
-                    if (lastActionType?.Equals("Close", StringComparison.OrdinalIgnoreCase) == true)
+                    if (lastActionType?.Equals("close", StringComparison.OrdinalIgnoreCase) == true)
                         return Error.Validation("FinancialClearance.AlreadyClosed", "This clearance has already been closed.");
 
                     if (!clearance.Attachments.Any())
@@ -257,7 +255,7 @@ namespace Contracting.Infrustructure.Features.business
                     toStatusId = s.Completed;
                     break;
 
-                case FinancialClearanceActionType.Reject:
+                case "reject":
                     // New or InProgress → Rejected
                     if (clearance.StatusId == s.Completed || clearance.StatusId == s.Rejected)
                         return Error.Validation("FinancialClearance.InvalidAction", "Cannot reject a completed or already-rejected clearance.");
@@ -265,7 +263,7 @@ namespace Contracting.Infrustructure.Features.business
                     break;
 
                 default:
-                    return Error.Validation("FinancialClearance.UnknownAction", $"Unknown action: {dto.ActionType}");
+                    return Error.Validation("FinancialClearance.UnknownAction", $"Unknown action: {dto.ActionType}. Valid values: Submit, Review, Approve, Close, Reject");
             }
 
             clearance.StatusId = toStatusId;
@@ -275,7 +273,7 @@ namespace Contracting.Infrustructure.Features.business
                 EngineerId = engineer?.Id,
                 FromStatusId = fromStatusId,
                 ToStatusId = toStatusId,
-                ActionType = dto.ActionType.ToString(),
+                ActionType = dto.ActionType,
                 Comments = dto.Comments
             });
 

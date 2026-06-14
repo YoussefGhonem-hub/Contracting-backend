@@ -273,11 +273,17 @@ namespace Contracting.Infrustructure.Features.business
                 case "confirmreceipt":
                     if (request.StatusId != s.New && request.StatusId != s.InProgress)
                         return Error.Validation("TransferRequest.InvalidAction", "Request must be in PendingReceipt or PartiallyReceived status.");
+                    if (dto.Items.Any(i => i.ReceivedQuantity < 0))
+                        return Error.Validation("TransferRequest.InvalidQuantity", "Received quantity cannot be negative.");
                     toStatusId = s.Completed;
                     break;
                 case "confirmpartialreceipt":
                     if (request.StatusId != s.New)
                         return Error.Validation("TransferRequest.InvalidAction", "Request must be in PendingReceipt status.");
+                    if (!dto.Items.Any())
+                        return Error.Validation("TransferRequest.ItemsRequired", "At least one item with received quantity is required for partial receipt.");
+                    if (dto.Items.Any(i => i.ReceivedQuantity <= 0))
+                        return Error.Validation("TransferRequest.InvalidQuantity", "Received quantity must be greater than zero.");
                     toStatusId = s.InProgress;
                     break;
                 case "cancel":
@@ -287,6 +293,37 @@ namespace Contracting.Infrustructure.Features.business
                     break;
                 default:
                     return Error.Validation("TransferRequest.UnknownAction", $"Unknown action: {dto.ActionType}");
+            }
+
+            // Save received quantities per item for confirm actions
+            var actionLower = dto.ActionType.ToLower();
+            if ((actionLower == "confirmreceipt" || actionLower == "confirmpartialreceipt") && dto.Items.Any())
+            {
+                var itemIds = dto.Items.Select(i => i.ItemId).ToList();
+                var items = await _db.TransferRequestItems
+                    .Where(i => i.TransferRequestId == id && itemIds.Contains(i.Id))
+                    .ToListAsync();
+
+                foreach (var item in items)
+                {
+                    var receipt = dto.Items.FirstOrDefault(i => i.ItemId == item.Id);
+                    if (receipt is not null)
+                    {
+                        // Clamp received quantity to the originally requested quantity
+                        item.ReceivedQuantity = Math.Min(receipt.ReceivedQuantity, item.Quantity);
+                    }
+                }
+
+                // For ConfirmReceipt: any item not explicitly listed defaults to full quantity
+                if (actionLower == "confirmreceipt")
+                {
+                    var specifiedIds = itemIds.ToHashSet();
+                    var unspecifiedItems = await _db.TransferRequestItems
+                        .Where(i => i.TransferRequestId == id && !specifiedIds.Contains(i.Id) && i.ReceivedQuantity == null)
+                        .ToListAsync();
+                    foreach (var item in unspecifiedItems)
+                        item.ReceivedQuantity = item.Quantity;
+                }
             }
 
             await _db.TransferRequests
@@ -347,7 +384,7 @@ namespace Contracting.Infrustructure.Features.business
             Items = r.Items.Select(i => new GetTransferRequestItemDto
             {
                 Id = i.Id, ItemCode = i.ItemCode, ItemName = i.ItemName,
-                Unit = i.Unit, Quantity = i.Quantity, Notes = i.Notes
+                Unit = i.Unit, Quantity = i.Quantity, ReceivedQuantity = i.ReceivedQuantity, Notes = i.Notes
             }).ToList(),
             Attachments = r.Attachments.Select(a => new GetAttachmentDto
             {

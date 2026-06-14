@@ -10,6 +10,7 @@ namespace Contracting.Domain.Entities.business
         public string? ItemName { get; set; }
         public string? Unit { get; set; }
         public decimal Quantity { get; set; }
+        public decimal? ReceivedQuantity { get; set; }
         public string? Notes { get; set; }
     }
 }

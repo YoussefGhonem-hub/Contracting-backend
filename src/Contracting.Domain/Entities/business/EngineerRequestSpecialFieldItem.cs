@@ -15,5 +15,6 @@ namespace Contracting.Domain.Entities.business
         public ConstructionItem? ConstructionItem { get; set; }
 
         public int Quantity { get; set; }
+        public int? ReceivedQuantity { get; set; }
     }
 }

@@ -10,6 +10,12 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestDto
         public DateTime? startDate { get; set; }
         public DateTime? endDate { get; set; }
         public ICollection<CrearteEngineerRequestNotesDto>? EngineerRequestNotes { get; set; }
+        public List<EngineerRequestSpecialFieldItemReceiptDto> SpecialFieldItems { get; set; } = new();
+    }
 
+    public class EngineerRequestSpecialFieldItemReceiptDto
+    {
+        public Guid ItemId { get; set; }
+        public int ReceivedQuantity { get; set; }
     }
 }

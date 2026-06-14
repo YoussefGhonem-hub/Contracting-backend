@@ -8,6 +8,7 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestDto
         public Guid DepartmentSpecialFieldId { get; set; }
         public Guid ConstructionItemId { get; set; }
         public int Quantity { get; set; }
+        public int? ReceivedQuantity { get; set; }
         public GetConstructionItemDto? ConstructionItem { get; set; }
     }
 }

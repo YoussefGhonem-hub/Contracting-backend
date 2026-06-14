@@ -1136,6 +1136,22 @@ public class EngineerRequestService : IEngineerRequestService
             }
         }
 
+        // Save received quantities for special field items
+        if (actionDto.SpecialFieldItems != null && actionDto.SpecialFieldItems.Any())
+        {
+            var itemIds = actionDto.SpecialFieldItems.Select(i => i.ItemId).ToList();
+            var dbItems = await _db.EngineerRequestSpecialFieldItems
+                .Where(i => i.EngineerRequestId == requestId && itemIds.Contains(i.Id))
+                .ToListAsync();
+
+            foreach (var item in dbItems)
+            {
+                var dto = actionDto.SpecialFieldItems.FirstOrDefault(i => i.ItemId == item.Id);
+                if (dto != null)
+                    item.ReceivedQuantity = Math.Max(0, Math.Min(dto.ReceivedQuantity, item.Quantity));
+            }
+        }
+
         await _db.SaveChangesAsync();
 
         // Send notifications
@@ -1615,6 +1631,7 @@ public class EngineerRequestService : IEngineerRequestService
                 DepartmentSpecialFieldId = i.DepartmentSpecialFieldId,
                 ConstructionItemId = i.ConstructionItemId,
                 Quantity = i.Quantity,
+                ReceivedQuantity = i.ReceivedQuantity,
                 ConstructionItem = i.ConstructionItem == null ? null : new GetConstructionItemDto
                 {
                     Id = i.ConstructionItem.Id,
@@ -1756,6 +1773,7 @@ public class EngineerRequestService : IEngineerRequestService
                 ItemName = i.ItemName,
                 Unit = i.Unit,
                 Quantity = i.Quantity,
+                ReceivedQuantity = i.ReceivedQuantity,
                 Notes = i.Notes
             }).ToList(),
             EngineerRequestAttachments = r.Attachments == null ? new() : r.Attachments.Select(a => new GetAttachmentDto { Id = a.Id, Key = a.Key, FileName = a.FileName, Extension = a.Extension, FileSize = a.FileSize, Url = a.Url }).ToList(),
