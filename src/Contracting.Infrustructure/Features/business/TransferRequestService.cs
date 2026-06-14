@@ -271,8 +271,8 @@ namespace Contracting.Infrustructure.Features.business
                     toStatusId = s.New;
                     break;
                 case "confirmreceipt":
-                    if (request.StatusId != s.New && request.StatusId != s.InProgress)
-                        return Error.Validation("TransferRequest.InvalidAction", "Request must be in PendingReceipt or PartiallyReceived status.");
+                    if (request.StatusId != s.New)
+                        return Error.Validation("TransferRequest.InvalidAction", "Request must be in PendingReceipt status.");
                     if (dto.Items.Any(i => i.ReceivedQuantity < 0))
                         return Error.Validation("TransferRequest.InvalidQuantity", "Received quantity cannot be negative.");
                     toStatusId = s.Completed;
@@ -284,7 +284,7 @@ namespace Contracting.Infrustructure.Features.business
                         return Error.Validation("TransferRequest.ItemsRequired", "At least one item with received quantity is required for partial receipt.");
                     if (dto.Items.Any(i => i.ReceivedQuantity <= 0))
                         return Error.Validation("TransferRequest.InvalidQuantity", "Received quantity must be greater than zero.");
-                    toStatusId = s.InProgress;
+                    toStatusId = s.Completed;
                     break;
                 case "cancel":
                     if (request.StatusId == s.Completed)
