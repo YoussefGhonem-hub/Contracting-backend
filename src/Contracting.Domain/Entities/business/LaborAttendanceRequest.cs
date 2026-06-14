@@ -1,5 +1,4 @@
 using Contracting.Domain.Common;
-using Contracting.Domain.Entities.business.enums;
 using Contracting.Domain.Entities.master;
 
 namespace Contracting.Domain.Entities.business
@@ -18,7 +17,8 @@ namespace Contracting.Domain.Entities.business
         public Guid? AssignedToId { get; set; }
         public Engineer? AssignedTo { get; set; }
         public string? Notes { get; set; }
-        public LaborAttendanceStatus Status { get; set; } = LaborAttendanceStatus.Pending;
+        public Guid? StatusId { get; set; }
+        public Status? Status { get; set; }
 
         public ICollection<LaborAttendanceRecord> Records { get; set; } = new List<LaborAttendanceRecord>();
         public ICollection<LaborAttendanceAttachment> Attachments { get; set; } = new List<LaborAttendanceAttachment>();

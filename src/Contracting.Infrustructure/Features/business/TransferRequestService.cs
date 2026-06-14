@@ -1,5 +1,5 @@
 using Contracting.Domain.Entities.business;
-using Contracting.Domain.Entities.business.enums;
+using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Infrustructure.Inteface.business;
 using Contracting.Infrustructure.Persistence;
@@ -10,6 +10,7 @@ using Contracting.Shared.CurrentUser;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
 using Contracting.Shared.Dtos.MasterDtos.ProjectDtos;
+using Contracting.Shared.Dtos.MasterDtos.StatusDtos;
 using ErrorOr;
 using Microsoft.EntityFrameworkCore;
 
@@ -28,15 +29,14 @@ namespace Contracting.Infrustructure.Features.business
 
         public async Task<ErrorOr<GetTransferRequestDto>> CreateAsync(CreateTransferRequestDto dto)
         {
+            var s = await StatusResolver.LoadRequestStatusIdsAsync(_db);
             var engineer = await _db.Engineers
                 .AsNoTracking()
                 .FirstOrDefaultAsync(e => e.ApplicationUserId == Guid.Parse(CurrentUser.UserId!));
 
-            // Validation: Destination must be selected
             if (dto.DestinationProjectId == null && string.IsNullOrWhiteSpace(dto.DestinationWarehouse))
                 return Error.Validation("TransferRequest.DestinationRequired", "Destination project or warehouse must be selected.");
 
-            // Validation: Must have at least one item
             if (dto.Items == null || dto.Items.Count == 0)
                 return Error.Validation("TransferRequest.ItemsRequired", "At least one item must be added.");
 
@@ -50,7 +50,7 @@ namespace Contracting.Infrustructure.Features.business
                 DestinationWarehouse = dto.DestinationWarehouse,
                 RequestedById = engineer?.Id,
                 Notes = dto.Notes,
-                Status = TransferRequestStatus.PendingReceipt
+                StatusId = s.New
             };
 
             foreach (var itemDto in dto.Items)
@@ -83,7 +83,7 @@ namespace Contracting.Infrustructure.Features.business
             request.Activities.Add(new TransferRequestActivity
             {
                 EngineerId = engineer?.Id,
-                ToStatus = TransferRequestStatus.PendingReceipt,
+                ToStatusId = s.New,
                 ActionType = "Submitted"
             });
 
@@ -95,13 +95,14 @@ namespace Contracting.Infrustructure.Features.business
 
         public async Task<ErrorOr<GetTransferRequestDto>> UpdateAsync(UpdateTransferRequestDto dto)
         {
+            var s = await StatusResolver.LoadRequestStatusIdsAsync(_db);
             var request = await _db.TransferRequests
                 .Include(r => r.Items)
                 .Include(r => r.Attachments)
                 .FirstOrDefaultAsync(r => r.Id == dto.Id && !r.IsDeleted);
 
             if (request is null) return Error.NotFound("TransferRequest.NotFound", "Transfer request not found.");
-            if (request.Status != TransferRequestStatus.PendingReceipt)
+            if (request.StatusId != s.New)
                 return Error.Validation("TransferRequest.CannotEdit", "Only PendingReceipt requests can be edited.");
 
             if (dto.RequestDate.HasValue) request.RequestDate = dto.RequestDate.Value;
@@ -146,9 +147,10 @@ namespace Contracting.Infrustructure.Features.business
 
         public async Task<ErrorOr<GenericResponse>> DeleteAsync(Guid id)
         {
+            var s = await StatusResolver.LoadRequestStatusIdsAsync(_db);
             var request = await _db.TransferRequests.FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
             if (request is null) return Error.NotFound("TransferRequest.NotFound", "Transfer request not found.");
-            if (request.Status != TransferRequestStatus.PendingReceipt)
+            if (request.StatusId != s.New)
                 return Error.Validation("TransferRequest.CannotDelete", "Only PendingReceipt requests can be deleted.");
 
             request.MarkAsDeleted(CurrentUser.Id ?? Guid.Empty);
@@ -162,9 +164,12 @@ namespace Contracting.Infrustructure.Features.business
                 .Include(r => r.SourceProject)
                 .Include(r => r.DestinationProject)
                 .Include(r => r.RequestedBy)
+                .Include(r => r.Status)
                 .Include(r => r.Items)
                 .Include(r => r.Attachments)
                 .Include(r => r.Activities).ThenInclude(a => a.Engineer)
+                .Include(r => r.Activities).ThenInclude(a => a.FromStatus)
+                .Include(r => r.Activities).ThenInclude(a => a.ToStatus)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
 
@@ -178,9 +183,12 @@ namespace Contracting.Infrustructure.Features.business
                 .Include(r => r.SourceProject)
                 .Include(r => r.DestinationProject)
                 .Include(r => r.RequestedBy).ThenInclude(e => e.Department)
+                .Include(r => r.Status)
                 .Include(r => r.Items)
                 .Include(r => r.Attachments)
                 .Include(r => r.Activities).ThenInclude(a => a.Engineer)
+                .Include(r => r.Activities).ThenInclude(a => a.FromStatus)
+                .Include(r => r.Activities).ThenInclude(a => a.ToStatus)
                 .Where(r => !r.IsDeleted)
                 .AsNoTracking();
 
@@ -210,9 +218,8 @@ namespace Contracting.Infrustructure.Features.business
                 }
             }
 
-            if (!string.IsNullOrWhiteSpace(filter.Status)
-                && Enum.TryParse<TransferRequestStatus>(filter.Status, true, out var statusEnum))
-                query = query.Where(r => r.Status == statusEnum);
+            if (filter.StatusId.HasValue)
+                query = query.Where(r => r.StatusId == filter.StatusId);
 
             if (filter.SourceProjectId.HasValue)
                 query = query.Where(r => r.SourceProjectId == filter.SourceProjectId);
@@ -243,6 +250,7 @@ namespace Contracting.Infrustructure.Features.business
 
         public async Task<ErrorOr<GetTransferRequestDto>> TakeActionAsync(Guid id, TransferRequestActionDto dto)
         {
+            var s = await StatusResolver.LoadRequestStatusIdsAsync(_db);
             var request = await _db.TransferRequests
                 .AsNoTracking()
                 .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
@@ -252,50 +260,48 @@ namespace Contracting.Infrustructure.Features.business
             var engineer = await _db.Engineers.AsNoTracking()
                 .FirstOrDefaultAsync(e => e.ApplicationUserId == Guid.Parse(CurrentUser.UserId!));
 
-            var fromStatus = request.Status;
-            TransferRequestStatus toStatus;
+            var fromStatusId = request.StatusId;
+            Guid toStatusId;
 
             switch (dto.ActionType.ToLower())
             {
                 case "submit":
-                    if (request.Status != TransferRequestStatus.Draft)
+                    if (request.StatusId != s.InProgress)
                         return Error.Validation("TransferRequest.InvalidAction", "Only Draft requests can be submitted.");
-                    toStatus = TransferRequestStatus.PendingReceipt;
+                    toStatusId = s.New;
                     break;
                 case "confirmreceipt":
-                    if (request.Status != TransferRequestStatus.PendingReceipt && request.Status != TransferRequestStatus.PartiallyReceived)
+                    if (request.StatusId != s.New && request.StatusId != s.InProgress)
                         return Error.Validation("TransferRequest.InvalidAction", "Request must be in PendingReceipt or PartiallyReceived status.");
-                    toStatus = TransferRequestStatus.Closed;
+                    toStatusId = s.Completed;
                     break;
                 case "confirmpartialreceipt":
-                    if (request.Status != TransferRequestStatus.PendingReceipt)
+                    if (request.StatusId != s.New)
                         return Error.Validation("TransferRequest.InvalidAction", "Request must be in PendingReceipt status.");
-                    toStatus = TransferRequestStatus.PartiallyReceived;
+                    toStatusId = s.InProgress;
                     break;
                 case "cancel":
-                    if (request.Status == TransferRequestStatus.Closed)
+                    if (request.StatusId == s.Completed)
                         return Error.Validation("TransferRequest.InvalidAction", "Closed requests cannot be cancelled.");
-                    toStatus = TransferRequestStatus.Cancelled;
+                    toStatusId = s.Rejected;
                     break;
                 default:
                     return Error.Validation("TransferRequest.UnknownAction", $"Unknown action: {dto.ActionType}");
             }
 
-            // Use direct SQL update to avoid EF Core concurrency tracking issues
             await _db.TransferRequests
                 .Where(r => r.Id == id)
                 .ExecuteUpdateAsync(s => s
-                    .SetProperty(r => r.Status, toStatus)
+                    .SetProperty(r => r.StatusId, toStatusId)
                     .SetProperty(r => r.ModifiedDate, DateTimeOffset.UtcNow)
                     .SetProperty(r => r.ModifiedBy, engineer != null ? engineer.Id : (Guid?)null));
 
-            // Insert the activity log
             await _db.TransferRequestActivities.AddAsync(new TransferRequestActivity
             {
                 TransferRequestId = id,
                 EngineerId = engineer?.Id,
-                FromStatus = fromStatus,
-                ToStatus = toStatus,
+                FromStatusId = fromStatusId,
+                ToStatusId = toStatusId,
                 ActionType = dto.ActionType,
                 Comments = dto.Comments
             });
@@ -311,6 +317,16 @@ namespace Contracting.Infrustructure.Features.business
             return $"TRF-{year}-{(count + 1):D5}";
         }
 
+        private static GetDropDownStatusDto? MapStatus(Status? s) => s is null ? null : new GetDropDownStatusDto
+        {
+            Id = s.Id,
+            nameEn = s.nameEn,
+            nameAr = s.nameAr,
+            Code = s.Code,
+            orderNumber = s.orderNumber,
+            iconName = s.iconName
+        };
+
         private static GetTransferRequestDto MapToDto(TransferRequest r) => new()
         {
             Id = r.Id,
@@ -325,7 +341,8 @@ namespace Contracting.Infrustructure.Features.business
             RequestedById = r.RequestedById,
             RequestedBy = r.RequestedBy is null ? null : new GetEngineerDto { Id = r.RequestedBy.Id, nameEn = r.RequestedBy.nameEn, nameAr = r.RequestedBy.nameAr },
             Notes = r.Notes,
-            Status = r.Status.ToString(),
+            StatusId = r.StatusId,
+            Status = MapStatus(r.Status),
             CreatedDate = r.CreatedDate,
             Items = r.Items.Select(i => new GetTransferRequestItemDto
             {
@@ -340,8 +357,10 @@ namespace Contracting.Infrustructure.Features.business
             Activities = r.Activities.Select(a => new GetTransferRequestActivityDto
             {
                 Id = a.Id,
-                FromStatus = a.FromStatus?.ToString(),
-                ToStatus = a.ToStatus.ToString(),
+                FromStatusId = a.FromStatusId,
+                FromStatus = MapStatus(a.FromStatus),
+                ToStatusId = a.ToStatusId,
+                ToStatus = MapStatus(a.ToStatus),
                 ActionType = a.ActionType,
                 Comments = a.Comments,
                 Engineer = a.Engineer is null ? null : new GetEngineerDto { Id = a.Engineer.Id, nameEn = a.Engineer.nameEn, nameAr = a.Engineer.nameAr },

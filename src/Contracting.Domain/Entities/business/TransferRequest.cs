@@ -1,5 +1,4 @@
 using Contracting.Domain.Common;
-using Contracting.Domain.Entities.business.enums;
 using Contracting.Domain.Entities.master;
 
 namespace Contracting.Domain.Entities.business
@@ -17,7 +16,8 @@ namespace Contracting.Domain.Entities.business
         public Guid? RequestedById { get; set; }
         public Engineer? RequestedBy { get; set; }
         public string? Notes { get; set; }
-        public TransferRequestStatus Status { get; set; } = TransferRequestStatus.Draft;
+        public Guid? StatusId { get; set; }
+        public Status? Status { get; set; }
 
         public ICollection<TransferRequestItem> Items { get; set; } = new List<TransferRequestItem>();
         public ICollection<TransferRequestAttachment> Attachments { get; set; } = new List<TransferRequestAttachment>();

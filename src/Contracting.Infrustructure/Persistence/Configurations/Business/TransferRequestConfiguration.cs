@@ -13,7 +13,11 @@ namespace Contracting.Infrustructure.Persistence.Configurations.Business
             builder.Property(r => r.SourceWarehouse).HasMaxLength(500);
             builder.Property(r => r.DestinationWarehouse).HasMaxLength(500);
             builder.Property(r => r.Notes).HasMaxLength(1000);
-            builder.Property(r => r.Status).HasConversion<string>();
+
+            builder.HasOne(r => r.Status)
+                   .WithMany()
+                   .HasForeignKey(r => r.StatusId)
+                   .OnDelete(DeleteBehavior.Restrict);
 
             builder.HasOne(r => r.SourceProject)
                    .WithMany()

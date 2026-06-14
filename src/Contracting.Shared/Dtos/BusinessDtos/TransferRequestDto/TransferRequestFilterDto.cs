@@ -4,7 +4,7 @@ namespace Contracting.Shared.BusinessDtos.TransferRequestDto
     {
         public int PageIndex { get; set; } = 1;
         public int PageSize { get; set; } = 10;
-        public string? Status { get; set; }
+        public Guid? StatusId { get; set; }
         public Guid? SourceProjectId { get; set; }
         public Guid? DestinationProjectId { get; set; }
         public Guid? RequestedById { get; set; }

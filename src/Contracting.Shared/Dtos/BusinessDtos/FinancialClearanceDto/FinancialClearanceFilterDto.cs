@@ -4,7 +4,7 @@ namespace Contracting.Shared.BusinessDtos.FinancialClearanceDto
     {
         public int PageIndex { get; set; } = 1;
         public int PageSize { get; set; } = 10;
-        public string? Status { get; set; }
+        public Guid? StatusId { get; set; }
         public Guid? ProjectId { get; set; }
         public Guid? DepartmentId { get; set; }
         public Guid? RequestedById { get; set; }

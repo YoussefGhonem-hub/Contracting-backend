@@ -1,5 +1,4 @@
 using Contracting.Domain.Common;
-using Contracting.Domain.Entities.business.enums;
 using Contracting.Domain.Entities.master;
 
 namespace Contracting.Domain.Entities.business
@@ -17,7 +16,8 @@ namespace Contracting.Domain.Entities.business
         public decimal SpentAmount { get; set; }
         public decimal RemainingAmount { get; set; }
         public string? Notes { get; set; }
-        public FinancialClearanceStatus Status { get; set; } = FinancialClearanceStatus.Draft;
+        public Guid? StatusId { get; set; }
+        public Status? Status { get; set; }
         public Guid? RequestedById { get; set; }
         public Engineer? RequestedBy { get; set; }
 

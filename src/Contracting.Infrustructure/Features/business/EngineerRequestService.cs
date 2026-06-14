@@ -1543,7 +1543,7 @@ public class EngineerRequestService : IEngineerRequestService
         {
             Id = r.Id,
             RequestNumber = $"ER-{r.Id}",
-            RequestType = r.RequestType ?? "EngineerRequest",
+            RequestType = string.IsNullOrEmpty(r.RequestType) ? "EngineerRequest" : r.RequestType,
             ProjectId = r.ProjectId,
             Project = r.Project == null ? null : new GetProjectDto
             {
@@ -1682,13 +1682,15 @@ public class EngineerRequestService : IEngineerRequestService
             .Include(r => r.DestinationProject)
             .Include(r => r.RequestedBy)
                 .ThenInclude(e => e.Department)
+            .Include(r => r.Status)
             .Include(r => r.Items)
             .Include(r => r.Attachments)
-            .Include(r => r.Activities)
-                .ThenInclude(a => a.Engineer)
+            .Include(r => r.Activities).ThenInclude(a => a.Engineer)
+            .Include(r => r.Activities).ThenInclude(a => a.FromStatus)
+            .Include(r => r.Activities).ThenInclude(a => a.ToStatus)
             .Where(r => !r.IsDeleted
-                && (r.RequestedById == engineer.Id                                  // created by this engineer
-                    || (r.DestinationProjectId.HasValue                             // OR incoming to one of their projects
+                && (r.RequestedById == engineer.Id
+                    || (r.DestinationProjectId.HasValue
                         && engineerProjectIds.Contains(r.DestinationProjectId.Value))))
             .AsNoTracking();
 
@@ -1727,7 +1729,8 @@ public class EngineerRequestService : IEngineerRequestService
                 RequiresGoodsReceipt = r.RequestedBy.Department.RequiresGoodsReceipt,
                 hasSpecialFields = r.RequestedBy.Department.hasSpecialFields
             },
-            Status = new GetDropDownStatusDto { nameEn = r.Status.ToString() },
+            StatusId = r.StatusId,
+            Status = r.Status == null ? null : new GetDropDownStatusDto { Id = r.Status.Id, nameEn = r.Status.nameEn, nameAr = r.Status.nameAr, Code = r.Status.Code, orderNumber = r.Status.orderNumber, iconName = r.Status.iconName },
             Notes = r.Notes,
             CreatedDate = r.CreatedDate,
             SourceProjectId = r.SourceProjectId,
@@ -1762,6 +1765,8 @@ public class EngineerRequestService : IEngineerRequestService
                 EngineerRequestId = r.Id,
                 EngineerId = a.EngineerId,
                 EngineerName = a.Engineer != null ? $"{a.Engineer.nameEn} / {a.Engineer.nameAr}" : null,
+                StatusId = a.ToStatusId,
+                StatusName = a.ToStatus != null ? $"{a.ToStatus.nameEn} / {a.ToStatus.nameAr}" : null,
                 ActionType = a.ActionType,
                 Comments = a.Comments,
                 CreatedDate = a.CreatedDate
@@ -1784,10 +1789,11 @@ public class EngineerRequestService : IEngineerRequestService
             .Include(r => r.Department)
             .Include(r => r.Supervisor)
             .Include(r => r.AssignedTo)
+            .Include(r => r.Status)
             .Include(r => r.Records)
             .Include(r => r.Attachments)
-            .Include(r => r.Activities)
-                .ThenInclude(a => a.Engineer)
+            .Include(r => r.Activities).ThenInclude(a => a.Engineer)
+            .Include(r => r.Activities).ThenInclude(a => a.ToStatus)
             .Where(r => !r.IsDeleted)
             .AsNoTracking();
 
@@ -1878,7 +1884,8 @@ public class EngineerRequestService : IEngineerRequestService
                 nameEn = r.AssignedTo.nameEn, 
                 nameAr = r.AssignedTo.nameAr 
             },
-            Status = new GetDropDownStatusDto { nameEn = r.Status.ToString() },
+            StatusId = r.StatusId,
+            Status = r.Status == null ? null : new GetDropDownStatusDto { Id = r.Status.Id, nameEn = r.Status.nameEn, nameAr = r.Status.nameAr, Code = r.Status.Code, orderNumber = r.Status.orderNumber, iconName = r.Status.iconName },
             Notes = r.Notes,
             CreatedDate = r.CreatedDate,
             SiteName = r.SiteName,
@@ -1910,6 +1917,8 @@ public class EngineerRequestService : IEngineerRequestService
                 EngineerRequestId = r.Id,
                 EngineerId = a.EngineerId,
                 EngineerName = a.Engineer != null ? $"{a.Engineer.nameEn} / {a.Engineer.nameAr}" : null,
+                StatusId = a.ToStatusId,
+                StatusName = a.ToStatus != null ? $"{a.ToStatus.nameEn} / {a.ToStatus.nameAr}" : null,
                 ActionType = a.ActionType,
                 Comments = a.Comments,
                 CreatedDate = a.CreatedDate
@@ -1926,9 +1935,10 @@ public class EngineerRequestService : IEngineerRequestService
             .Include(r => r.Project)
             .Include(r => r.Department)
             .Include(r => r.RequestedBy)
+            .Include(r => r.Status)
             .Include(r => r.Attachments)
-            .Include(r => r.Activities)
-                .ThenInclude(a => a.Engineer)
+            .Include(r => r.Activities).ThenInclude(a => a.Engineer)
+            .Include(r => r.Activities).ThenInclude(a => a.ToStatus)
             .Where(r => !r.IsDeleted && r.RequestedById == engineer.Id)
             .AsNoTracking();
 
@@ -1958,14 +1968,15 @@ public class EngineerRequestService : IEngineerRequestService
                 nameEn = r.RequestedBy.nameEn, 
                 nameAr = r.RequestedBy.nameAr 
             },
-            Status = new GetDropDownStatusDto { nameEn = r.Status.ToString() },
+            StatusId = r.StatusId,
+            Status = r.Status == null ? null : new GetDropDownStatusDto { Id = r.Status.Id, nameEn = r.Status.nameEn, nameAr = r.Status.nameAr, Code = r.Status.Code, orderNumber = r.Status.orderNumber, iconName = r.Status.iconName },
             Notes = r.Notes,
             CreatedDate = r.CreatedDate,
             DepartmentId = r.DepartmentId,
-            Department = r.Department == null ? null : new GetDepartmentDto 
-            { 
-                Id = r.Department.Id, 
-                nameEn = r.Department.nameEn, 
+            Department = r.Department == null ? null : new GetDepartmentDto
+            {
+                Id = r.Department.Id,
+                nameEn = r.Department.nameEn,
                 nameAr = r.Department.nameAr,
                 RequiresGoodsReceipt = r.Department.RequiresGoodsReceipt,
                 hasSpecialFields = r.Department.hasSpecialFields
@@ -1982,6 +1993,8 @@ public class EngineerRequestService : IEngineerRequestService
                 EngineerRequestId = r.Id,
                 EngineerId = a.EngineerId,
                 EngineerName = a.Engineer != null ? $"{a.Engineer.nameEn} / {a.Engineer.nameAr}" : null,
+                StatusId = a.ToStatusId,
+                StatusName = a.ToStatus != null ? $"{a.ToStatus.nameEn} / {a.ToStatus.nameAr}" : null,
                 ActionType = a.ActionType,
                 Comments = a.Comments,
                 CreatedDate = a.CreatedDate
@@ -2310,7 +2323,7 @@ public class EngineerRequestService : IEngineerRequestService
             .OrderBy(x => x.StatusName)
             .ToList();
 
-        // --- Transfer Request counts (enum-based, scoped to this engineer) ---
+        // --- Transfer Request counts (scoped to this engineer) ---
         // Engineer sees transfers they created OR incoming to projects they're assigned to
         var engineerProjectIds = await _db.EngineerProjects
             .Where(ep => ep.EngineerId == engineerId)
@@ -2321,57 +2334,63 @@ public class EngineerRequestService : IEngineerRequestService
             .Where(r => !r.IsDeleted
                 && (r.RequestedById == engineerId
                     || (r.DestinationProjectId.HasValue && engineerProjectIds.Contains(r.DestinationProjectId.Value))))
-            .GroupBy(r => r.Status)
-            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .GroupBy(r => r.StatusId)
+            .Select(g => new { StatusId = g.Key, Count = g.Count() })
             .ToListAsync();
 
         foreach (var tg in transferGroups)
         {
-            requestCounts.Add(new GetEngineerRequestCountByStatusDto
-            {
-                StatusId = Guid.Empty,
-                StatusName = tg.Status.ToString(),
-                StatusNameAr = tg.Status.ToString(),
-                TransferCount = tg.Count
-            });
+            var existing = requestCounts.FirstOrDefault(x => x.StatusId == tg.StatusId);
+            if (existing is not null)
+                existing.TransferCount += tg.Count;
+            else if (tg.StatusId.HasValue)
+                requestCounts.Add(new GetEngineerRequestCountByStatusDto
+                {
+                    StatusId = tg.StatusId.Value,
+                    TransferCount = tg.Count
+                });
         }
 
-        // --- Labor Attendance counts (enum-based, scoped to this engineer) ---
+        // --- Labor Attendance counts (scoped to this engineer) ---
         // Engineer sees labor requests they supervise OR are assigned to
         var laborGroups = await _db.LaborAttendanceRequests
             .Where(r => !r.IsDeleted
                 && (r.SupervisorId == engineerId || r.AssignedToId == engineerId))
-            .GroupBy(r => r.Status)
-            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .GroupBy(r => r.StatusId)
+            .Select(g => new { StatusId = g.Key, Count = g.Count() })
             .ToListAsync();
 
         foreach (var lg in laborGroups)
         {
-            requestCounts.Add(new GetEngineerRequestCountByStatusDto
-            {
-                StatusId = Guid.Empty,
-                StatusName = lg.Status.ToString(),
-                StatusNameAr = lg.Status.ToString(),
-                LaborCount = lg.Count
-            });
+            var existing = requestCounts.FirstOrDefault(x => x.StatusId == lg.StatusId);
+            if (existing is not null)
+                existing.LaborCount += lg.Count;
+            else if (lg.StatusId.HasValue)
+                requestCounts.Add(new GetEngineerRequestCountByStatusDto
+                {
+                    StatusId = lg.StatusId.Value,
+                    LaborCount = lg.Count
+                });
         }
 
-        // --- Financial Clearance counts (enum-based, scoped to this engineer) ---
+        // --- Financial Clearance counts (scoped to this engineer) ---
         var financialGroups = await _db.FinancialClearances
             .Where(r => !r.IsDeleted && r.RequestedById == engineerId)
-            .GroupBy(r => r.Status)
-            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .GroupBy(r => r.StatusId)
+            .Select(g => new { StatusId = g.Key, Count = g.Count() })
             .ToListAsync();
 
         foreach (var fg in financialGroups)
         {
-            requestCounts.Add(new GetEngineerRequestCountByStatusDto
-            {
-                StatusId = Guid.Empty,
-                StatusName = fg.Status.ToString(),
-                StatusNameAr = fg.Status.ToString(),
-                FinancialClearanceCount = fg.Count
-            });
+            var existing = requestCounts.FirstOrDefault(x => x.StatusId == fg.StatusId);
+            if (existing is not null)
+                existing.FinancialClearanceCount += fg.Count;
+            else if (fg.StatusId.HasValue)
+                requestCounts.Add(new GetEngineerRequestCountByStatusDto
+                {
+                    StatusId = fg.StatusId.Value,
+                    FinancialClearanceCount = fg.Count
+                });
         }
 
         return requestCounts;

@@ -2,6 +2,7 @@ using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.DepartmentDtos;
 using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
 using Contracting.Shared.Dtos.MasterDtos.ProjectDtos;
+using Contracting.Shared.Dtos.MasterDtos.StatusDtos;
 
 namespace Contracting.Shared.BusinessDtos.FinancialClearanceDto
 {
@@ -19,7 +20,8 @@ namespace Contracting.Shared.BusinessDtos.FinancialClearanceDto
         public decimal SpentAmount { get; set; }
         public decimal RemainingAmount { get; set; }
         public string? Notes { get; set; }
-        public string? Status { get; set; }
+        public Guid? StatusId { get; set; }
+        public GetDropDownStatusDto? Status { get; set; }
         public Guid? RequestedById { get; set; }
         public GetEngineerDto? RequestedBy { get; set; }
         public DateTimeOffset CreatedDate { get; set; }

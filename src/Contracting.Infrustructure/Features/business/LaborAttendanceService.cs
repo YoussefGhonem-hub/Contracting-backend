@@ -1,5 +1,6 @@
 using Contracting.Domain.Entities.business;
 using Contracting.Domain.Entities.business.enums;
+using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Infrustructure.Inteface.business;
 using Contracting.Infrustructure.Inteface.Helper;
@@ -11,6 +12,7 @@ using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.DepartmentDtos;
 using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
 using Contracting.Shared.Dtos.MasterDtos.ProjectDtos;
+using Contracting.Shared.Dtos.MasterDtos.StatusDtos;
 using ErrorOr;
 using Microsoft.EntityFrameworkCore;
 
@@ -31,6 +33,7 @@ namespace Contracting.Infrustructure.Features.business
 
         public async Task<ErrorOr<GetLaborAttendanceRequestDto>> CreateAsync(CreateLaborAttendanceRequestDto dto)
         {
+            var s = await StatusResolver.LoadRequestStatusIdsAsync(_db);
             if (string.IsNullOrEmpty(CurrentUser.UserId) || !Guid.TryParse(CurrentUser.UserId, out var currentUserId))
                 return Error.Unauthorized("Auth.Unauthorized", "User is not authenticated.");
 
@@ -49,7 +52,7 @@ namespace Contracting.Infrustructure.Features.business
                 AttendanceDate = dto.AttendanceDate,
                 SupervisorId = engineer?.Id,
                 Notes = dto.Notes,
-                Status = LaborAttendanceStatus.Pending
+                StatusId = s.New  // Pending → New
             };
 
             foreach (var rec in dto.Records)
@@ -80,7 +83,6 @@ namespace Contracting.Infrustructure.Features.business
                 });
             }
 
-            // Validate no duplicate names on same date
             var names = request.Records.Where(r => !string.IsNullOrWhiteSpace(r.Name))
                 .Select(r => r.Name!.Trim().ToLower()).ToList();
             if (names.Count != names.Distinct().Count())
@@ -101,7 +103,7 @@ namespace Contracting.Infrustructure.Features.business
             request.Activities.Add(new LaborAttendanceActivity
             {
                 EngineerId = engineer?.Id,
-                ToStatus = LaborAttendanceStatus.Pending,
+                ToStatusId = s.New,
                 ActionType = "Created"
             });
 
@@ -113,13 +115,15 @@ namespace Contracting.Infrustructure.Features.business
 
         public async Task<ErrorOr<GetLaborAttendanceRequestDto>> UpdateAsync(UpdateLaborAttendanceRequestDto dto)
         {
+            var s = await StatusResolver.LoadRequestStatusIdsAsync(_db);
             var request = await _db.LaborAttendanceRequests
                 .Include(r => r.Records)
                 .Include(r => r.Attachments)
                 .FirstOrDefaultAsync(r => r.Id == dto.Id && !r.IsDeleted);
 
             if (request is null) return Error.NotFound("LaborAttendance.NotFound", "Labor attendance request not found.");
-            if (request.Status != LaborAttendanceStatus.Pending)
+            // Only allow editing when Pending (New)
+            if (request.StatusId != s.New)
                 return Error.Validation("LaborAttendance.CannotEdit", "Only Pending requests can be edited.");
 
             if (dto.ProjectId.HasValue) request.ProjectId = dto.ProjectId == Guid.Empty ? null : dto.ProjectId;
@@ -175,9 +179,11 @@ namespace Contracting.Infrustructure.Features.business
 
         public async Task<ErrorOr<GenericResponse>> DeleteAsync(Guid id)
         {
+            var s = await StatusResolver.LoadRequestStatusIdsAsync(_db);
             var request = await _db.LaborAttendanceRequests.FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
             if (request is null) return Error.NotFound("LaborAttendance.NotFound", "Labor attendance request not found.");
-            if (request.Status != LaborAttendanceStatus.Pending)
+            // Only allow deleting when Pending (New)
+            if (request.StatusId != s.New)
                 return Error.Validation("LaborAttendance.CannotDelete", "Only Pending requests can be deleted.");
 
             request.MarkAsDeleted(CurrentUser.Id ?? Guid.Empty);
@@ -192,9 +198,12 @@ namespace Contracting.Infrustructure.Features.business
                 .Include(r => r.Department)
                 .Include(r => r.Supervisor)
                 .Include(r => r.AssignedTo)
+                .Include(r => r.Status)
                 .Include(r => r.Records)
                 .Include(r => r.Attachments)
                 .Include(r => r.Activities).ThenInclude(a => a.Engineer)
+                .Include(r => r.Activities).ThenInclude(a => a.FromStatus)
+                .Include(r => r.Activities).ThenInclude(a => a.ToStatus)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
 
@@ -215,9 +224,12 @@ namespace Contracting.Infrustructure.Features.business
                     .Include(r => r.Department)
                     .Include(r => r.Supervisor)
                     .Include(r => r.AssignedTo)
+                    .Include(r => r.Status)
                     .Include(r => r.Records)
                     .Include(r => r.Attachments)
                     .Include(r => r.Activities).ThenInclude(a => a.Engineer)
+                    .Include(r => r.Activities).ThenInclude(a => a.FromStatus)
+                    .Include(r => r.Activities).ThenInclude(a => a.ToStatus)
                     .Where(r => !r.IsDeleted)
                     .AsNoTracking();
 
@@ -228,14 +240,12 @@ namespace Contracting.Infrustructure.Features.business
 
                     if (engineer != null)
                     {
-                        // Get departments where this engineer is a TeamLead
                         var teamLeadDeptIds = await (from ed in _db.EngineerDepartments
                                                      join role in _db.Roles on ed.RoleId equals role.Id
                                                      where ed.EngineerId == engineer.Id && role.Name == Contracting.Shared.Constants.RoleNames.Teamleadengineer
                                                      select ed.DepartmentId)
                                                     .ToListAsync();
 
-                        // Fallback: check via UserRoles + engineer.DepartmentId
                         if (!teamLeadDeptIds.Any() && engineer.DepartmentId.HasValue)
                         {
                             var isTeamLeadViaRoles = await (from userRole in _db.UserRoles
@@ -249,7 +259,6 @@ namespace Contracting.Infrustructure.Features.business
 
                         if (teamLeadDeptIds.Any())
                         {
-                            // Team lead: see all requests in their departments + assigned to them + created by them
                             query = query.Where(r =>
                                 (r.DepartmentId.HasValue && teamLeadDeptIds.Contains(r.DepartmentId.Value))
                                 || r.AssignedToId == engineer.Id
@@ -257,15 +266,13 @@ namespace Contracting.Infrustructure.Features.business
                         }
                         else
                         {
-                            // Regular engineer: only see requests created by them or assigned to them
                             query = query.Where(r => r.SupervisorId == engineer.Id || r.AssignedToId == engineer.Id);
                         }
                     }
                 }
 
-                if (!string.IsNullOrWhiteSpace(filter.Status)
-                    && Enum.TryParse<LaborAttendanceStatus>(filter.Status, true, out var statusEnum))
-                    query = query.Where(r => r.Status == statusEnum);
+                if (filter.StatusId.HasValue)
+                    query = query.Where(r => r.StatusId == filter.StatusId);
 
                 if (filter.ProjectId.HasValue) query = query.Where(r => r.ProjectId == filter.ProjectId);
                 if (filter.SupervisorId.HasValue) query = query.Where(r => r.SupervisorId == filter.SupervisorId);
@@ -294,6 +301,7 @@ namespace Contracting.Infrustructure.Features.business
 
         public async Task<ErrorOr<GetLaborAttendanceRequestDto>> TakeActionAsync(Guid id, LaborAttendanceActionDto dto)
         {
+            var s = await StatusResolver.LoadRequestStatusIdsAsync(_db);
             var request = await _db.LaborAttendanceRequests
                 .Include(r => r.Records)
                 .Include(r => r.Supervisor)
@@ -309,13 +317,14 @@ namespace Contracting.Infrustructure.Features.business
                 .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
 
             Domain.Entities.master.Engineer? assignedEngineer = null;
-            var fromStatus = request.Status;
-            LaborAttendanceStatus toStatus;
+            var fromStatusId = request.StatusId;
+            Guid toStatusId;
 
             switch (dto.ActionType.ToLower())
             {
                 case "assign":
-                    if (request.Status != LaborAttendanceStatus.Pending)
+                    // Pending (New) → Assigned (InProgress)
+                    if (request.StatusId != s.New)
                         return Error.Validation("LaborAttendance.InvalidAction", "Only Pending requests can be assigned.");
                     if (!dto.AssignedToId.HasValue || dto.AssignedToId == Guid.Empty)
                         return Error.Validation("LaborAttendance.AssignedToRequired", "AssignedToId is required for assign action.");
@@ -325,50 +334,50 @@ namespace Contracting.Infrustructure.Features.business
                     if (assignedEngineer is null)
                         return Error.NotFound("LaborAttendance.EngineerNotFound", "Assigned engineer not found.");
 
-                    toStatus = LaborAttendanceStatus.Assigned;
+                    toStatusId = s.InProgress;
                     break;
                 case "validate":
-                    if (request.Status != LaborAttendanceStatus.Assigned)
+                    // Assigned (InProgress) → Validated (Completed)
+                    if (request.StatusId != s.InProgress)
                         return Error.Validation("LaborAttendance.InvalidAction", "Only Assigned requests can be validated.");
-                    toStatus = LaborAttendanceStatus.Validated;
+                    toStatusId = s.Completed;
                     break;
                 case "reject":
-                    if (request.Status != LaborAttendanceStatus.Assigned)
+                    // Assigned (InProgress) → Rejected
+                    if (request.StatusId != s.InProgress)
                         return Error.Validation("LaborAttendance.InvalidAction", "Only Assigned requests can be rejected.");
-                    toStatus = LaborAttendanceStatus.Rejected;
+                    toStatusId = s.Rejected;
                     break;
                 default:
                     return Error.Validation("LaborAttendance.UnknownAction", $"Unknown action: {dto.ActionType}");
             }
 
-            // Use ExecuteUpdateAsync to avoid EF tracking concurrency issues
             if (assignedEngineer is not null)
             {
                 await _db.LaborAttendanceRequests
                     .Where(r => r.Id == id)
                     .ExecuteUpdateAsync(s => s
-                        .SetProperty(r => r.Status, toStatus)
+                        .SetProperty(r => r.StatusId, toStatusId)
                         .SetProperty(r => r.AssignedToId, assignedEngineer.Id));
             }
             else
             {
                 await _db.LaborAttendanceRequests
                     .Where(r => r.Id == id)
-                    .ExecuteUpdateAsync(s => s.SetProperty(r => r.Status, toStatus));
+                    .ExecuteUpdateAsync(s => s.SetProperty(r => r.StatusId, toStatusId));
             }
 
             await _db.LaborAttendanceActivities.AddAsync(new LaborAttendanceActivity
             {
                 LaborAttendanceRequestId = id,
                 EngineerId = engineer?.Id,
-                FromStatus = fromStatus,
-                ToStatus = toStatus,
+                FromStatusId = fromStatusId,
+                ToStatusId = toStatusId,
                 ActionType = dto.ActionType,
                 Comments = dto.Comments
             });
             await _db.SaveChangesAsync();
 
-            // Send notifications
             var supervisorUserId = request.Supervisor?.ApplicationUserId;
             switch (dto.ActionType.ToLower())
             {
@@ -419,6 +428,16 @@ namespace Contracting.Infrustructure.Features.business
             return $"LAB-{year}-{(count + 1):D5}";
         }
 
+        private static GetDropDownStatusDto? MapStatus(Status? s) => s is null ? null : new GetDropDownStatusDto
+        {
+            Id = s.Id,
+            nameEn = s.nameEn,
+            nameAr = s.nameAr,
+            Code = s.Code,
+            orderNumber = s.orderNumber,
+            iconName = s.iconName
+        };
+
         private static GetLaborAttendanceRequestDto MapToDto(LaborAttendanceRequest r) => new()
         {
             Id = r.Id,
@@ -434,7 +453,8 @@ namespace Contracting.Infrustructure.Features.business
             AssignedToId = r.AssignedToId,
             AssignedTo = r.AssignedTo is null ? null : new GetEngineerDto { Id = r.AssignedTo.Id, nameEn = r.AssignedTo.nameEn, nameAr = r.AssignedTo.nameAr },
             Notes = r.Notes,
-            Status = r.Status.ToString(),
+            StatusId = r.StatusId,
+            Status = MapStatus(r.Status),
             TotalAmount = r.Records.Sum(rec => rec.TotalAmount),
             CreatedDate = r.CreatedDate,
             Records = r.Records.Select(rec => new GetLaborAttendanceRecordDto
@@ -456,8 +476,10 @@ namespace Contracting.Infrustructure.Features.business
             Activities = r.Activities.Select(a => new GetLaborAttendanceActivityDto
             {
                 Id = a.Id,
-                FromStatus = a.FromStatus.HasValue ? a.FromStatus.Value.ToString() : null,
-                ToStatus = a.ToStatus.ToString(),
+                FromStatusId = a.FromStatusId,
+                FromStatus = MapStatus(a.FromStatus),
+                ToStatusId = a.ToStatusId,
+                ToStatus = MapStatus(a.ToStatus),
                 ActionType = a.ActionType,
                 Comments = a.Comments,
                 Engineer = a.Engineer is null ? null : new GetEngineerDto { Id = a.Engineer.Id, nameEn = a.Engineer.nameEn, nameAr = a.Engineer.nameAr },

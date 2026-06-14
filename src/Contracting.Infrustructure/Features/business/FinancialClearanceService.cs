@@ -1,5 +1,5 @@
 using Contracting.Domain.Entities.business;
-using Contracting.Domain.Entities.business.enums;
+using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Infrustructure.Inteface.business;
 using Contracting.Infrustructure.Persistence;
@@ -11,6 +11,7 @@ using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.DepartmentDtos;
 using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
 using Contracting.Shared.Dtos.MasterDtos.ProjectDtos;
+using Contracting.Shared.Dtos.MasterDtos.StatusDtos;
 using ErrorOr;
 using Microsoft.EntityFrameworkCore;
 
@@ -29,10 +30,10 @@ namespace Contracting.Infrustructure.Features.business
 
         public async Task<ErrorOr<GetFinancialClearanceDto>> CreateAsync(CreateFinancialClearanceDto dto)
         {
+            var s = await StatusResolver.LoadRequestStatusIdsAsync(_db);
             var engineer = await _db.Engineers.AsNoTracking()
                 .FirstOrDefaultAsync(e => e.ApplicationUserId == Guid.Parse(CurrentUser.UserId!));
 
-            // Validation: spent cannot exceed advance
             if (dto.SpentAmount > dto.AdvanceAmount)
                 return Error.Validation("FinancialClearance.SpentExceedsAdvance", "Spent amount cannot exceed advance amount.");
 
@@ -47,7 +48,7 @@ namespace Contracting.Infrustructure.Features.business
                 SpentAmount = dto.SpentAmount,
                 RemainingAmount = dto.AdvanceAmount - dto.SpentAmount,
                 Notes = dto.Notes,
-                Status = FinancialClearanceStatus.Draft,
+                StatusId = s.New,  // Draft/Created → New
                 RequestedById = engineer?.Id
             };
 
@@ -71,7 +72,7 @@ namespace Contracting.Infrustructure.Features.business
             clearance.Activities.Add(new FinancialClearanceActivity
             {
                 EngineerId = engineer?.Id,
-                ToStatus = FinancialClearanceStatus.Draft,
+                ToStatusId = s.New,
                 ActionType = "Created"
             });
 
@@ -83,13 +84,15 @@ namespace Contracting.Infrustructure.Features.business
 
         public async Task<ErrorOr<GetFinancialClearanceDto>> UpdateAsync(UpdateFinancialClearanceDto dto)
         {
+            var s = await StatusResolver.LoadRequestStatusIdsAsync(_db);
             var clearance = await _db.FinancialClearances
                 .Include(c => c.Attachments)
                 .FirstOrDefaultAsync(c => c.Id == dto.Id && !c.IsDeleted);
 
             if (clearance is null) return Error.NotFound("FinancialClearance.NotFound", "Financial clearance not found.");
-            if (clearance.Status != FinancialClearanceStatus.Draft)
-                return Error.Validation("FinancialClearance.CannotEdit", "Only Draft clearances can be edited.");
+            // Only allow editing when in New state (Draft)
+            if (clearance.StatusId != s.New)
+                return Error.Validation("FinancialClearance.CannotEdit", "Only new (draft) clearances can be edited.");
 
             if (dto.EmployeeName is not null) clearance.EmployeeName = dto.EmployeeName;
             if (dto.DepartmentId.HasValue) clearance.DepartmentId = dto.DepartmentId == Guid.Empty ? null : dto.DepartmentId;
@@ -131,10 +134,11 @@ namespace Contracting.Infrustructure.Features.business
 
         public async Task<ErrorOr<GenericResponse>> DeleteAsync(Guid id)
         {
+            var s = await StatusResolver.LoadRequestStatusIdsAsync(_db);
             var clearance = await _db.FinancialClearances.FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
             if (clearance is null) return Error.NotFound("FinancialClearance.NotFound", "Financial clearance not found.");
-            if (clearance.Status != FinancialClearanceStatus.Draft)
-                return Error.Validation("FinancialClearance.CannotDelete", "Only Draft clearances can be deleted.");
+            if (clearance.StatusId != s.New)
+                return Error.Validation("FinancialClearance.CannotDelete", "Only new (draft) clearances can be deleted.");
 
             clearance.MarkAsDeleted(CurrentUser.Id ?? Guid.Empty);
             await _db.SaveChangesAsync();
@@ -147,8 +151,11 @@ namespace Contracting.Infrustructure.Features.business
                 .Include(c => c.Department)
                 .Include(c => c.Project)
                 .Include(c => c.RequestedBy)
+                .Include(c => c.Status)
                 .Include(c => c.Attachments)
                 .Include(c => c.Activities).ThenInclude(a => a.Engineer)
+                .Include(c => c.Activities).ThenInclude(a => a.FromStatus)
+                .Include(c => c.Activities).ThenInclude(a => a.ToStatus)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
 
@@ -162,14 +169,16 @@ namespace Contracting.Infrustructure.Features.business
                 .Include(c => c.Department)
                 .Include(c => c.Project)
                 .Include(c => c.RequestedBy)
+                .Include(c => c.Status)
                 .Include(c => c.Attachments)
                 .Include(c => c.Activities).ThenInclude(a => a.Engineer)
+                .Include(c => c.Activities).ThenInclude(a => a.FromStatus)
+                .Include(c => c.Activities).ThenInclude(a => a.ToStatus)
                 .Where(c => !c.IsDeleted)
                 .AsNoTracking();
 
-            if (!string.IsNullOrWhiteSpace(filter.Status)
-                && Enum.TryParse<FinancialClearanceStatus>(filter.Status, true, out var statusEnum))
-                query = query.Where(c => c.Status == statusEnum);
+            if (filter.StatusId.HasValue)
+                query = query.Where(c => c.StatusId == filter.StatusId);
 
             if (filter.ProjectId.HasValue) query = query.Where(c => c.ProjectId == filter.ProjectId);
             if (filter.DepartmentId.HasValue) query = query.Where(c => c.DepartmentId == filter.DepartmentId);
@@ -193,6 +202,7 @@ namespace Contracting.Infrustructure.Features.business
 
         public async Task<ErrorOr<GetFinancialClearanceDto>> TakeActionAsync(Guid id, FinancialClearanceActionDto dto)
         {
+            var s = await StatusResolver.LoadRequestStatusIdsAsync(_db);
             var clearance = await _db.FinancialClearances
                 .Include(c => c.Attachments)
                 .Include(c => c.Activities)
@@ -203,44 +213,68 @@ namespace Contracting.Infrustructure.Features.business
             var engineer = await _db.Engineers.AsNoTracking()
                 .FirstOrDefaultAsync(e => e.ApplicationUserId == Guid.Parse(CurrentUser.UserId!));
 
-            var fromStatus = clearance.Status;
-            FinancialClearanceStatus toStatus;
+            var fromStatusId = clearance.StatusId;
+            Guid toStatusId;
 
             switch (dto.ActionType)
             {
                 case FinancialClearanceActionType.Submit:
-                    if (clearance.Status != FinancialClearanceStatus.Draft)
-                        return Error.Validation("FinancialClearance.InvalidAction", "Only Draft clearances can be submitted.");
-                    toStatus = FinancialClearanceStatus.Submitted;
+                    // New → InProgress (submit for review)
+                    if (clearance.StatusId != s.New)
+                        return Error.Validation("FinancialClearance.InvalidAction", "Only new clearances can be submitted.");
+                    toStatusId = s.InProgress;
                     break;
+
+                case FinancialClearanceActionType.Review:
+                    // InProgress stays InProgress, just logs the review activity
+                    if (clearance.StatusId != s.InProgress)
+                        return Error.Validation("FinancialClearance.InvalidAction", "Only submitted clearances can be reviewed.");
+                    toStatusId = s.InProgress;
+                    break;
+
                 case FinancialClearanceActionType.Approve:
-                    if (clearance.Status != FinancialClearanceStatus.Submitted)
-                        return Error.Validation("FinancialClearance.InvalidAction", "Only Submitted clearances can be approved.");
-                    toStatus = FinancialClearanceStatus.Approved;
+                    // InProgress → Completed
+                    if (clearance.StatusId != s.InProgress)
+                        return Error.Validation("FinancialClearance.InvalidAction", "Only submitted clearances can be approved.");
+                    toStatusId = s.Completed;
                     break;
+
                 case FinancialClearanceActionType.Close:
-                    if (clearance.Status != FinancialClearanceStatus.Approved)
-                        return Error.Validation("FinancialClearance.InvalidAction", "Only Approved clearances can be closed.");
+                    // Completed → Completed (only allowed after Approve, not after Close)
+                    if (clearance.StatusId != s.Completed)
+                        return Error.Validation("FinancialClearance.InvalidAction", "Only approved clearances can be closed.");
+
+                    // Distinguish Approved vs already Closed by checking the last activity
+                    var lastActionType = clearance.Activities
+                        .OrderByDescending(a => a.CreatedDate)
+                        .FirstOrDefault()?.ActionType;
+                    if (lastActionType?.Equals("Close", StringComparison.OrdinalIgnoreCase) == true)
+                        return Error.Validation("FinancialClearance.AlreadyClosed", "This clearance has already been closed.");
+
                     if (!clearance.Attachments.Any())
                         return Error.Validation("FinancialClearance.MissingAttachments", "Attachments are required before closing.");
-                    toStatus = FinancialClearanceStatus.Closed;
+
+                    toStatusId = s.Completed;
                     break;
+
                 case FinancialClearanceActionType.Reject:
-                    if (clearance.Status == FinancialClearanceStatus.Closed || clearance.Status == FinancialClearanceStatus.Draft)
-                        return Error.Validation("FinancialClearance.InvalidAction", "Cannot reject a closed or draft clearance.");
-                    toStatus = FinancialClearanceStatus.Rejected;
+                    // New or InProgress → Rejected
+                    if (clearance.StatusId == s.Completed || clearance.StatusId == s.Rejected)
+                        return Error.Validation("FinancialClearance.InvalidAction", "Cannot reject a completed or already-rejected clearance.");
+                    toStatusId = s.Rejected;
                     break;
+
                 default:
                     return Error.Validation("FinancialClearance.UnknownAction", $"Unknown action: {dto.ActionType}");
             }
 
-            clearance.Status = toStatus;
+            clearance.StatusId = toStatusId;
             clearance.Activities.Add(new FinancialClearanceActivity
             {
                 FinancialClearanceId = clearance.Id,
                 EngineerId = engineer?.Id,
-                FromStatus = fromStatus,
-                ToStatus = toStatus,
+                FromStatusId = fromStatusId,
+                ToStatusId = toStatusId,
                 ActionType = dto.ActionType.ToString(),
                 Comments = dto.Comments
             });
@@ -256,6 +290,16 @@ namespace Contracting.Infrustructure.Features.business
             return $"FIN-{year}-{(count + 1):D5}";
         }
 
+        private static GetDropDownStatusDto? MapStatus(Status? s) => s is null ? null : new GetDropDownStatusDto
+        {
+            Id = s.Id,
+            nameEn = s.nameEn,
+            nameAr = s.nameAr,
+            Code = s.Code,
+            orderNumber = s.orderNumber,
+            iconName = s.iconName
+        };
+
         private static GetFinancialClearanceDto MapToDto(FinancialClearance c) => new()
         {
             Id = c.Id,
@@ -270,7 +314,8 @@ namespace Contracting.Infrustructure.Features.business
             SpentAmount = c.SpentAmount,
             RemainingAmount = c.RemainingAmount,
             Notes = c.Notes,
-            Status = c.Status.ToString(),
+            StatusId = c.StatusId,
+            Status = MapStatus(c.Status),
             RequestedById = c.RequestedById,
             RequestedBy = c.RequestedBy is null ? null : new GetEngineerDto { Id = c.RequestedBy.Id, nameEn = c.RequestedBy.nameEn, nameAr = c.RequestedBy.nameAr },
             CreatedDate = c.CreatedDate,
@@ -283,8 +328,10 @@ namespace Contracting.Infrustructure.Features.business
             Activities = c.Activities.Select(a => new GetFinancialClearanceActivityDto
             {
                 Id = a.Id,
-                FromStatus = a.FromStatus?.ToString(),
-                ToStatus = a.ToStatus.ToString(),
+                FromStatusId = a.FromStatusId,
+                FromStatus = MapStatus(a.FromStatus),
+                ToStatusId = a.ToStatusId,
+                ToStatus = MapStatus(a.ToStatus),
                 ActionType = a.ActionType,
                 Comments = a.Comments,
                 Engineer = a.Engineer is null ? null : new GetEngineerDto { Id = a.Engineer.Id, nameEn = a.Engineer.nameEn, nameAr = a.Engineer.nameAr },

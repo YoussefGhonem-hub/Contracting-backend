@@ -2,6 +2,7 @@ using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.DepartmentDtos;
 using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
 using Contracting.Shared.Dtos.MasterDtos.ProjectDtos;
+using Contracting.Shared.Dtos.MasterDtos.StatusDtos;
 
 namespace Contracting.Shared.BusinessDtos.LaborAttendanceDto
 {
@@ -20,7 +21,8 @@ namespace Contracting.Shared.BusinessDtos.LaborAttendanceDto
         public Guid? AssignedToId { get; set; }
         public GetEngineerDto? AssignedTo { get; set; }
         public string? Notes { get; set; }
-        public string? Status { get; set; }
+        public Guid? StatusId { get; set; }
+        public GetDropDownStatusDto? Status { get; set; }
         public decimal TotalAmount { get; set; }
         public DateTimeOffset CreatedDate { get; set; }
         public List<GetLaborAttendanceRecordDto> Records { get; set; } = new();
