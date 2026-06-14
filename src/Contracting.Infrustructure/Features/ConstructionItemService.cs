@@ -7,7 +7,6 @@ using Contracting.Shared.Common;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.ConstructionItemDtos;
 using Contracting.Shared.Resources;
-using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 
@@ -16,37 +15,45 @@ namespace Contracting.Infrustructure.Features
     public class ConstructionItemService : IConstructionItemService
     {
         private readonly ApplicationDbContext _db;
-        private readonly IMapper _mapper;
         private readonly IStringLocalizer<SharedResources> _localizer;
 
-        public ConstructionItemService(ApplicationDbContext db, IMapper mapper, IStringLocalizer<SharedResources> localizer)
+        public ConstructionItemService(ApplicationDbContext db, IStringLocalizer<SharedResources> localizer)
         {
             _db = db;
-            _mapper = mapper;
             _localizer = localizer;
         }
 
         public async Task<GetConstructionItemDto> CreateAsync(CreateConstructionItemDto dto)
         {
-            var entity = _mapper.Map<ConstructionItem>(dto);
+            var entity = new ConstructionItem
+            {
+                nameEn = dto.nameEn,
+                nameAr = dto.nameAr,
+                ItemCode = dto.ItemCode,
+                Units = dto.Units.Select(u => new ConstructionItemUnit { nameEn = u.nameEn, nameAr = u.nameAr }).ToList()
+            };
             await _db.ConstructionItems.AddAsync(entity);
             await _db.SaveChangesAsync();
-            return _mapper.Map<GetConstructionItemDto>(entity);
+            return MapToDto(entity);
         }
 
         public async Task<GetConstructionItemDto> UpdateAsync(UpdateConstructionItemDto dto)
         {
-            var entity = await _db.ConstructionItems.FindAsync(dto.Id);
+            var entity = await _db.ConstructionItems
+                .Include(c => c.Units)
+                .FirstOrDefaultAsync(c => c.Id == dto.Id);
             if (entity is null)
                 return null!;
 
             entity.nameEn = dto.nameEn;
             entity.nameAr = dto.nameAr;
-            entity.Unit = dto.Unit;
             entity.ItemCode = dto.ItemCode;
 
+            _db.ConstructionItemUnits.RemoveRange(entity.Units);
+            entity.Units = dto.Units.Select(u => new ConstructionItemUnit { nameEn = u.nameEn, nameAr = u.nameAr, ConstructionItemId = entity.Id }).ToList();
+
             await _db.SaveChangesAsync();
-            return _mapper.Map<GetConstructionItemDto>(entity);
+            return MapToDto(entity);
         }
 
         public async Task<GenericResponse> DeleteAsync(Guid id)
@@ -63,15 +70,16 @@ namespace Contracting.Infrustructure.Features
         public async Task<GetConstructionItemDto> GetByIdAsync(Guid id)
         {
             var entity = await _db.ConstructionItems
+                .Include(c => c.Units)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(x => x.Id == id);
 
-            return entity is null ? null! : _mapper.Map<GetConstructionItemDto>(entity);
+            return entity is null ? null! : MapToDto(entity);
         }
 
         public async Task<PaginatedList<GetConstructionItemDto>> GetAllAsync(BaseFilterDto filter, CancellationToken cancellationToken = default)
         {
-            var query = _db.ConstructionItems.AsNoTracking();
+            var query = _db.ConstructionItems.Include(c => c.Units).AsNoTracking();
 
             if (string.IsNullOrWhiteSpace(filter.Sort))
             {
@@ -98,7 +106,7 @@ namespace Contracting.Infrustructure.Features
                 .Take(filter.PageSize)
                 .ToListAsync(cancellationToken);
 
-            var dtos = _mapper.Map<List<GetConstructionItemDto>>(items);
+            var dtos = items.Select(MapToDto).ToList();
 
             return new PaginatedList<GetConstructionItemDto>(
                 dtos,
@@ -110,11 +118,28 @@ namespace Contracting.Infrustructure.Features
         public async Task<List<GetConstructionItemDropdownDto>> GetDropdownAsync()
         {
             var items = await _db.ConstructionItems
+                .Include(c => c.Units)
                 .AsNoTracking()
                 .OrderBy(x => x.nameEn)
                 .ToListAsync();
 
-            return _mapper.Map<List<GetConstructionItemDropdownDto>>(items);
+            return items.Select(c => new GetConstructionItemDropdownDto
+            {
+                Id = c.Id,
+                nameEn = c.nameEn,
+                nameAr = c.nameAr,
+                ItemCode = c.ItemCode,
+                Units = c.Units.Select(u => new ConstructionItemUnitDto { nameEn = u.nameEn, nameAr = u.nameAr }).ToList()
+            }).ToList();
         }
+
+        private static GetConstructionItemDto MapToDto(ConstructionItem c) => new()
+        {
+            Id = c.Id,
+            nameEn = c.nameEn,
+            nameAr = c.nameAr,
+            ItemCode = c.ItemCode,
+            Units = c.Units.Select(u => new ConstructionItemUnitDto { nameEn = u.nameEn, nameAr = u.nameAr }).ToList()
+        };
     }
 }

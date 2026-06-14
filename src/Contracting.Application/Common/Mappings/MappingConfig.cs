@@ -120,9 +120,11 @@ public static class MappingConfig
         config.NewConfig<EngineerSiteSurveyQuestionTemplate, GetEngineerSiteSurveyQuestionTemplateDto>();
 
         // ConstructionItem mappings
-        config.NewConfig<CreateConstructionItemDto, ConstructionItem>();
-        config.NewConfig<ConstructionItem, GetConstructionItemDto>();
-        config.NewConfig<ConstructionItem, GetConstructionItemDropdownDto>();
+        config.NewConfig<ConstructionItemUnit, ConstructionItemUnitDto>();
+        config.NewConfig<ConstructionItem, GetConstructionItemDto>()
+            .Map(dest => dest.Units, src => src.Units);
+        config.NewConfig<ConstructionItem, GetConstructionItemDropdownDto>()
+            .Map(dest => dest.Units, src => src.Units);
 
         // Report worker mapping
         config.NewConfig<ReportConstructionItemWorker, GetReportWorkerDto>()

@@ -6,7 +6,7 @@ namespace Contracting.Domain.Entities.master
     {
         public string? nameEn { get; set; }
         public string? nameAr { get; set; }
-        public string? Unit { get; set; }
         public string? ItemCode { get; set; }
+        public ICollection<ConstructionItemUnit> Units { get; set; } = new List<ConstructionItemUnit>();
     }
 }

@@ -256,6 +256,7 @@ public class EngineerRequestService : IEngineerRequestService
                                     .ThenInclude(psf => psf.SpecialField)
                             .Include(r => r.SpecialFieldItems)
                                 .ThenInclude(i => i.ConstructionItem)
+                                    .ThenInclude(c => c.Units)
                             .AsSplitQuery()
                             .AsNoTracking()
                             .FirstOrDefaultAsync(r => r.Id == request.Id);
@@ -669,6 +670,7 @@ public class EngineerRequestService : IEngineerRequestService
                     .ThenInclude(psf => psf.SpecialField)
             .Include(r => r.SpecialFieldItems)
                 .ThenInclude(i => i.ConstructionItem)
+                    .ThenInclude(c => c.Units)
             .AsSplitQuery()
             .AsNoTracking()
             .FirstOrDefaultAsync(r => r.Id == request.Id);
@@ -725,6 +727,7 @@ public class EngineerRequestService : IEngineerRequestService
                         .ThenInclude(psf => psf.SpecialField)
                 .Include(r => r.SpecialFieldItems)
                     .ThenInclude(i => i.ConstructionItem)
+                        .ThenInclude(c => c.Units)
                 .Where(r => r.DepartmentId == departmentId)
                 .AsSplitQuery()
                 .AsNoTracking();
@@ -806,6 +809,7 @@ public class EngineerRequestService : IEngineerRequestService
                         .ThenInclude(psf => psf.SpecialField)
                 .Include(r => r.SpecialFieldItems)
                     .ThenInclude(i => i.ConstructionItem)
+                        .ThenInclude(c => c.Units)
                 .AsSplitQuery()
                 .AsNoTracking();
 
@@ -901,6 +905,7 @@ public class EngineerRequestService : IEngineerRequestService
                     .ThenInclude(psf => psf.SpecialField)
             .Include(r => r.SpecialFieldItems)
                 .ThenInclude(i => i.ConstructionItem)
+                    .ThenInclude(c => c.Units)
             .Include(r => r.PurchaseReceipts)
                 .ThenInclude(rc => rc.ReceivedBy)
             .AsSplitQuery()
@@ -1453,6 +1458,7 @@ public class EngineerRequestService : IEngineerRequestService
                     .ThenInclude(dsf => dsf.SpecialField)
             .Include(r => r.SpecialFieldItems)
                 .ThenInclude(i => i.ConstructionItem)
+                    .ThenInclude(c => c.Units)
             .Include(r => r.EngineerRequestAttachments)
             .Where(r => !r.IsDeleted)
             .AsSplitQuery()
@@ -1614,8 +1620,8 @@ public class EngineerRequestService : IEngineerRequestService
                     Id = i.ConstructionItem.Id,
                     nameEn = i.ConstructionItem.nameEn,
                     nameAr = i.ConstructionItem.nameAr,
-                    Unit = i.ConstructionItem.Unit,
-                    ItemCode = i.ConstructionItem.ItemCode
+                    ItemCode = i.ConstructionItem.ItemCode,
+                    Units = i.ConstructionItem.Units == null ? new() : i.ConstructionItem.Units.Select(u => new ConstructionItemUnitDto { nameEn = u.nameEn, nameAr = u.nameAr }).ToList()
                 }
             }).ToList(),
             EngineerRequestNotes = r.EngineerRequestNotes == null ? new() : r.EngineerRequestNotes.Select(n => new GetEngineerRequestNotesDto
@@ -2061,6 +2067,7 @@ public class EngineerRequestService : IEngineerRequestService
                         .ThenInclude(psf => psf.SpecialField)
                 .Include(r => r.SpecialFieldItems)
                     .ThenInclude(i => i.ConstructionItem)
+                        .ThenInclude(c => c.Units)
                 .AsSplitQuery()
                 .AsNoTracking();
 

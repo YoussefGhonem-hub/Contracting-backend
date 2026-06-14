@@ -43,6 +43,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<EngineerSiteSurveyQuestion> EngineerSiteSurveyQuestions => Set<EngineerSiteSurveyQuestion>();
     public DbSet<EngineerSiteSurveyQuestionTemplate> EngineerSiteSurveyQuestionTemplates => Set<EngineerSiteSurveyQuestionTemplate>();
     public DbSet<ConstructionItem> ConstructionItems => Set<ConstructionItem>();
+    public DbSet<ConstructionItemUnit> ConstructionItemUnits => Set<ConstructionItemUnit>();
     public DbSet<ReportConstructionItemWorker> ReportConstructionItemWorkers => Set<ReportConstructionItemWorker>();
     public DbSet<EngineerSiteReportAttachment> EngineerSiteReportAttachments => Set<EngineerSiteReportAttachment>();
     public DbSet<UserDeviceToken> userDeviceTokens => Set<UserDeviceToken>();

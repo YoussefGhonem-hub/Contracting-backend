@@ -14,7 +14,6 @@ namespace Contracting.Infrustructure.Persistence.Configurations.Master
 
             builder.Property(c => c.nameEn).HasMaxLength(200);
             builder.Property(c => c.nameAr).HasMaxLength(200);
-            builder.Property(c => c.Unit).HasMaxLength(100);
             builder.Property(c => c.ItemCode).HasMaxLength(100);
         }
     }

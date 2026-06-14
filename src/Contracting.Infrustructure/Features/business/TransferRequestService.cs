@@ -5,6 +5,7 @@ using Contracting.Infrustructure.Inteface.business;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.BusinessDtos.TransferRequestDto;
 using Contracting.Shared.Common;
+using Contracting.Shared.Constants;
 using Contracting.Shared.CurrentUser;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
@@ -176,12 +177,38 @@ namespace Contracting.Infrustructure.Features.business
             var query = _db.TransferRequests
                 .Include(r => r.SourceProject)
                 .Include(r => r.DestinationProject)
-                .Include(r => r.RequestedBy)
+                .Include(r => r.RequestedBy).ThenInclude(e => e.Department)
                 .Include(r => r.Items)
                 .Include(r => r.Attachments)
                 .Include(r => r.Activities).ThenInclude(a => a.Engineer)
                 .Where(r => !r.IsDeleted)
                 .AsNoTracking();
+
+            // Branch isolation: Admins see all; everyone else sees only their branch.
+            var roles = CurrentUser.Roles;
+            var isAdmin = roles.Any(r =>
+                r.Equals(RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase) ||
+                r.Equals(RoleNames.Admin, StringComparison.OrdinalIgnoreCase));
+
+            if (!isAdmin)
+            {
+                var engineer = await _db.Engineers
+                    .Include(e => e.Department)
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(e => e.ApplicationUserId == Guid.Parse(CurrentUser.UserId!));
+
+                var userBranchId = engineer?.Department?.BranchId;
+
+                if (userBranchId.HasValue)
+                {
+                    query = query.Where(r =>
+                        (r.SourceProject != null && r.SourceProject.BranchId == userBranchId) ||
+                        (r.DestinationProject != null && r.DestinationProject.BranchId == userBranchId) ||
+                        (r.SourceProject == null && r.DestinationProject == null &&
+                         r.RequestedBy != null && r.RequestedBy.Department != null &&
+                         r.RequestedBy.Department.BranchId == userBranchId));
+                }
+            }
 
             if (!string.IsNullOrWhiteSpace(filter.Status)
                 && Enum.TryParse<TransferRequestStatus>(filter.Status, true, out var statusEnum))

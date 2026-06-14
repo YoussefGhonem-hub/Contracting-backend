@@ -1,11 +1,17 @@
 namespace Contracting.Shared.Dtos.MasterDtos.ConstructionItemDtos
 {
+    public class ConstructionItemUnitDto
+    {
+        public string? nameEn { get; set; }
+        public string? nameAr { get; set; }
+    }
+
     public class CreateConstructionItemDto
     {
         public string? nameEn { get; set; }
         public string? nameAr { get; set; }
-        public string? Unit { get; set; }
         public string? ItemCode { get; set; }
+        public List<ConstructionItemUnitDto> Units { get; set; } = new();
     }
 
     public class UpdateConstructionItemDto
@@ -13,8 +19,8 @@ namespace Contracting.Shared.Dtos.MasterDtos.ConstructionItemDtos
         public Guid Id { get; set; }
         public string? nameEn { get; set; }
         public string? nameAr { get; set; }
-        public string? Unit { get; set; }
         public string? ItemCode { get; set; }
+        public List<ConstructionItemUnitDto> Units { get; set; } = new();
     }
 
     public class GetConstructionItemDto
@@ -22,8 +28,8 @@ namespace Contracting.Shared.Dtos.MasterDtos.ConstructionItemDtos
         public Guid Id { get; set; }
         public string? nameEn { get; set; }
         public string? nameAr { get; set; }
-        public string? Unit { get; set; }
         public string? ItemCode { get; set; }
+        public List<ConstructionItemUnitDto> Units { get; set; } = new();
     }
 
     public class GetConstructionItemDropdownDto
@@ -31,7 +37,7 @@ namespace Contracting.Shared.Dtos.MasterDtos.ConstructionItemDtos
         public Guid Id { get; set; }
         public string? nameEn { get; set; }
         public string? nameAr { get; set; }
-        public string? Unit { get; set; }
         public string? ItemCode { get; set; }
+        public List<ConstructionItemUnitDto> Units { get; set; } = new();
     }
 }
