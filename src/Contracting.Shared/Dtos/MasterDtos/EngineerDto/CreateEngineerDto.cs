@@ -13,8 +13,8 @@
         public string? Email { get; set; }
         public string? password { get; set; }
         public Guid DepartmentId { get; set; }
-        public List<Guid> Roles { get; set; } = new(); // New property for roles
-        public List<Guid> ProjectIds { get; set; } = new();
+        public List<Guid> Roles { get; set; } = new();
+        public List<ProjectAssignDto> Projects { get; set; } = new();
         public List<DepartmentRoleDto> DepartmentRoles { get; set; } = new();
 
     }

@@ -20,8 +20,7 @@ namespace Contracting.Shared.Dtos.MasterDtos.EngineerDto
         public List<RoleDropDownDto>? Roles { get; set; }
         public Guid? DepartmentId { get; set; }
         public GetDepartmentDto? Department { get; set; }
-        public List<Guid> ProjectIds { get; set; } = new();
-        public List<GetProjectDropDownDto>? Projects { get; set; }
+        public List<GetEngineerProjectDto> Projects { get; set; } = new();
         public List<EngineerDepartmentRoleDto> DepartmentRoles { get; set; } = new();
     }
 

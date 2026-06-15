@@ -49,8 +49,7 @@ public static class MappingConfig
 
         config.NewConfig<Engineer, GetEngineerDto>()
         .Map(dest => dest.Department, src => src.Department)
-        .Map(dest => dest.Projects, src => src.EngineerProjects.Select(ep => ep.Project))
-        .Map(dest => dest.ProjectIds, src => src.EngineerProjects.Select(ep => ep.ProjectId))
+        .Ignore(dest => dest.Projects)
         .Ignore(dest => dest.Roles);
         config.NewConfig<Engineer, GetEngineerDropDownDto>()
         .Map(dest => dest.Department, src => src.Department);

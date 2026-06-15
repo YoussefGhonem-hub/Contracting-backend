@@ -9,5 +9,7 @@ namespace Contracting.Domain.Entities.master
 
         public Guid ProjectId { get; set; }
         public Project? Project { get; set; }
+
+        public bool IsProjectManager { get; set; }
     }
 }
