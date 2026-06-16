@@ -13,5 +13,6 @@ namespace Contracting.Infrustructure.Inteface.business
         Task<ErrorOr<GetFinancialClearanceDto>> GetByIdAsync(Guid id);
         Task<PaginatedList<GetFinancialClearanceDto>> GetAllAsync(FinancialClearanceFilterDto filter);
         Task<ErrorOr<GetFinancialClearanceDto>> TakeActionAsync(Guid id, FinancialClearanceActionDto dto);
+        Task<ErrorOr<GetFinancialClearanceDto>> ReassignAsync(Guid id, ReassignFinancialClearanceDto dto);
     }
 }

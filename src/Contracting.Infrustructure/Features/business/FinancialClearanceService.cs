@@ -20,11 +20,16 @@ namespace Contracting.Infrustructure.Features.business
     {
         private readonly ApplicationDbContext _db;
         private readonly Storage.AWS3.Services.IStorageService _storageService;
+        private readonly Contracting.Infrustructure.Inteface.Helper.INotificationService _notificationService;
 
-        public FinancialClearanceService(ApplicationDbContext db, Storage.AWS3.Services.IStorageService storageService)
+        public FinancialClearanceService(
+            ApplicationDbContext db,
+            Storage.AWS3.Services.IStorageService storageService,
+            Contracting.Infrustructure.Inteface.Helper.INotificationService notificationService)
         {
             _db = db;
             _storageService = storageService;
+            _notificationService = notificationService;
         }
 
         public async Task<ErrorOr<GetFinancialClearanceDto>> CreateAsync(CreateFinancialClearanceDto dto)
@@ -150,6 +155,7 @@ namespace Contracting.Infrustructure.Features.business
                 .Include(c => c.Department)
                 .Include(c => c.Project)
                 .Include(c => c.RequestedBy)
+                .Include(c => c.AssignedTo)
                 .Include(c => c.Status)
                 .Include(c => c.Attachments)
                 .Include(c => c.Activities).ThenInclude(a => a.Engineer)
@@ -168,6 +174,7 @@ namespace Contracting.Infrustructure.Features.business
                 .Include(c => c.Department)
                 .Include(c => c.Project)
                 .Include(c => c.RequestedBy)
+                .Include(c => c.AssignedTo)
                 .Include(c => c.Status)
                 .Include(c => c.Attachments)
                 .Include(c => c.Activities).ThenInclude(a => a.Engineer)
@@ -281,6 +288,55 @@ namespace Contracting.Infrustructure.Features.business
             return await GetByIdAsync(clearance.Id);
         }
 
+        public async Task<ErrorOr<GetFinancialClearanceDto>> ReassignAsync(Guid id, ReassignFinancialClearanceDto dto)
+        {
+            var clearance = await _db.FinancialClearances
+                .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
+
+            if (clearance is null)
+                return Error.NotFound("FinancialClearance.NotFound", "Financial clearance not found.");
+
+            if (string.IsNullOrEmpty(CurrentUser.UserId) || !Guid.TryParse(CurrentUser.UserId, out var currentUserId))
+                return Error.Unauthorized("Auth.Unauthorized", "User is not authenticated.");
+
+            if (dto.AssignedToId == Guid.Empty)
+                return Error.Validation("FinancialClearance.AssignedToRequired", "AssignedToId is required.");
+
+            var newAssignee = await _db.Engineers.AsNoTracking()
+                .FirstOrDefaultAsync(e => e.Id == dto.AssignedToId);
+            if (newAssignee is null)
+                return Error.NotFound("FinancialClearance.EngineerNotFound", "Assigned engineer not found.");
+
+            if (clearance.AssignedToId == dto.AssignedToId)
+                return Error.Validation("FinancialClearance.AlreadyAssigned", "The request is already assigned to this engineer.");
+
+            var actingEngineer = await _db.Engineers.AsNoTracking()
+                .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
+
+            // Reassign only changes the assignee; the status is kept as-is.
+            var currentStatusId = clearance.StatusId ?? Guid.Empty;
+            clearance.AssignedToId = dto.AssignedToId;
+            clearance.Activities.Add(new FinancialClearanceActivity
+            {
+                FinancialClearanceId = clearance.Id,
+                EngineerId = actingEngineer?.Id,
+                FromStatusId = currentStatusId,
+                ToStatusId = currentStatusId,
+                ActionType = "reassign",
+                Comments = dto.Comments
+            });
+
+            await _db.SaveChangesAsync();
+
+            await _notificationService.SendNotificationToUserAsync(
+                newAssignee.ApplicationUserId,
+                "Financial Clearance Request Reassigned",
+                $"Request {clearance.ClearanceNumber} has been reassigned to you.",
+                id);
+
+            return await GetByIdAsync(clearance.Id);
+        }
+
         private async Task<string> GenerateClearanceNumberAsync()
         {
             var year = DateTime.UtcNow.Year;
@@ -316,6 +372,8 @@ namespace Contracting.Infrustructure.Features.business
             Status = MapStatus(c.Status),
             RequestedById = c.RequestedById,
             RequestedBy = c.RequestedBy is null ? null : new GetEngineerDto { Id = c.RequestedBy.Id, nameEn = c.RequestedBy.nameEn, nameAr = c.RequestedBy.nameAr },
+            AssignedToId = c.AssignedToId,
+            AssignedTo = c.AssignedTo is null ? null : new GetEngineerDto { Id = c.AssignedTo.Id, nameEn = c.AssignedTo.nameEn, nameAr = c.AssignedTo.nameAr },
             CreatedDate = c.CreatedDate,
             Attachments = c.Attachments.Select(a => new GetFinancialClearanceAttachmentDto
             {

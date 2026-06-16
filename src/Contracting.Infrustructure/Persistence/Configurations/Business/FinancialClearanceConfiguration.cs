@@ -26,6 +26,11 @@ namespace Contracting.Infrustructure.Persistence.Configurations.Business
                    .HasForeignKey(r => r.RequestedById)
                    .OnDelete(DeleteBehavior.Restrict);
 
+            builder.HasOne(r => r.AssignedTo)
+                   .WithMany()
+                   .HasForeignKey(r => r.AssignedToId)
+                   .OnDelete(DeleteBehavior.Restrict);
+
             builder.HasOne(r => r.Department)
                    .WithMany()
                    .HasForeignKey(r => r.DepartmentId)

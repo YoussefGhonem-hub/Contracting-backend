@@ -24,6 +24,8 @@ namespace Contracting.Shared.BusinessDtos.FinancialClearanceDto
         public GetDropDownStatusDto? Status { get; set; }
         public Guid? RequestedById { get; set; }
         public GetEngineerDto? RequestedBy { get; set; }
+        public Guid? AssignedToId { get; set; }
+        public GetEngineerDto? AssignedTo { get; set; }
         public DateTimeOffset CreatedDate { get; set; }
         public List<GetFinancialClearanceAttachmentDto> Attachments { get; set; } = new();
         public List<GetFinancialClearanceActivityDto> Activities { get; set; } = new();

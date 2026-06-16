@@ -13,5 +13,6 @@ namespace Contracting.Infrustructure.Inteface.business
         Task<ErrorOr<GetLaborAttendanceRequestDto>> GetByIdAsync(Guid id);
         Task<PaginatedList<GetLaborAttendanceRequestDto>> GetAllAsync(LaborAttendanceFilterDto filter);
         Task<ErrorOr<GetLaborAttendanceRequestDto>> TakeActionAsync(Guid id, LaborAttendanceActionDto dto);
+        Task<ErrorOr<GetLaborAttendanceRequestDto>> ReassignAsync(Guid id, ReassignLaborAttendanceDto dto);
     }
 }

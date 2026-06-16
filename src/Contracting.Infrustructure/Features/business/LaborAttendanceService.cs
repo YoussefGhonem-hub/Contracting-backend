@@ -432,6 +432,59 @@ namespace Contracting.Infrustructure.Features.business
             return await GetByIdAsync(id);
         }
 
+        public async Task<ErrorOr<GetLaborAttendanceRequestDto>> ReassignAsync(Guid id, ReassignLaborAttendanceDto dto)
+        {
+            var request = await _db.LaborAttendanceRequests
+                .Include(r => r.Supervisor)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
+
+            if (request is null)
+                return Error.NotFound("LaborAttendance.NotFound", "Labor attendance request not found.");
+
+            if (string.IsNullOrEmpty(CurrentUser.UserId) || !Guid.TryParse(CurrentUser.UserId, out var currentUserId))
+                return Error.Unauthorized("Auth.Unauthorized", "User is not authenticated.");
+
+            if (dto.AssignedToId == Guid.Empty)
+                return Error.Validation("LaborAttendance.AssignedToRequired", "AssignedToId is required.");
+
+            var newAssignee = await _db.Engineers.AsNoTracking()
+                .FirstOrDefaultAsync(e => e.Id == dto.AssignedToId);
+            if (newAssignee is null)
+                return Error.NotFound("LaborAttendance.EngineerNotFound", "Assigned engineer not found.");
+
+            if (request.AssignedToId == dto.AssignedToId)
+                return Error.Validation("LaborAttendance.AlreadyAssigned", "The request is already assigned to this engineer.");
+
+            var actingEngineer = await _db.Engineers.AsNoTracking()
+                .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
+
+            // Reassign only changes the assignee; the status is kept as-is.
+            await _db.LaborAttendanceRequests
+                .Where(r => r.Id == id)
+                .ExecuteUpdateAsync(u => u.SetProperty(r => r.AssignedToId, dto.AssignedToId));
+
+            var currentStatusId = request.StatusId ?? Guid.Empty;
+            await _db.LaborAttendanceActivities.AddAsync(new LaborAttendanceActivity
+            {
+                LaborAttendanceRequestId = id,
+                EngineerId = actingEngineer?.Id,
+                FromStatusId = currentStatusId,
+                ToStatusId = currentStatusId,
+                ActionType = "reassign",
+                Comments = dto.Comments
+            });
+            await _db.SaveChangesAsync();
+
+            await _notificationService.SendNotificationToUserAsync(
+                newAssignee.ApplicationUserId,
+                "Labor Attendance Request Reassigned",
+                $"Request {request.RequestNumber} has been reassigned to you.",
+                id);
+
+            return await GetByIdAsync(id);
+        }
+
         private static decimal CalculateTotalAmount(WorkerAttendanceStatus status, decimal dailyRate, decimal overtimeHours)
         {
             return status switch

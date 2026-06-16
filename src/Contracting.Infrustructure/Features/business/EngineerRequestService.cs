@@ -1957,8 +1957,44 @@ public class EngineerRequestService : IEngineerRequestService
             .Include(r => r.Attachments)
             .Include(r => r.Activities).ThenInclude(a => a.Engineer)
             .Include(r => r.Activities).ThenInclude(a => a.ToStatus)
-            .Where(r => !r.IsDeleted && r.RequestedById == engineer.Id)
+            .Where(r => !r.IsDeleted)
             .AsNoTracking();
+
+        // Role-based visibility (mirrors GetLaborAttendanceRequestsForUnifiedAsync):
+        // admins see all; team leads see their departments' requests (so they can assign
+        // them) plus ones assigned to / created by them; everyone else sees only their own
+        // requests or requests assigned to them.
+        var financialRoles = CurrentUser.Roles;
+        var isFinancialAdmin = financialRoles.Any(r =>
+            r.Equals(RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase) ||
+            r.Equals(RoleNames.Admin, StringComparison.OrdinalIgnoreCase));
+
+        if (!isFinancialAdmin)
+        {
+            var teamLeadDeptIds = await _db.EngineerDepartments
+                .Where(ed => ed.EngineerId == engineer.Id && ed.Role != null && ed.Role.Name == RoleNames.Teamleadengineer)
+                .Select(ed => ed.DepartmentId)
+                .ToListAsync(cancellationToken);
+
+            if (!teamLeadDeptIds.Any() && engineer.DepartmentId.HasValue)
+            {
+                var isTeamLeadViaRoles = await (from userRole in _db.UserRoles
+                                                join role in _db.Roles on userRole.RoleId equals role.Id
+                                                where userRole.UserId == engineer.ApplicationUserId
+                                                      && role.Name == RoleNames.Teamleadengineer
+                                                select role.Id).AnyAsync(cancellationToken);
+                if (isTeamLeadViaRoles)
+                    teamLeadDeptIds.Add(engineer.DepartmentId.Value);
+            }
+
+            if (teamLeadDeptIds.Any())
+                query = query.Where(r =>
+                    (r.DepartmentId.HasValue && teamLeadDeptIds.Contains(r.DepartmentId.Value))
+                    || r.AssignedToId == engineer.Id
+                    || r.RequestedById == engineer.Id);
+            else
+                query = query.Where(r => r.RequestedById == engineer.Id || r.AssignedToId == engineer.Id);
+        }
 
         if (filter.ProjectId.HasValue && filter.ProjectId.Value != Guid.Empty)
         {

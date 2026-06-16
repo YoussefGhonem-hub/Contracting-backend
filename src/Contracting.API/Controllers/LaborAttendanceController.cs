@@ -1,6 +1,7 @@
 using Contracting.API.Controllers.Shared;
 using Contracting.Application.Features.Business.LaborAttendance.Command.CreateLaborAttendance;
 using Contracting.Application.Features.Business.LaborAttendance.Command.DeleteLaborAttendance;
+using Contracting.Application.Features.Business.LaborAttendance.Command.ReassignLaborAttendance;
 using Contracting.Application.Features.Business.LaborAttendance.Command.TakeActionLaborAttendance;
 using Contracting.Application.Features.Business.LaborAttendance.Command.UpdateLaborAttendance;
 using Contracting.Application.Features.Business.LaborAttendance.Query.GetAllLaborAttendances;
@@ -59,6 +60,14 @@ namespace Contracting.API.Controllers
         public async Task<IActionResult> TakeAction(Guid id, [FromBody] LaborAttendanceActionDto dto)
         {
             var result = await _mediator.Send(new TakeActionLaborAttendanceCommand(id, dto));
+            return result.Match(r => Ok(r), errors => Problem(errors));
+        }
+
+        // Reassign the request to a different engineer (status unchanged)
+        [HttpPost("{id:guid}/reassign")]
+        public async Task<IActionResult> Reassign(Guid id, [FromBody] ReassignLaborAttendanceDto dto)
+        {
+            var result = await _mediator.Send(new ReassignLaborAttendanceCommand(id, dto));
             return result.Match(r => Ok(r), errors => Problem(errors));
         }
     }
