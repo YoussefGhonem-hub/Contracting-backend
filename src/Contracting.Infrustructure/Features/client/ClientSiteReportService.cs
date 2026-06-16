@@ -3,16 +3,19 @@ using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.CurrentUser;
 using Contracting.Shared.Dtos.ClientDtos.ReportDtos;
 using Microsoft.EntityFrameworkCore;
+using Storage.AWS3.Services;
 
 namespace Contracting.Infrustructure.Features.client;
 
 public class ClientSiteReportService : IClientSiteReportService
 {
     private readonly ApplicationDbContext _db;
+    private readonly IStorageService _storage;
 
-    public ClientSiteReportService(ApplicationDbContext db)
+    public ClientSiteReportService(ApplicationDbContext db, IStorageService storage)
     {
         _db = db;
+        _storage = storage;
     }
 
     public async Task<List<GetClientSiteReportListItemDto>?> GetClientSiteReportsAsync(Guid projectId, CancellationToken cancellationToken = default)
@@ -69,13 +72,14 @@ public class ClientSiteReportService : IClientSiteReportService
             Month = report.Month,
             Year = report.Year,
             CreatedDate = report.CreatedDate,
+            // Stored URLs target a private bucket (Access Denied); return pre-signed URLs.
             Attachments = report.Attachments.Select(a => new ClientSiteReportAttachmentDto
             {
                 Id = a.Id,
                 FileName = a.FileName,
                 Extension = a.Extension,
                 FileSize = a.FileSize,
-                Url = a.Url
+                Url = _storage.GetPreSignedUrl(a.Key) ?? a.Url
             }).ToList()
         };
     }

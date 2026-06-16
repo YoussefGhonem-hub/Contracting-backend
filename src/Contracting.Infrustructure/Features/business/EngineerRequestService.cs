@@ -2341,39 +2341,68 @@ public class EngineerRequestService : IEngineerRequestService
             .OrderBy(x => x.StatusName)
             .ToList();
 
-        // --- Transfer Request counts (scoped to this engineer) ---
-        // Engineer sees transfers they created OR incoming to projects they're assigned to
-        var engineerProjectIds = await _db.EngineerProjects
-            .Where(ep => ep.EngineerId == engineerId)
-            .Select(ep => ep.ProjectId)
-            .ToListAsync();
+        // Role-based visibility. These counts must mirror exactly what each request
+        // list endpoint shows the user (see Get*ForUnifiedAsync helpers); otherwise
+        // Team Leads / Office Engineers see 0 even though their list has records.
+        var roles = CurrentUser.Roles;
+        var isAdmin = roles.Any(r => r.Equals(RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase)
+                                  || r.Equals(RoleNames.Admin, StringComparison.OrdinalIgnoreCase));
 
-        var transferGroups = await _db.TransferRequests
-            .Where(r => !r.IsDeleted
-                && (r.RequestedById == engineerId
-                    || (r.DestinationProjectId.HasValue && engineerProjectIds.Contains(r.DestinationProjectId.Value))))
-            .GroupBy(r => r.StatusId)
-            .Select(g => new { StatusId = g.Key, Count = g.Count() })
-            .ToListAsync();
+        // --- Transfer Request counts ---
+        // Mirrors GetTransferRequestsForUnifiedAsync: only Site-engineers and admins
+        // see transfers, scoped to ones they created OR incoming to their projects.
+        var canSeeTransfers = isAdmin
+            || roles.Any(r => r.Equals(RoleNames.Siteengineer, StringComparison.OrdinalIgnoreCase));
 
-        foreach (var tg in transferGroups)
+        if (canSeeTransfers)
         {
-            var existing = requestCounts.FirstOrDefault(x => x.StatusId == tg.StatusId);
-            if (existing is not null)
-                existing.TransferCount += tg.Count;
-            else if (tg.StatusId.HasValue)
-                requestCounts.Add(new GetEngineerRequestCountByStatusDto
-                {
-                    StatusId = tg.StatusId.Value,
-                    TransferCount = tg.Count
-                });
+            var engineerProjectIds = await _db.EngineerProjects
+                .Where(ep => ep.EngineerId == engineerId)
+                .Select(ep => ep.ProjectId)
+                .ToListAsync();
+
+            var transferGroups = await _db.TransferRequests
+                .Where(r => !r.IsDeleted
+                    && (r.RequestedById == engineerId
+                        || (r.DestinationProjectId.HasValue && engineerProjectIds.Contains(r.DestinationProjectId.Value))))
+                .GroupBy(r => r.StatusId)
+                .Select(g => new { StatusId = g.Key, Count = g.Count() })
+                .ToListAsync();
+
+            foreach (var tg in transferGroups)
+            {
+                var existing = requestCounts.FirstOrDefault(x => x.StatusId == tg.StatusId);
+                if (existing is not null)
+                    existing.TransferCount += tg.Count;
+                else if (tg.StatusId.HasValue)
+                    requestCounts.Add(new GetEngineerRequestCountByStatusDto
+                    {
+                        StatusId = tg.StatusId.Value,
+                        TransferCount = tg.Count
+                    });
+            }
         }
 
-        // --- Labor Attendance counts (scoped to this engineer) ---
-        // Engineer sees labor requests they supervise OR are assigned to
-        var laborGroups = await _db.LaborAttendanceRequests
-            .Where(r => !r.IsDeleted
-                && (r.SupervisorId == engineerId || r.AssignedToId == engineerId))
+        // --- Labor Attendance counts ---
+        // Mirrors GetLaborAttendanceRequestsForUnifiedAsync: admins see all, team leads
+        // see their departments' requests (plus supervised/assigned), everyone else sees
+        // only requests they supervise or are assigned to.
+        IQueryable<LaborAttendanceRequest> laborQuery = _db.LaborAttendanceRequests
+            .Where(r => !r.IsDeleted);
+
+        if (!isAdmin)
+        {
+            if (isTeamLead)
+                laborQuery = laborQuery.Where(r =>
+                    (r.DepartmentId.HasValue && teamLeadDeptIds.Contains(r.DepartmentId.Value))
+                    || r.AssignedToId == engineerId
+                    || r.SupervisorId == engineerId);
+            else
+                laborQuery = laborQuery.Where(r =>
+                    r.SupervisorId == engineerId || r.AssignedToId == engineerId);
+        }
+
+        var laborGroups = await laborQuery
             .GroupBy(r => r.StatusId)
             .Select(g => new { StatusId = g.Key, Count = g.Count() })
             .ToListAsync();

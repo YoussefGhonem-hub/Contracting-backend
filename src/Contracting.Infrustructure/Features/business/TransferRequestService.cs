@@ -216,6 +216,14 @@ namespace Contracting.Infrustructure.Features.business
                          r.RequestedBy != null && r.RequestedBy.Department != null &&
                          r.RequestedBy.Department.BranchId == userBranchId));
                 }
+                else
+                {
+                    // Fail closed: a non-admin user whose branch cannot be resolved
+                    // (no engineer record or no department/branch) must never see other
+                    // branches' data — restrict to their own requests only.
+                    var engineerId = engineer?.Id ?? Guid.Empty;
+                    query = query.Where(r => r.RequestedById == engineerId);
+                }
             }
 
             if (filter.StatusId.HasValue)

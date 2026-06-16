@@ -271,8 +271,31 @@ namespace Contracting.Infrustructure.Features.business
                     }
                 }
 
-                if (filter.StatusId.HasValue)
-                    query = query.Where(r => r.StatusId == filter.StatusId);
+                // Resolve the status filter. Callers may pass either an explicit
+                // StatusId (Guid) or a status name/code via ?status=... (e.g. "Rejected").
+                // The latter was previously unbound, so the filter was silently ignored
+                // and records of every status (e.g. Completed) were returned.
+                var statusId = filter.StatusId;
+                if (!statusId.HasValue && !string.IsNullOrWhiteSpace(filter.Status))
+                {
+                    var normalized = filter.Status.Trim().ToUpper();
+                    statusId = await _db.Statuses
+                        .AsNoTracking()
+                        .Where(st => (st.Code != null && st.Code.ToUpper() == normalized)
+                                     || (st.nameEn != null && st.nameEn.ToUpper() == normalized)
+                                     || (st.nameAr != null && st.nameAr.ToUpper() == normalized))
+                        .Select(st => (Guid?)st.Id)
+                        .FirstOrDefaultAsync();
+
+                    // Unknown status value: return an empty page rather than silently
+                    // ignoring the filter and leaking records of other statuses.
+                    if (!statusId.HasValue)
+                        return new PaginatedList<GetLaborAttendanceRequestDto>(
+                            new List<GetLaborAttendanceRequestDto>(), 0, filter.PageIndex, filter.PageSize);
+                }
+
+                if (statusId.HasValue)
+                    query = query.Where(r => r.StatusId == statusId);
 
                 if (filter.ProjectId.HasValue) query = query.Where(r => r.ProjectId == filter.ProjectId);
                 if (filter.SupervisorId.HasValue) query = query.Where(r => r.SupervisorId == filter.SupervisorId);

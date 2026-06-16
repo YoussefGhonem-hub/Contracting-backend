@@ -272,6 +272,35 @@ namespace Storage.AWS3.Services
             return localPath;
         }
 
+        public string? GetPreSignedUrl(string? key, TimeSpan? expiresIn = null)
+        {
+            if (string.IsNullOrEmpty(key)) return null;
+
+            try
+            {
+                var region = RegionEndpoint.EUNorth1;
+                var credential = AWS3ConfigurationExtension.GetBasicAWSCredentials(_configuration);
+                if (credential == null) return null;
+
+                using var client = new AmazonS3Client(credential, region);
+                var request = new GetPreSignedUrlRequest
+                {
+                    BucketName = _bucketName,
+                    Key = key,
+                    Verb = HttpVerb.GET,
+                    Expires = DateTime.UtcNow.Add(expiresIn ?? TimeSpan.FromHours(1))
+                };
+
+                return client.GetPreSignedURL(request);
+            }
+            catch (Exception ex)
+            {
+                // Never surface a raw AWS error to the caller; log and degrade gracefully.
+                Console.WriteLine($"Pre-signed URL generation failed for key '{key}': {ex.Message}");
+                return null;
+            }
+        }
+
         public string GetUploadedFileUrl(string key)
         {
             var region = _storageConfig.Region;

@@ -3,16 +3,19 @@ using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.CurrentUser;
 using Contracting.Shared.Dtos.ClientDtos.ScheduleDtos;
 using Microsoft.EntityFrameworkCore;
+using Storage.AWS3.Services;
 
 namespace Contracting.Infrustructure.Features.client;
 
 public class ClientScheduleService : IClientScheduleService
 {
     private readonly ApplicationDbContext _db;
+    private readonly IStorageService _storage;
 
-    public ClientScheduleService(ApplicationDbContext db)
+    public ClientScheduleService(ApplicationDbContext db, IStorageService storage)
     {
         _db = db;
+        _storage = storage;
     }
 
     public async Task<GetClientScheduleDto?> GetScheduleAsync(Guid projectId, CancellationToken cancellationToken = default)
@@ -43,36 +46,61 @@ public class ClientScheduleService : IClientScheduleService
         }
 
         // Tab 1: flat list of all monthly report attachments, newest first
-        var monthlyReports = await _db.ClientMonthlyReports
+        var monthlyReportRows = await _db.ClientMonthlyReports
             .Where(r => r.ProjectId == projectId)
             .OrderByDescending(r => r.Year).ThenByDescending(r => r.Month)
-            .SelectMany(r => r.Attachments.Select(a => new ScheduleMonthlyReportFileDto
+            .SelectMany(r => r.Attachments.Select(a => new
             {
-                Id = a.Id,
-                Month = r.Month,
-                Year = r.Year,
-                FileName = a.FileName,
-                Extension = a.Extension,
-                FileSize = a.FileSize,
-                Url = a.Url
+                a.Id,
+                r.Month,
+                r.Year,
+                a.FileName,
+                a.Extension,
+                a.FileSize,
+                a.Key,
+                a.Url
             }))
             .ToListAsync(cancellationToken);
 
+        // Stored URLs target a private bucket (Access Denied); return pre-signed URLs.
+        var monthlyReports = monthlyReportRows.Select(a => new ScheduleMonthlyReportFileDto
+        {
+            Id = a.Id,
+            Month = a.Month,
+            Year = a.Year,
+            FileName = a.FileName,
+            Extension = a.Extension,
+            FileSize = a.FileSize,
+            Url = _storage.GetPreSignedUrl(a.Key) ?? a.Url
+        }).ToList();
+
         // Tab 2: project timeline / schedule documents
-        var timelineDocs = await _db.ProjectSchedules
+        var timelineRows = await _db.ProjectSchedules
             .Where(s => s.ProjectId == projectId)
             .OrderByDescending(s => s.CreatedDate)
-            .Select(s => new ScheduleTimelineDocumentDto
+            .Select(s => new
             {
-                Id = s.Id,
-                Title = s.Title,
-                Version = s.Version,
-                FileName = s.FileName,
-                Extension = s.Extension,
-                FileSize = s.FileSize,
-                Url = s.Url
+                s.Id,
+                s.Title,
+                s.Version,
+                s.FileName,
+                s.Extension,
+                s.FileSize,
+                s.Key,
+                s.Url
             })
             .ToListAsync(cancellationToken);
+
+        var timelineDocs = timelineRows.Select(s => new ScheduleTimelineDocumentDto
+        {
+            Id = s.Id,
+            Title = s.Title,
+            Version = s.Version,
+            FileName = s.FileName,
+            Extension = s.Extension,
+            FileSize = s.FileSize,
+            Url = _storage.GetPreSignedUrl(s.Key) ?? s.Url
+        }).ToList();
 
         return new GetClientScheduleDto
         {

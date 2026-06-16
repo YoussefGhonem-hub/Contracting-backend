@@ -4,16 +4,19 @@ using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.CurrentUser;
 using Contracting.Shared.Dtos.ClientDtos.VariationOrderDtos;
 using Microsoft.EntityFrameworkCore;
+using Storage.AWS3.Services;
 
 namespace Contracting.Infrustructure.Features.client;
 
 public class ClientVariationOrderService : IClientVariationOrderService
 {
     private readonly ApplicationDbContext _db;
+    private readonly IStorageService _storage;
 
-    public ClientVariationOrderService(ApplicationDbContext db)
+    public ClientVariationOrderService(ApplicationDbContext db, IStorageService storage)
     {
         _db = db;
+        _storage = storage;
     }
 
     public async Task<GetClientVariationOrdersDto?> GetVariationOrdersAsync(
@@ -139,7 +142,7 @@ public class ClientVariationOrderService : IClientVariationOrderService
         return MapToDetail(vo);
     }
 
-    private static GetClientVariationOrderDetailDto MapToDetail(Domain.Entities.client.VariationOrder vo)
+    private GetClientVariationOrderDetailDto MapToDetail(Domain.Entities.client.VariationOrder vo)
         => new()
         {
             Id = vo.Id,
@@ -152,13 +155,14 @@ public class ClientVariationOrderService : IClientVariationOrderService
             DueDate = vo.DueDate,
             ClientActionDate = vo.ClientActionDate,
             ClientRejectionReason = vo.ClientRejectionReason,
+            // Stored URLs target a private bucket (Access Denied); return pre-signed URLs.
             Attachments = vo.Attachments.Select(a => new VOAttachmentDto
             {
                 Id = a.Id,
                 FileName = a.FileName,
                 Extension = a.Extension,
                 FileSize = a.FileSize,
-                Url = a.Url
+                Url = _storage.GetPreSignedUrl(a.Key) ?? a.Url
             }).ToList()
         };
 }
