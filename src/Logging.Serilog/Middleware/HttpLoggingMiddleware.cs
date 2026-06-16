@@ -132,6 +132,7 @@ public sealed class HttpLoggingMiddleware
                     await ctx.Response.WriteAsync(JsonSerializer.Serialize(problem));
                 }
 
+                mem.Seek(0, SeekOrigin.Begin);
                 await mem.CopyToAsync(original);
                 ctx.Response.Body = original;
                 return;

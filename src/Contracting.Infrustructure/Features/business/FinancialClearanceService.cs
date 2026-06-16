@@ -208,6 +208,18 @@ namespace Contracting.Infrustructure.Features.business
 
         public async Task<ErrorOr<GetFinancialClearanceDto>> TakeActionAsync(Guid id, FinancialClearanceActionDto dto)
         {
+            try
+            {
+                return await TakeActionInternalAsync(id, dto);
+            }
+            catch (Exception ex)
+            {
+                return Error.Failure("FinancialClearance.Error", ex.InnerException?.Message ?? ex.Message);
+            }
+        }
+
+        private async Task<ErrorOr<GetFinancialClearanceDto>> TakeActionInternalAsync(Guid id, FinancialClearanceActionDto dto)
+        {
             var s = await StatusResolver.LoadRequestStatusIdsAsync(_db);
             var clearance = await _db.FinancialClearances
                 .Include(c => c.Attachments)
@@ -286,18 +298,31 @@ namespace Contracting.Infrustructure.Features.business
                     return Error.Validation("FinancialClearance.UnknownAction", $"Unknown action: {dto.ActionType}. Valid values: Assign, Submit, Review, Approve, Close, Reject");
             }
 
-            clearance.StatusId = toStatusId;
-            clearance.Activities.Add(new FinancialClearanceActivity
+            var now = Contracting.Shared.Common.DateTimeHelper.Now;
+            var userId = CurrentUser.Id;
+
+            // Use ExecuteUpdateAsync to avoid EF change-tracking concurrency issues
+            await _db.FinancialClearances
+                .Where(c => c.Id == id)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(c => c.StatusId, toStatusId)
+                    .SetProperty(c => c.AssignedToId, clearance.AssignedToId)
+                    .SetProperty(c => c.ModifiedDate, now)
+                    .SetProperty(c => c.ModifiedBy, userId));
+
+            var activity = new FinancialClearanceActivity
             {
                 FinancialClearanceId = clearance.Id,
                 EngineerId = engineer?.Id,
                 FromStatusId = fromStatusId,
                 ToStatusId = toStatusId,
                 ActionType = dto.ActionType,
-                Comments = dto.Comments
-            });
-
+                Comments = dto.Comments,
+            };
+            activity.MarkAsCreated(userId ?? Guid.Empty);
+            _db.FinancialClearanceActivities.Add(activity);
             await _db.SaveChangesAsync();
+
             return await GetByIdAsync(clearance.Id);
         }
 
