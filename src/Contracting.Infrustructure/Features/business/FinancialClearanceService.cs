@@ -224,6 +224,19 @@ namespace Contracting.Infrustructure.Features.business
 
             switch (dto.ActionType.Trim().ToLower())
             {
+                case "assign":
+                    if (clearance.StatusId != s.New)
+                        return Error.Validation("FinancialClearance.InvalidAction", "Only new clearances can be assigned.");
+                    if (!dto.AssignedToId.HasValue || dto.AssignedToId == Guid.Empty)
+                        return Error.Validation("FinancialClearance.AssignedToRequired", "AssignedToId is required for assign action.");
+                    var assignedEngineer = await _db.Engineers.AsNoTracking()
+                        .FirstOrDefaultAsync(e => e.Id == dto.AssignedToId);
+                    if (assignedEngineer is null)
+                        return Error.NotFound("FinancialClearance.EngineerNotFound", "Assigned engineer not found.");
+                    clearance.AssignedToId = dto.AssignedToId;
+                    toStatusId = s.InProgress;
+                    break;
+
                 case "submit":
                     // New → InProgress (submit for review)
                     if (clearance.StatusId != s.New)
@@ -270,7 +283,7 @@ namespace Contracting.Infrustructure.Features.business
                     break;
 
                 default:
-                    return Error.Validation("FinancialClearance.UnknownAction", $"Unknown action: {dto.ActionType}. Valid values: Submit, Review, Approve, Close, Reject");
+                    return Error.Validation("FinancialClearance.UnknownAction", $"Unknown action: {dto.ActionType}. Valid values: Assign, Submit, Review, Approve, Close, Reject");
             }
 
             clearance.StatusId = toStatusId;
