@@ -19,7 +19,7 @@ namespace Contracting.API.Controllers
     public class ClientController : APIBaseController
     {
         // Roles allowed to mutate client records (create/update/delete).
-        private const string ManageRoles = RoleNames.SuperAdmin + "," + RoleNames.Admin + "," + RoleNames.IT;
+        private const string ManageRoles = RoleNames.SuperAdmin + "," + RoleNames.Admin + "," + RoleNames.IT + "," + RoleNames.Accounts;
 
         // Roles allowed to read client details — back-office plus the engineer roles
         // that need to view a project's client information.

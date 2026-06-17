@@ -3,7 +3,6 @@ using Contracting.Domain.Common.Enums;
 using Contracting.Domain.Entities.client;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.Common;
-using Contracting.Shared.Constants;
 using Contracting.Shared.CurrentUser;
 using Contracting.Shared.Dtos.BusinessDtos.ClientContentManagementDtos;
 using Contracting.Shared.Storage;
@@ -28,7 +27,6 @@ public class ClientContentManagementController : APIBaseController
     }
 
     [HttpPost("monthly-reports")]
-    [Authorize]
     [Consumes("multipart/form-data")]
     public async Task<IActionResult> CreateMonthlyReport([FromForm] CreateMonthlyReportRequest request, CancellationToken cancellationToken)
     {
@@ -226,7 +224,6 @@ public class ClientContentManagementController : APIBaseController
     }
 
     [HttpPost("invoices")]
-    [Authorize(Roles = RoleNames.Accounts + "," + RoleNames.Admin + "," + RoleNames.SuperAdmin)]
     public async Task<IActionResult> CreateInvoice([FromBody] CreateInvoiceRequest request, CancellationToken cancellationToken)
     {
         if (!await _db.Projects.AnyAsync(p => p.Id == request.ProjectId, cancellationToken))
@@ -278,7 +275,6 @@ public class ClientContentManagementController : APIBaseController
     }
 
     [HttpPut("invoices/{invoiceId:guid}/payment")]
-    [Authorize(Roles = RoleNames.Accounts + "," + RoleNames.Admin + "," + RoleNames.SuperAdmin)]
     public async Task<IActionResult> UpdateInvoicePayment(Guid invoiceId, [FromBody] UpdateInvoicePaymentRequest request, CancellationToken cancellationToken)
     {
         var invoice = await _db.ProjectInvoices.FirstOrDefaultAsync(i => i.Id == invoiceId, cancellationToken);
@@ -318,7 +314,6 @@ public class ClientContentManagementController : APIBaseController
     // Full edit of an invoice. Status auto-recalculates from amounts.
     // =========================================================================
     [HttpPut("invoices/{invoiceId:guid}")]
-    [Authorize(Roles = RoleNames.Accounts + "," + RoleNames.Admin + "," + RoleNames.SuperAdmin)]
     public async Task<IActionResult> UpdateInvoice(Guid invoiceId, [FromBody] UpdateInvoiceRequest request, CancellationToken cancellationToken)
     {
         var invoice = await _db.ProjectInvoices.FirstOrDefaultAsync(i => i.Id == invoiceId && !i.IsDeleted, cancellationToken);
@@ -364,7 +359,6 @@ public class ClientContentManagementController : APIBaseController
     // DELETE /api/backoffice/client-content/invoices/{invoiceId}
     // =========================================================================
     [HttpDelete("invoices/{invoiceId:guid}")]
-    [Authorize(Roles = RoleNames.Accounts + "," + RoleNames.Admin + "," + RoleNames.SuperAdmin)]
     public async Task<IActionResult> DeleteInvoice(Guid invoiceId, CancellationToken cancellationToken)
     {
         var invoice = await _db.ProjectInvoices.FirstOrDefaultAsync(i => i.Id == invoiceId && !i.IsDeleted, cancellationToken);
