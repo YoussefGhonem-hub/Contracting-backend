@@ -44,7 +44,6 @@ public class ChatController : APIBaseController
     /// Accessible by Admin, Teamlead-engineer, or any authenticated team member.
     /// </summary>
     [HttpPost("projects/{projectId:guid}/group")]
-    [Authorize(Roles = $"{RoleNames.Admin},{RoleNames.SuperAdmin},{RoleNames.Teamleadengineer}")]
     public async Task<IActionResult> GetOrCreateGroup(Guid projectId)
     {
         var query = new GetOrCreateChatGroupQuery(projectId);
@@ -72,7 +71,6 @@ public class ChatController : APIBaseController
     /// Assign a team member (by userId) to a chat group so they can reply to the client.
     /// </summary>
     [HttpPost("groups/{groupId:guid}/members")]
-    [Authorize(Roles = $"{RoleNames.Admin},{RoleNames.SuperAdmin},{RoleNames.Teamleadengineer}")]
     public async Task<IActionResult> AssignMember(Guid groupId, [FromBody] AssignChatMemberDto dto)
     {
         var command = new AssignChatMemberCommand(groupId, dto.UserId);
@@ -85,7 +83,6 @@ public class ChatController : APIBaseController
     /// The client user cannot be removed.
     /// </summary>
     [HttpDelete("groups/{groupId:guid}/members/{userId:guid}")]
-    [Authorize(Roles = $"{RoleNames.Admin},{RoleNames.SuperAdmin},{RoleNames.Teamleadengineer}")]
     public async Task<IActionResult> RemoveMember(Guid groupId, Guid userId)
     {
         var command = new RemoveChatMemberCommand(groupId, userId);
