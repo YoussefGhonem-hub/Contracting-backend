@@ -22,15 +22,7 @@ public class ClientVariationOrderService : IClientVariationOrderService
     public async Task<GetClientVariationOrdersDto?> GetVariationOrdersAsync(
         Guid projectId, string? status, CancellationToken cancellationToken = default)
     {
-        var userId = CurrentUser.Id!.Value;
-
-        var isClientProject = await _db.ClientProjects
-            .AnyAsync(cp => cp.ProjectId == projectId
-                         && cp.Client != null
-                         && cp.Client.ApplicationUserId == userId,
-                      cancellationToken);
-
-        if (!isClientProject)
+        if (!await ClientProjectAccess.CanAccessProjectAsync(_db, projectId, cancellationToken))
             return null;
 
         var query = _db.VariationOrders.Where(v => v.ProjectId == projectId);
@@ -69,21 +61,14 @@ public class ClientVariationOrderService : IClientVariationOrderService
     public async Task<GetClientVariationOrderDetailDto?> GetVariationOrderByIdAsync(
         Guid voId, CancellationToken cancellationToken = default)
     {
-        var userId = CurrentUser.Id!.Value;
-
         var vo = await _db.VariationOrders
             .Include(v => v.Attachments)
             .FirstOrDefaultAsync(v => v.Id == voId, cancellationToken);
 
         if (vo is null) return null;
 
-        var isClientProject = await _db.ClientProjects
-            .AnyAsync(cp => cp.ProjectId == vo.ProjectId
-                         && cp.Client != null
-                         && cp.Client.ApplicationUserId == userId,
-                      cancellationToken);
-
-        if (!isClientProject) return null;
+        if (!await ClientProjectAccess.CanAccessProjectAsync(_db, vo.ProjectId, cancellationToken))
+            return null;
 
         return MapToDetail(vo);
     }
@@ -91,21 +76,14 @@ public class ClientVariationOrderService : IClientVariationOrderService
     public async Task<GetClientVariationOrderDetailDto?> ApproveVariationOrderAsync(
         Guid voId, CancellationToken cancellationToken = default)
     {
-        var userId = CurrentUser.Id!.Value;
-
         var vo = await _db.VariationOrders
             .Include(v => v.Attachments)
             .FirstOrDefaultAsync(v => v.Id == voId, cancellationToken);
 
         if (vo is null || vo.Status != VOStatus.Pending) return null;
 
-        var isClientProject = await _db.ClientProjects
-            .AnyAsync(cp => cp.ProjectId == vo.ProjectId
-                         && cp.Client != null
-                         && cp.Client.ApplicationUserId == userId,
-                      cancellationToken);
-
-        if (!isClientProject) return null;
+        if (!await ClientProjectAccess.CanAccessProjectAsync(_db, vo.ProjectId, cancellationToken))
+            return null;
 
         vo.Status = VOStatus.Approved;
         vo.ClientActionDate = Contracting.Shared.Common.DateTimeHelper.DateTimeNow;
@@ -118,21 +96,14 @@ public class ClientVariationOrderService : IClientVariationOrderService
     public async Task<GetClientVariationOrderDetailDto?> RejectVariationOrderAsync(
         Guid voId, string? rejectionReason, CancellationToken cancellationToken = default)
     {
-        var userId = CurrentUser.Id!.Value;
-
         var vo = await _db.VariationOrders
             .Include(v => v.Attachments)
             .FirstOrDefaultAsync(v => v.Id == voId, cancellationToken);
 
         if (vo is null || vo.Status != VOStatus.Pending) return null;
 
-        var isClientProject = await _db.ClientProjects
-            .AnyAsync(cp => cp.ProjectId == vo.ProjectId
-                         && cp.Client != null
-                         && cp.Client.ApplicationUserId == userId,
-                      cancellationToken);
-
-        if (!isClientProject) return null;
+        if (!await ClientProjectAccess.CanAccessProjectAsync(_db, vo.ProjectId, cancellationToken))
+            return null;
 
         vo.Status = VOStatus.Rejected;
         vo.ClientActionDate = Contracting.Shared.Common.DateTimeHelper.DateTimeNow;

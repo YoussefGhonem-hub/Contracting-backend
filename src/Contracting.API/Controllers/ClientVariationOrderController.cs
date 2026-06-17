@@ -13,7 +13,7 @@ namespace Contracting.API.Controllers;
 
 [Route("api/client")]
 [ApiController]
-[Authorize(Roles = RoleNames.Client)]
+[Authorize]
 public class ClientVariationOrderController : APIBaseController
 {
     private readonly IMediator _mediator;

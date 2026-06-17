@@ -22,15 +22,7 @@ public class ClientTenderService : IClientTenderService
         Guid projectId,
         CancellationToken cancellationToken = default)
     {
-        var userId = CurrentUser.Id!.Value;
-
-        var isClientProject = await _db.ClientProjects
-            .AnyAsync(cp => cp.ProjectId == projectId
-                         && cp.Client != null
-                         && cp.Client.ApplicationUserId == userId,
-                      cancellationToken);
-
-        if (!isClientProject)
+        if (!await ClientProjectAccess.CanAccessProjectAsync(_db, projectId, cancellationToken))
             return null;
 
         var docs = await _db.TenderDocuments

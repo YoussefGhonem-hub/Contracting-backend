@@ -20,13 +20,8 @@ public class ClientSiteReportService : IClientSiteReportService
 
     public async Task<List<GetClientSiteReportListItemDto>?> GetClientSiteReportsAsync(Guid projectId, CancellationToken cancellationToken = default)
     {
-        var userId = CurrentUser.Id!.Value;
-
-        // Verify the client owns this project
-        var isClientProject = await _db.ClientProjects
-            .AnyAsync(cp => cp.ProjectId == projectId && cp.Client != null && cp.Client.ApplicationUserId == userId, cancellationToken);
-
-        if (!isClientProject)
+        // Clients are limited to their own projects; staff may access any project.
+        if (!await ClientProjectAccess.CanAccessProjectAsync(_db, projectId, cancellationToken))
             return null;
 
         var reports = await _db.ClientMonthlyReports
@@ -47,8 +42,6 @@ public class ClientSiteReportService : IClientSiteReportService
 
     public async Task<GetClientSiteReportDetailDto?> GetClientSiteReportByIdAsync(Guid reportId, CancellationToken cancellationToken = default)
     {
-        var userId = CurrentUser.Id!.Value;
-
         var report = await _db.ClientMonthlyReports
             .Include(r => r.Attachments)
             .FirstOrDefaultAsync(r => r.Id == reportId, cancellationToken);
@@ -56,11 +49,8 @@ public class ClientSiteReportService : IClientSiteReportService
         if (report is null)
             return null;
 
-        // Verify the client owns the project this report belongs to
-        var isClientProject = await _db.ClientProjects
-            .AnyAsync(cp => cp.ProjectId == report.ProjectId && cp.Client != null && cp.Client.ApplicationUserId == userId, cancellationToken);
-
-        if (!isClientProject)
+        // Clients are limited to their own projects; staff may access any project.
+        if (!await ClientProjectAccess.CanAccessProjectAsync(_db, report.ProjectId, cancellationToken))
             return null;
 
         return new GetClientSiteReportDetailDto

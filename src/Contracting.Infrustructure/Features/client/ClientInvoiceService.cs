@@ -22,17 +22,13 @@ public class ClientInvoiceService : IClientInvoiceService
         string? status,
         CancellationToken cancellationToken = default)
     {
-        var userId = CurrentUser.Id!.Value;
-
-        var project = await _db.ClientProjects
-            .Where(cp => cp.ProjectId == projectId
-                      && cp.Client != null
-                      && cp.Client.ApplicationUserId == userId)
-            .Select(cp => new { cp.Project.ContractValue })
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (project is null)
+        if (!await ClientProjectAccess.CanAccessProjectAsync(_db, projectId, cancellationToken))
             return null;
+
+        var contractValue = await _db.Projects
+            .Where(p => p.Id == projectId)
+            .Select(p => p.ContractValue)
+            .FirstOrDefaultAsync(cancellationToken);
 
         var query = _db.ProjectInvoices
             .Where(i => i.ProjectId == projectId);
@@ -74,7 +70,7 @@ public class ClientInvoiceService : IClientInvoiceService
             .Where(vo => vo.ProjectId == projectId && vo.Status == VOStatus.Approved)
             .SumAsync(vo => vo.Cost, cancellationToken);
 
-        var initialContractValue = project.ContractValue ?? 0;
+        var initialContractValue = contractValue ?? 0;
         var totalContractValue = initialContractValue + approvedVariations;
 
         // Aggregate totals across ALL invoices for the project (ignore status filter for summary)
@@ -127,17 +123,13 @@ public class ClientInvoiceService : IClientInvoiceService
         Guid projectId,
         CancellationToken cancellationToken = default)
     {
-        var userId = CurrentUser.Id!.Value;
-
-        var project = await _db.ClientProjects
-            .Where(cp => cp.ProjectId == projectId
-                      && cp.Client != null
-                      && cp.Client.ApplicationUserId == userId)
-            .Select(cp => new { cp.Project.ContractValue })
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (project is null)
+        if (!await ClientProjectAccess.CanAccessProjectAsync(_db, projectId, cancellationToken))
             return null;
+
+        var contractValue = await _db.Projects
+            .Where(p => p.Id == projectId)
+            .Select(p => p.ContractValue)
+            .FirstOrDefaultAsync(cancellationToken);
 
         var approvedVariations = await _db.VariationOrders
             .Where(vo => vo.ProjectId == projectId && vo.Status == VOStatus.Approved)
@@ -147,7 +139,7 @@ public class ClientInvoiceService : IClientInvoiceService
             .Where(i => i.ProjectId == projectId)
             .SumAsync(i => i.PaidAmount, cancellationToken);
 
-        var initialValue = project.ContractValue ?? 0;
+        var initialValue = contractValue ?? 0;
         var totalContract = initialValue + approvedVariations;
 
         return new GetClientFinancialSummaryDto

@@ -17,24 +17,42 @@ public class ClientProjectService : IClientProjectService
 
     public async Task<List<GetClientProjectListItemDto>> GetClientProjectsAsync(CancellationToken cancellationToken = default)
     {
-        var userId = CurrentUser.Id!.Value;
+        // Clients see only the projects assigned to them; staff see every project.
+        if (ClientProjectAccess.IsClient)
+        {
+            var userId = CurrentUser.Id!.Value;
 
-        var projects = await _db.ClientProjects
-            .Where(cp => cp.Client != null && cp.Client.ApplicationUserId == userId)
-            .Select(cp => new GetClientProjectListItemDto
+            return await _db.ClientProjects
+                .Where(cp => cp.Client != null && cp.Client.ApplicationUserId == userId)
+                .Select(cp => new GetClientProjectListItemDto
+                {
+                    Id = cp.Project!.Id,
+                    NameEn = cp.Project.nameEn,
+                    NameAr = cp.Project.nameAr,
+                    Location = cp.Project.location,
+                    ImageUrl = cp.Project.imageUrl,
+                    Area = cp.Project.Area,
+                    StartDate = cp.Project.StartDate,
+                    ProjectStatus = cp.Project.ProjectStatus,
+                    Code = cp.Project.Code
+                })
+                .ToListAsync(cancellationToken);
+        }
+
+        return await _db.Projects
+            .Where(p => !p.IsDeleted)
+            .Select(p => new GetClientProjectListItemDto
             {
-                Id = cp.Project!.Id,
-                NameEn = cp.Project.nameEn,
-                NameAr = cp.Project.nameAr,
-                Location = cp.Project.location,
-                ImageUrl = cp.Project.imageUrl,
-                Area = cp.Project.Area,
-                StartDate = cp.Project.StartDate,
-                ProjectStatus = cp.Project.ProjectStatus,
-                Code = cp.Project.Code
+                Id = p.Id,
+                NameEn = p.nameEn,
+                NameAr = p.nameAr,
+                Location = p.location,
+                ImageUrl = p.imageUrl,
+                Area = p.Area,
+                StartDate = p.StartDate,
+                ProjectStatus = p.ProjectStatus,
+                Code = p.Code
             })
             .ToListAsync(cancellationToken);
-
-        return projects;
     }
 }

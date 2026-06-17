@@ -22,15 +22,7 @@ public class ClientDrawingService : IClientDrawingService
     public async Task<List<GetClientDrawingDto>?> GetDrawingsAsync(
         Guid projectId, string? type, CancellationToken cancellationToken = default)
     {
-        var userId = CurrentUser.Id!.Value;
-
-        var isClientProject = await _db.ClientProjects
-            .AnyAsync(cp => cp.ProjectId == projectId
-                         && cp.Client != null
-                         && cp.Client.ApplicationUserId == userId,
-                      cancellationToken);
-
-        if (!isClientProject)
+        if (!await ClientProjectAccess.CanAccessProjectAsync(_db, projectId, cancellationToken))
             return null;
 
         var query = _db.ProjectDrawings.Where(d => d.ProjectId == projectId);

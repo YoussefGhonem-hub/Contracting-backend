@@ -20,17 +20,16 @@ public class ClientScheduleService : IClientScheduleService
 
     public async Task<GetClientScheduleDto?> GetScheduleAsync(Guid projectId, CancellationToken cancellationToken = default)
     {
-        var userId = CurrentUser.Id!.Value;
+        if (!await ClientProjectAccess.CanAccessProjectAsync(_db, projectId, cancellationToken))
+            return null;
 
-        var clientProject = await _db.ClientProjects
-            .Where(cp => cp.ProjectId == projectId
-                      && cp.Client != null
-                      && cp.Client.ApplicationUserId == userId)
-            .Select(cp => new
+        var clientProject = await _db.Projects
+            .Where(p => p.Id == projectId)
+            .Select(p => new
             {
-                cp.Project.StartDate,
-                cp.Project.ExpectedEndDate,
-                cp.Project.ProgressPercent
+                p.StartDate,
+                p.ExpectedEndDate,
+                p.ProgressPercent
             })
             .FirstOrDefaultAsync(cancellationToken);
 

@@ -10,7 +10,7 @@ namespace Contracting.API.Controllers;
 
 [Route("api/client")]
 [ApiController]
-[Authorize(Roles = RoleNames.Client)]
+[Authorize]
 public class ClientSiteReportController : APIBaseController
 {
     private readonly IMediator _mediator;
