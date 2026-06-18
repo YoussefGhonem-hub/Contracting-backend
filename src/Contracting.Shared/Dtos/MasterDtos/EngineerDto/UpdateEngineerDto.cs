@@ -15,6 +15,7 @@
         public Guid ApplicationUserId { get; set; }
         public Guid? ChangeDepartmentId { get; set; }
         public List<Guid> Roles { get; set; } = new();
+        public List<Guid> ProjectIds { get; set; } = new();
         public List<ProjectAssignDto> Projects { get; set; } = new();
         public List<DepartmentRoleDto>? DepartmentRoles { get; set; }
 

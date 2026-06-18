@@ -78,7 +78,13 @@ namespace Contracting.Infrustructure.Features
 
             await _db.SaveChangesAsync();
 
-            await ReplaceEngineerProjectsAsync(engineer.Id, dto.Projects);
+            // Merge simple projectIds (Guids) into the Projects list so both formats work.
+            // ProjectIds takes precedence: if provided it replaces the Projects list entirely.
+            var projectsToAssign = dto.ProjectIds != null && dto.ProjectIds.Count > 0
+                ? dto.ProjectIds.Distinct().Select(id => new ProjectAssignDto { ProjectId = id, IsProjectManager = false }).ToList()
+                : dto.Projects ?? new();
+
+            await ReplaceEngineerProjectsAsync(engineer.Id, projectsToAssign);
             return await GetEngineerByIdAsync(engineer.Id);
         }
         public async Task UpdateUserRolesAsync(Guid userId, List<Guid> roleIds)

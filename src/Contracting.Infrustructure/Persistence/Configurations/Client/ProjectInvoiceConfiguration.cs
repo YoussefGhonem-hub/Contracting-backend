@@ -13,7 +13,7 @@ public class ProjectInvoiceConfiguration : IEntityTypeConfiguration<ProjectInvoi
         builder.Property(i => i.Title).HasMaxLength(500);
         builder.Property(i => i.TotalValue).HasColumnType("decimal(18,2)");
         builder.Property(i => i.PaidAmount).HasColumnType("decimal(18,2)");
-        builder.Property(i => i.Status).HasConversion<string>().HasMaxLength(50);
+        builder.Property(i => i.Status).HasConversion(new PaymentStatusConverter()).HasMaxLength(50);
         builder.Property(i => i.Notes).HasMaxLength(2000);
 
         builder.HasOne(i => i.Project)
