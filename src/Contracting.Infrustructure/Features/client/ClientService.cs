@@ -163,9 +163,13 @@ public class ClientService : IClientService
             return;
         }
 
-        var newLinks = projectIds
-            .Where(id => id != Guid.Empty)
-            .Distinct()
+        var validIds = projectIds.Where(id => id != Guid.Empty).Distinct().ToList();
+        var existingProjectIds = await _db.Projects
+            .Where(p => validIds.Contains(p.Id))
+            .Select(p => p.Id)
+            .ToListAsync();
+
+        var newLinks = existingProjectIds
             .Select(id => new ClientProject { ClientId = clientId, ProjectId = id });
 
         await _db.ClientProjects.AddRangeAsync(newLinks);

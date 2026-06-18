@@ -38,9 +38,6 @@ namespace Contracting.Infrustructure.Features.business
             var engineer = await _db.Engineers.AsNoTracking()
                 .FirstOrDefaultAsync(e => e.ApplicationUserId == Guid.Parse(CurrentUser.UserId!));
 
-            if (dto.SpentAmount > dto.AdvanceAmount)
-                return Error.Validation("FinancialClearance.SpentExceedsAdvance", "Spent amount cannot exceed advance amount.");
-
             var clearance = new FinancialClearance
             {
                 ClearanceNumber = await GenerateClearanceNumberAsync(),
@@ -106,9 +103,6 @@ namespace Contracting.Infrustructure.Features.business
 
             var advanceAmount = dto.AdvanceAmount ?? clearance.AdvanceAmount;
             var spentAmount = dto.SpentAmount ?? clearance.SpentAmount;
-
-            if (spentAmount > advanceAmount)
-                return Error.Validation("FinancialClearance.SpentExceedsAdvance", "Spent amount cannot exceed advance amount.");
 
             clearance.AdvanceAmount = advanceAmount;
             clearance.SpentAmount = spentAmount;

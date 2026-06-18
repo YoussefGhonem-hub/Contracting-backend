@@ -54,8 +54,16 @@ namespace Contracting.Application.Features.Client.ClientManagement.Command.Creat
             }
 
             // Create the client profile (and project links).
-            var client = await _service.CreateClientAsync(dto, user.Id);
-            return client;
+            try
+            {
+                var client = await _service.CreateClientAsync(dto, user.Id);
+                return client;
+            }
+            catch (Exception ex)
+            {
+                await _userManager.DeleteAsync(user);
+                return Error.Failure("Client.CreateFailed", ex.InnerException?.Message ?? ex.Message);
+            }
         }
     }
 }

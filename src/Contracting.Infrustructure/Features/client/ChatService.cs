@@ -1,6 +1,7 @@
 using Contracting.Domain.Common.Enums;
 using Contracting.Domain.Entities.client;
 using Contracting.Infrustructure.Inteface.client;
+using Contracting.Infrustructure.Inteface.Helper;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.Common;
 using Contracting.Shared.CurrentUser;
@@ -18,17 +19,20 @@ public class ChatService : IChatService
     private readonly IFileStorage _fileStorage;
     private readonly IFirebaseService _firebase;
     private readonly Features.Firebase.FirebaseOptions _firebaseOptions;
+    private readonly INotificationService _notificationService;
 
     public ChatService(
         ApplicationDbContext db,
         IFileStorage fileStorage,
         IFirebaseService firebase,
-        IOptions<Features.Firebase.FirebaseOptions> firebaseOptions)
+        IOptions<Features.Firebase.FirebaseOptions> firebaseOptions,
+        INotificationService notificationService)
     {
         _db = db;
         _fileStorage = fileStorage;
         _firebase = firebase;
         _firebaseOptions = firebaseOptions.Value;
+        _notificationService = notificationService;
     }
 
     // -------------------------------------------------------------------------
@@ -112,7 +116,9 @@ public class ChatService : IChatService
 
     public async Task<bool> AssignMemberAsync(Guid groupId, Guid userId, CancellationToken cancellationToken = default)
     {
-        var group = await _db.ChatGroups.FindAsync(new object[] { groupId }, cancellationToken);
+        var group = await _db.ChatGroups
+            .Include(g => g.Project)
+            .FirstOrDefaultAsync(g => g.Id == groupId, cancellationToken);
         if (group is null) return false;
 
         var alreadyMember = await _db.ChatGroupMembers
@@ -130,6 +136,13 @@ public class ChatService : IChatService
         });
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        var groupName = group.Name ?? group.Project?.nameEn ?? "Chat Group";
+        await _notificationService.SendNotificationToUserAsync(
+            userId,
+            "Added to Chat Group",
+            $"You have been added to the chat group: {groupName}");
+
         return true;
     }
 
@@ -193,6 +206,10 @@ public class ChatService : IChatService
             AttachmentFileSize: null,
             SentAt: DateTimeHelper.DateTimeNow
         ), cancellationToken);
+
+        var senderName = sender?.FullName ?? sender?.Email ?? "Someone";
+        var preview = content.Length > 80 ? content[..80] + "…" : content;
+        await NotifyGroupMembersAsync(groupId, senderId, senderName, preview, cancellationToken);
 
         return new GetChatMessageDto
         {
@@ -262,6 +279,10 @@ public class ChatService : IChatService
             AttachmentFileSize: attachment.FileSize,
             SentAt: DateTimeHelper.DateTimeNow
         ), cancellationToken);
+
+        var senderName = sender?.FullName ?? sender?.Email ?? "Someone";
+        var preview = msgType == ChatMessageType.Image ? "📷 Sent an image" : $"📎 {file.FileName}";
+        await NotifyGroupMembersAsync(groupId, senderId, senderName, preview, cancellationToken);
 
         return new GetChatMessageDto
         {
@@ -404,6 +425,32 @@ public class ChatService : IChatService
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
+
+    private async Task NotifyGroupMembersAsync(
+        Guid groupId, Guid senderId, string senderName, string messagePreview, CancellationToken cancellationToken)
+    {
+        var group = await _db.ChatGroups
+            .Include(g => g.Members)
+            .Include(g => g.Project)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(g => g.Id == groupId, cancellationToken);
+
+        if (group is null) return;
+
+        var groupName = group.Name ?? group.Project?.nameEn ?? "Chat Group";
+        var otherMembers = group.Members
+            .Where(m => m.ApplicationUserId != senderId)
+            .Select(m => m.ApplicationUserId)
+            .ToList();
+
+        var tasks = otherMembers.Select(userId =>
+            _notificationService.SendNotificationToUserAsync(
+                userId,
+                groupName,
+                $"{senderName}: {messagePreview}"));
+
+        await Task.WhenAll(tasks);
+    }
 
     private async Task<bool> IsMemberAsync(Guid groupId, Guid userId, CancellationToken cancellationToken)
     {
