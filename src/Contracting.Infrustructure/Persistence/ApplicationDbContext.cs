@@ -68,6 +68,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<TenderDocument> TenderDocuments => Set<TenderDocument>();
     public DbSet<ProjectSchedule> ProjectSchedules => Set<ProjectSchedule>();
     public DbSet<ProjectDrawing> ProjectDrawings => Set<ProjectDrawing>();
+    public DbSet<ThreeDFolder>   ThreeDFolders   => Set<ThreeDFolder>();
+    public DbSet<ThreeDImage>    ThreeDImages    => Set<ThreeDImage>();
 
     // Transfer Request
     public DbSet<TransferRequest> TransferRequests => Set<TransferRequest>();

@@ -67,7 +67,11 @@ public static class MappingConfig
         config.NewConfig<UpdateProjectDto, Project>()
             .Ignore(dest => dest.imageUrl)
             .Ignore(dest => dest.imageKey);
-        config.NewConfig<Project, GetProjectDto>();
+        config.NewConfig<Project, GetProjectDto>()
+            .Map(dest => dest.DurationInDays, src =>
+                src.StartDate.HasValue && src.ExpectedEndDate.HasValue
+                    ? (int?)(src.ExpectedEndDate.Value - src.StartDate.Value).TotalDays
+                    : null);
         config.NewConfig<Project, GetProjectDropDownDto>();
 
 

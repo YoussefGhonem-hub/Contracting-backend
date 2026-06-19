@@ -71,6 +71,8 @@ namespace Contracting.Infrustructure.Features
             project.location = dto.location;
             project.Code = dto.Code;
             project.Area = dto.Area;
+            project.ContractValue = dto.ContractValue;
+            project.ProgressPercent = dto.ProgressPercent;
             project.StartDate = dto.StartDate;
             project.ExpectedEndDate = dto.ExpectedEndDate;
             project.ProjectStatus = dto.ProjectStatus;

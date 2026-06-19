@@ -136,8 +136,8 @@ public class ClientContentManagementController : APIBaseController
         if (userId == Guid.Empty)
             return Unauthorized();
 
-        if (!Enum.TryParse<DrawingType>(request.Type, true, out var type))
-            return BadRequest(new { message = "Type must be TwoD or ThreeD." });
+        if (!Enum.TryParse<DrawingType>(request.Type, true, out var type) || type == DrawingType.ThreeD)
+            return BadRequest(new { message = "Type must be TwoD. Use the 3D folder API for 3D drawings." });
 
         var relativePath = await _fileStorage.SaveAsync(request.File, "uploads/drawings", cancellationToken);
 

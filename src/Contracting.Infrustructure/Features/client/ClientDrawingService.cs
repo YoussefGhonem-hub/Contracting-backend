@@ -25,9 +25,11 @@ public class ClientDrawingService : IClientDrawingService
         if (!await ClientProjectAccess.CanAccessProjectAsync(_db, projectId, cancellationToken))
             return null;
 
-        var query = _db.ProjectDrawings.Where(d => d.ProjectId == projectId);
+        var query = _db.ProjectDrawings
+            .Where(d => d.ProjectId == projectId && d.Type == DrawingType.TwoD);
 
-        if (!string.IsNullOrEmpty(type) && Enum.TryParse<DrawingType>(type, ignoreCase: true, out var parsedType))
+        if (!string.IsNullOrEmpty(type) && Enum.TryParse<DrawingType>(type, ignoreCase: true, out var parsedType)
+            && parsedType == DrawingType.TwoD)
             query = query.Where(d => d.Type == parsedType);
 
         var drawings = await query

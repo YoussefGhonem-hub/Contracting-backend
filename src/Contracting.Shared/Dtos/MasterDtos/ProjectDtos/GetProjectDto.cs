@@ -12,8 +12,11 @@ namespace Contracting.Shared.Dtos.MasterDtos.ProjectDtos
         public string? Code { get; set; }
         public string? imageUrl { get; set; }
         public decimal? Area { get; set; }
+        public decimal? ContractValue { get; set; }
+        public int? ProgressPercent { get; set; }
         public DateTimeOffset? StartDate { get; set; }
         public DateTimeOffset? ExpectedEndDate { get; set; }
+        public int? DurationInDays { get; set; }
         public ProjectStatus? ProjectStatus { get; set; }
         public Guid? BranchId { get; set; }
         public GetBranchDto? Branch { get; set; }

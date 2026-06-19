@@ -73,17 +73,14 @@ public class ClientInvoiceService : IClientInvoiceService
         var initialContractValue = contractValue ?? 0;
         var totalContractValue = initialContractValue + approvedVariations;
 
-        // Aggregate totals across ALL invoices for the project (ignore status filter for summary)
-        var allInvoices = await _db.ProjectInvoices
+        // Aggregate paid amounts across ALL invoices for the project (ignore status filter for summary)
+        var totalPaid = await _db.ProjectInvoices
             .Where(i => i.ProjectId == projectId)
-            .Select(i => new { i.TotalValue, i.PaidAmount })
-            .ToListAsync(cancellationToken);
+            .SumAsync(i => i.PaidAmount, cancellationToken);
 
-        var totalValue = allInvoices.Sum(i => i.TotalValue);
-        var totalPaid = allInvoices.Sum(i => i.PaidAmount);
-        var remaining = totalValue - totalPaid;
-        var settledPercent = totalValue > 0
-            ? (int)Math.Round(totalPaid / totalValue * 100)
+        var remaining = totalContractValue - totalPaid;
+        var settledPercent = totalContractValue > 0
+            ? (int)Math.Round(totalPaid / totalContractValue * 100)
             : 0;
 
         return new GetClientInvoicesDto
@@ -91,7 +88,7 @@ public class ClientInvoiceService : IClientInvoiceService
             InitialContractValue = initialContractValue,
             ApprovedVariations = approvedVariations,
             TotalContractValue = totalContractValue,
-            TotalValue = totalValue,
+            TotalValue = totalContractValue,
             TotalPaid = totalPaid,
             RemainingAmount = remaining,
             SettledPercent = settledPercent,
