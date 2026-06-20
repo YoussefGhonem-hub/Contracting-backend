@@ -1953,6 +1953,7 @@ public class EngineerRequestService : IEngineerRequestService
             .Include(r => r.Project)
             .Include(r => r.Department)
             .Include(r => r.RequestedBy)
+            .Include(r => r.AssignedTo)
             .Include(r => r.Status)
             .Include(r => r.Attachments)
             .Include(r => r.Activities).ThenInclude(a => a.Engineer)
@@ -1997,9 +1998,10 @@ public class EngineerRequestService : IEngineerRequestService
         }
 
         if (filter.ProjectId.HasValue && filter.ProjectId.Value != Guid.Empty)
-        {
             query = query.Where(r => r.ProjectId == filter.ProjectId.Value);
-        }
+
+        if (filter.StatusId.HasValue && filter.StatusId.Value != Guid.Empty)
+            query = query.Where(r => r.StatusId == filter.StatusId.Value);
 
         var requests = await query.ToListAsync(cancellationToken);
 
@@ -2016,11 +2018,18 @@ public class EngineerRequestService : IEngineerRequestService
                 nameAr = r.Project.nameAr 
             },
             RequestedById = r.RequestedById,
-            RequestedBy = r.RequestedBy == null ? null : new GetEngineerDto 
-            { 
-                Id = r.RequestedBy.Id, 
-                nameEn = r.RequestedBy.nameEn, 
-                nameAr = r.RequestedBy.nameAr 
+            RequestedBy = r.RequestedBy == null ? null : new GetEngineerDto
+            {
+                Id = r.RequestedBy.Id,
+                nameEn = r.RequestedBy.nameEn,
+                nameAr = r.RequestedBy.nameAr
+            },
+            AssignedToId = r.AssignedToId,
+            AssignedTo = r.AssignedTo == null ? null : new GetEngineerDto
+            {
+                Id = r.AssignedTo.Id,
+                nameEn = r.AssignedTo.nameEn,
+                nameAr = r.AssignedTo.nameAr
             },
             StatusId = r.StatusId,
             Status = r.Status == null ? null : new GetDropDownStatusDto { Id = r.Status.Id, nameEn = r.Status.nameEn, nameAr = r.Status.nameAr, Code = r.Status.Code, orderNumber = r.Status.orderNumber, iconName = r.Status.iconName },
