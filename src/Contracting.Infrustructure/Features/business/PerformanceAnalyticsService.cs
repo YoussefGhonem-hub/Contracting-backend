@@ -194,7 +194,8 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
         var requests = await _db.EngineerRequests
             .Include(r => r.Priority)
             .Include(r => r.Status)
-            .Include(r => r.EngineerRequestActivites)
+            .Include(r => r.EngineerRequestActivites.Where(a => !a.IsDeleted))
+                .ThenInclude(a => a.Status)
             .Where(r => r.EngineerId != null
                      && engineerIds.Contains(r.EngineerId!.Value)
                      && r.CreatedDate >= from && r.CreatedDate < to
@@ -214,24 +215,24 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
                 ? Math.Round((double)submitted / workingDays * 100, 1)
                 : 0;
 
-            // Urgent Requests Ratio
+            // High-Priority Requests Ratio (system uses High / Medium / Low)
             int total  = myRequests.Count;
             int urgent = myRequests.Count(r =>
                 r.Priority != null &&
-                (r.Priority.nameEn?.Contains("urgent", StringComparison.OrdinalIgnoreCase) == true
-              || r.Priority.code?.Contains("urgent", StringComparison.OrdinalIgnoreCase)   == true));
+                (r.Priority.nameEn?.Contains("high",   StringComparison.OrdinalIgnoreCase) == true
+              || r.Priority.code?.Contains("high",     StringComparison.OrdinalIgnoreCase) == true));
             double urgentRatio = total > 0
                 ? Math.Round((double)urgent / total * 100, 1)
                 : 0;
 
-            // Request Quality Score — completed without being rejected first
+            // Request Quality Score — completed without ever having a Rejected activity
             var completed = myRequests
                 .Where(r => r.Status?.Code == MasterStatusCodes.Completed)
                 .ToList();
 
             int acceptedFirstTry = completed.Count(r =>
                 !r.EngineerRequestActivites.Any(a =>
-                    a.Status?.Code == MasterStatusCodes.Rejected && !a.IsDeleted));
+                    a.Status?.Code == MasterStatusCodes.Rejected));
 
             double qualityScore = completed.Count > 0
                 ? Math.Round((double)acceptedFirstTry / completed.Count * 100, 1)
@@ -311,14 +312,24 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
                 ? Math.Round(responseTimes.Average(), 1)
                 : 0;
 
-            // On-Time Delivery
+            // On-Time Delivery — use the date of the Completed status activity,
+            // falling back to ModifiedDate only if no such activity exists.
             var completed = myRequests
                 .Where(r => r.Status?.Code == MasterStatusCodes.Completed)
                 .ToList();
 
             int onTime = completed.Count(r =>
-                r.endDate.HasValue &&
-                (r.ModifiedDate ?? r.CreatedDate) <= r.endDate.Value.ToUniversalTime());
+            {
+                if (!r.endDate.HasValue) return false;
+                var completedAt = r.EngineerRequestActivites
+                    .Where(a => a.Status?.Code == MasterStatusCodes.Completed)
+                    .OrderByDescending(a => a.CreatedDate)
+                    .Select(a => (DateTimeOffset?)a.CreatedDate)
+                    .FirstOrDefault()
+                    ?? r.ModifiedDate
+                    ?? r.CreatedDate;
+                return completedAt.UtcDateTime <= r.endDate.Value.ToUniversalTime();
+            });
 
             double onTimeRate = completed.Count > 0
                 ? Math.Round((double)onTime / completed.Count * 100, 1)
