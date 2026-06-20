@@ -9,11 +9,13 @@ using Contracting.Application.Features.Client.Chat.Query.GetChatMessages;
 using Contracting.Application.Features.Client.Chat.Query.GetChatTabMedia;
 using Contracting.Application.Features.Client.Chat.Query.GetFirebaseToken;
 using Contracting.Application.Features.Client.Chat.Query.GetOrCreateChatGroup;
+using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.Constants;
 using Contracting.Shared.Dtos.ClientDtos.ChatDtos;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Contracting.API.Controllers;
 
@@ -29,9 +31,39 @@ public class ChatController : APIBaseController
 {
     private readonly IMediator _mediator;
 
-    public ChatController(IMediator mediator)
+    private readonly ApplicationDbContext _db;
+
+    public ChatController(IMediator mediator, ApplicationDbContext db)
     {
         _mediator = mediator;
+        _db = db;
+    }
+
+    /// <summary>
+    /// Development-only: verify chat tables exist and return counts.
+    /// Remove before production.
+    /// </summary>
+    [HttpGet("debug/tables")]
+    public async Task<IActionResult> DebugTables()
+    {
+        try
+        {
+            var groups = await _db.ChatGroups.IgnoreQueryFilters().CountAsync();
+            var members = await _db.ChatGroupMembers.IgnoreQueryFilters().CountAsync();
+            var messages = await _db.ChatMessages.IgnoreQueryFilters().CountAsync();
+
+            return Ok(new
+            {
+                chatGroups = groups,
+                chatGroupMembers = members,
+                chatMessages = messages,
+                status = "All chat tables are accessible"
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = ex.Message, type = ex.GetType().Name });
+        }
     }
 
     // =========================================================================
@@ -73,7 +105,7 @@ public class ChatController : APIBaseController
     [HttpPost("groups/{groupId:guid}/members")]
     public async Task<IActionResult> AssignMember(Guid groupId, [FromBody] AssignChatMemberDto dto)
     {
-        var command = new AssignChatMemberCommand(groupId, dto.UserId);
+        var command = new AssignChatMemberCommand(groupId, dto.UserId, dto.MemberType);
         var result = await _mediator.Send(command);
         return result.Match(_ => Ok(new { message = "Member assigned successfully." }), errors => Problem(errors));
     }

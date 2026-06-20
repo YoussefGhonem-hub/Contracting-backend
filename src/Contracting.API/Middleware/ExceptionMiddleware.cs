@@ -4,6 +4,7 @@ using Contracting.Shared.Resources;
 using Microsoft.Extensions.Localization;
 using System.Net;
 using System.Text.Json;
+using Microsoft.AspNetCore.Hosting;
 
 namespace Contracting.API.Middleware;
 
@@ -12,13 +13,15 @@ public class ExceptionMiddleware
     private readonly RequestDelegate _next;
     private readonly ILogger<ExceptionMiddleware> _logger;
     private readonly IStringLocalizer<SharedResources> _localizer;
+    private readonly IWebHostEnvironment _env;
 
 
-    public ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger, IStringLocalizer<SharedResources> localizer)
+    public ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger, IStringLocalizer<SharedResources> localizer, IWebHostEnvironment env)
     {
         _next = next;
         _logger = logger;
         _localizer = localizer;
+        _env = env;
     }
 
     public async Task InvokeAsync(HttpContext context, ApplicationDbContext db)
@@ -36,7 +39,24 @@ public class ExceptionMiddleware
             {
                 context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
                 context.Response.ContentType = "application/json";
-                var problem = new { message = _localizer[SharedResourcesKeys.GlobalException] };
+
+                object problem;
+                if (_env.IsDevelopment())
+                {
+                    problem = new
+                    {
+                        message = _localizer[SharedResourcesKeys.GlobalException].Value,
+                        error = ex.Message,
+                        type = ex.GetType().FullName,
+                        inner = ex.InnerException?.Message,
+                        stackTrace = ex.StackTrace
+                    };
+                }
+                else
+                {
+                    problem = new { message = _localizer[SharedResourcesKeys.GlobalException].Value };
+                }
+
                 await context.Response.WriteAsync(JsonSerializer.Serialize(problem));
             }
         }

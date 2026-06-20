@@ -10,7 +10,7 @@ public interface IChatService
     Task<GetChatGroupDto?> GetGroupAsync(Guid groupId, CancellationToken cancellationToken = default);
 
     // --- Member Management ---
-    Task<bool> AssignMemberAsync(Guid groupId, Guid userId, CancellationToken cancellationToken = default);
+    Task<bool> AssignMemberAsync(Guid groupId, Guid userId, string memberType = "TeamMember", CancellationToken cancellationToken = default);
     Task<bool> RemoveMemberAsync(Guid groupId, Guid userId, CancellationToken cancellationToken = default);
 
     // --- Messaging ---

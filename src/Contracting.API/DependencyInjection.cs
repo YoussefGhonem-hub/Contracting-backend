@@ -11,7 +11,13 @@ namespace Contracting.API
     {
         public static IServiceCollection AddPresentation(this IServiceCollection services, IConfiguration configuration)
         {
-            services.AddControllers().AddFluentValidation();
+            services.AddControllers()
+                .AddFluentValidation()
+                .AddJsonOptions(options =>
+                {
+                    options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+                    options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+                });
             services.AddEndpointsApiExplorer();
             services.AddSingleton<ProblemDetailsFactory, ContractingProblemDetailsFactory>();
 

@@ -3,6 +3,7 @@ using FirebaseAdmin;
 using FirebaseAdmin.Auth;
 using Google.Apis.Auth.OAuth2;
 using Google.Cloud.Firestore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Text.Json;
 
@@ -11,35 +12,66 @@ namespace Contracting.Infrustructure.Features.Firebase;
 public class FirebaseService : IFirebaseService
 {
     private readonly FirebaseOptions _options;
-    private readonly FirestoreDb _firestoreDb;
+    private readonly FirestoreDb? _firestoreDb;
+    private readonly ILogger<FirebaseService> _logger;
 
-    public FirebaseService(IOptions<FirebaseOptions> options)
+    public FirebaseService(IOptions<FirebaseOptions> options, ILogger<FirebaseService> logger)
     {
         _options = options.Value;
+        _logger = logger;
+
+        var credentialJson = BuildServiceAccountJson(_options);
+        var credential = GoogleCredential.FromJson(credentialJson);
 
         // Initialize FirebaseApp once (idempotent)
-        if (FirebaseApp.DefaultInstance is null)
+        try
         {
-            var credentialJson = BuildServiceAccountJson(_options);
-            var credential = GoogleCredential.FromJson(credentialJson);
-
-            FirebaseApp.Create(new AppOptions
+            if (FirebaseApp.DefaultInstance is null)
             {
-                Credential = credential,
-                ProjectId = _options.ProjectId
-            });
+                FirebaseApp.Create(new AppOptions
+                {
+                    Credential = credential,
+                    ProjectId = _options.ProjectId
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to initialize FirebaseApp");
         }
 
-        _firestoreDb = FirestoreDb.Create(_options.ProjectId);
+        // Build Firestore using explicit JSON credentials (avoids needing Application Default Credentials)
+        try
+        {
+            _firestoreDb = new FirestoreDbBuilder
+            {
+                ProjectId = _options.ProjectId,
+                JsonCredentials = credentialJson
+            }.Build();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to build FirestoreDb");
+        }
     }
 
     public async Task<string> GenerateCustomTokenAsync(string uid, CancellationToken cancellationToken = default)
     {
-        return await FirebaseAuth.DefaultInstance.CreateCustomTokenAsync(uid, cancellationToken: cancellationToken);
+        var auth = FirebaseAuth.DefaultInstance;
+        if (auth is null)
+            throw new InvalidOperationException("FirebaseAuth is not initialized. Check Firebase configuration in appsettings.");
+
+        return await auth.CreateCustomTokenAsync(uid, cancellationToken: cancellationToken);
     }
 
     public async Task PushMessageAsync(FirestoreChatMessage message, CancellationToken cancellationToken = default)
     {
+        if (_firestoreDb is null)
+        {
+            _logger.LogWarning("FirestoreDb not initialized — skipping push for message {MessageId}", message.MessageId);
+            return;
+        }
+
         var collection = _firestoreDb.Collection("chats")
             .Document(message.ChatGroupId)
             .Collection("messages");

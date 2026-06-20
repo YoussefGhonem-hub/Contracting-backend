@@ -9,6 +9,7 @@ using Contracting.Shared.Dtos.ClientDtos.ChatDtos;
 using Contracting.Shared.Storage;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Contracting.Infrustructure.Features.client;
@@ -20,19 +21,22 @@ public class ChatService : IChatService
     private readonly IFirebaseService _firebase;
     private readonly Features.Firebase.FirebaseOptions _firebaseOptions;
     private readonly INotificationService _notificationService;
+    private readonly ILogger<ChatService> _logger;
 
     public ChatService(
         ApplicationDbContext db,
         IFileStorage fileStorage,
         IFirebaseService firebase,
         IOptions<Features.Firebase.FirebaseOptions> firebaseOptions,
-        INotificationService notificationService)
+        INotificationService notificationService,
+        ILogger<ChatService> logger)
     {
         _db = db;
         _fileStorage = fileStorage;
         _firebase = firebase;
         _firebaseOptions = firebaseOptions.Value;
         _notificationService = notificationService;
+        _logger = logger;
     }
 
     // -------------------------------------------------------------------------
@@ -41,13 +45,35 @@ public class ChatService : IChatService
 
     public async Task<GetChatGroupDto?> GetOrCreateGroupAsync(Guid projectId, CancellationToken cancellationToken = default)
     {
+        var callerId = CurrentUser.Id;
+
         var group = await _db.ChatGroups
             .Include(g => g.Members).ThenInclude(m => m.ApplicationUser)
             .Include(g => g.Project)
             .FirstOrDefaultAsync(g => g.ProjectId == projectId, cancellationToken);
 
         if (group is not null)
+        {
+            // Auto-add caller as a member if they are not already in the group
+            if (callerId.HasValue && !group.Members.Any(m => m.ApplicationUserId == callerId.Value))
+            {
+                _db.ChatGroupMembers.Add(new ChatGroupMember
+                {
+                    ChatGroupId = group.Id,
+                    ApplicationUserId = callerId.Value,
+                    MemberType = "TeamMember"
+                });
+                await _db.SaveChangesAsync(cancellationToken);
+
+                // Reload so returned members list is up to date
+                group = await _db.ChatGroups
+                    .Include(g => g.Members).ThenInclude(m => m.ApplicationUser)
+                    .Include(g => g.Project)
+                    .FirstAsync(g => g.Id == group.Id, cancellationToken);
+            }
+
             return MapGroupDto(group);
+        }
 
         // Auto-create the chat group for this project
         var project = await _db.Projects
@@ -61,15 +87,26 @@ public class ChatService : IChatService
             Name = $"{project.nameEn} Chat"
         };
 
+        _db.ChatGroups.Add(group);
+
+        // Auto-add the caller (engineer/admin creating the group) as a TeamMember
+        if (callerId.HasValue)
+        {
+            _db.ChatGroupMembers.Add(new ChatGroupMember
+            {
+                ChatGroupId = group.Id,
+                ApplicationUserId = callerId.Value,
+                MemberType = "TeamMember"
+            });
+        }
+
         // Auto-add the client of this project as a member
         var clientUser = await _db.ClientProjects
             .Where(cp => cp.ProjectId == projectId)
             .Select(cp => new { cp.Client.ApplicationUserId })
             .FirstOrDefaultAsync(cancellationToken);
 
-        _db.ChatGroups.Add(group);
-
-        if (clientUser is not null)
+        if (clientUser is not null && clientUser.ApplicationUserId != callerId)
         {
             _db.ChatGroupMembers.Add(new ChatGroupMember
             {
@@ -114,7 +151,7 @@ public class ChatService : IChatService
     // Member Management
     // -------------------------------------------------------------------------
 
-    public async Task<bool> AssignMemberAsync(Guid groupId, Guid userId, CancellationToken cancellationToken = default)
+    public async Task<bool> AssignMemberAsync(Guid groupId, Guid userId, string memberType = "TeamMember", CancellationToken cancellationToken = default)
     {
         var group = await _db.ChatGroups
             .Include(g => g.Project)
@@ -128,11 +165,13 @@ public class ChatService : IChatService
         var user = await _db.Users.FindAsync(new object[] { userId }, cancellationToken);
         if (user is null) return false;
 
+        var resolvedType = memberType is "Client" or "TeamMember" ? memberType : "TeamMember";
+
         _db.ChatGroupMembers.Add(new ChatGroupMember
         {
             ChatGroupId = groupId,
             ApplicationUserId = userId,
-            MemberType = "TeamMember"
+            MemberType = resolvedType
         });
 
         await _db.SaveChangesAsync(cancellationToken);
@@ -168,7 +207,9 @@ public class ChatService : IChatService
     public async Task<GetChatMessageDto?> SendTextMessageAsync(
         Guid groupId, string content, string messageTypeStr, CancellationToken cancellationToken = default)
     {
-        var senderId = CurrentUser.Id!.Value;
+        var senderIdNullable = CurrentUser.Id;
+        if (!senderIdNullable.HasValue) return null;
+        var senderId = senderIdNullable.Value;
 
         if (!await IsMemberAsync(groupId, senderId, cancellationToken))
             return null;
@@ -193,19 +234,26 @@ public class ChatService : IChatService
 
         var sender = await _db.Users.FindAsync(new object[] { senderId }, cancellationToken);
 
-        // Push to Firebase Firestore for real-time delivery
-        await _firebase.PushMessageAsync(new Inteface.client.FirestoreChatMessage(
-            MessageId: message.Id.ToString(),
-            ChatGroupId: groupId.ToString(),
-            SenderId: senderId.ToString(),
-            SenderName: sender?.FullName ?? sender?.Email ?? "Unknown",
-            Content: content,
-            MessageType: msgType,
-            AttachmentUrl: null,
-            AttachmentFileName: null,
-            AttachmentFileSize: null,
-            SentAt: DateTimeHelper.DateTimeNow
-        ), cancellationToken);
+        // Push to Firebase Firestore for real-time delivery (non-critical — don't let failures break message send)
+        try
+        {
+            await _firebase.PushMessageAsync(new Inteface.client.FirestoreChatMessage(
+                MessageId: message.Id.ToString(),
+                ChatGroupId: groupId.ToString(),
+                SenderId: senderId.ToString(),
+                SenderName: sender?.FullName ?? sender?.Email ?? "Unknown",
+                Content: content,
+                MessageType: msgType,
+                AttachmentUrl: null,
+                AttachmentFileName: null,
+                AttachmentFileSize: null,
+                SentAt: DateTimeHelper.DateTimeNow
+            ), cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Firebase push failed for message {MessageId} — message was saved to DB", message.Id);
+        }
 
         var senderName = sender?.FullName ?? sender?.Email ?? "Someone";
         var preview = content.Length > 80 ? content[..80] + "…" : content;
@@ -228,7 +276,9 @@ public class ChatService : IChatService
     public async Task<GetChatMessageDto?> SendAttachmentMessageAsync(
         Guid groupId, IFormFile file, CancellationToken cancellationToken = default)
     {
-        var senderId = CurrentUser.Id!.Value;
+        var senderIdNullable = CurrentUser.Id;
+        if (!senderIdNullable.HasValue) return null;
+        var senderId = senderIdNullable.Value;
 
         if (!await IsMemberAsync(groupId, senderId, cancellationToken))
             return null;
@@ -267,18 +317,25 @@ public class ChatService : IChatService
 
         var sender = await _db.Users.FindAsync(new object[] { senderId }, cancellationToken);
 
-        await _firebase.PushMessageAsync(new Inteface.client.FirestoreChatMessage(
-            MessageId: message.Id.ToString(),
-            ChatGroupId: groupId.ToString(),
-            SenderId: senderId.ToString(),
-            SenderName: sender?.FullName ?? sender?.Email ?? "Unknown",
-            Content: file.FileName,
-            MessageType: msgType,
-            AttachmentUrl: attachment.Url,
-            AttachmentFileName: attachment.FileName,
-            AttachmentFileSize: attachment.FileSize,
-            SentAt: DateTimeHelper.DateTimeNow
-        ), cancellationToken);
+        try
+        {
+            await _firebase.PushMessageAsync(new Inteface.client.FirestoreChatMessage(
+                MessageId: message.Id.ToString(),
+                ChatGroupId: groupId.ToString(),
+                SenderId: senderId.ToString(),
+                SenderName: sender?.FullName ?? sender?.Email ?? "Unknown",
+                Content: file.FileName,
+                MessageType: msgType,
+                AttachmentUrl: attachment.Url,
+                AttachmentFileName: attachment.FileName,
+                AttachmentFileSize: attachment.FileSize,
+                SentAt: DateTimeHelper.DateTimeNow
+            ), cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Firebase push failed for attachment message {MessageId} — message was saved to DB", message.Id);
+        }
 
         var senderName = sender?.FullName ?? sender?.Email ?? "Someone";
         var preview = msgType == ChatMessageType.Image ? "📷 Sent an image" : $"📎 {file.FileName}";
@@ -312,7 +369,9 @@ public class ChatService : IChatService
     public async Task<GetChatMessagesPagedDto?> GetMessagesAsync(
         Guid groupId, int page, int pageSize, CancellationToken cancellationToken = default)
     {
-        var userId = CurrentUser.Id!.Value;
+        var userIdNullable = CurrentUser.Id;
+        if (!userIdNullable.HasValue) return null;
+        var userId = userIdNullable.Value;
 
         if (!await IsMemberAsync(groupId, userId, cancellationToken))
             return null;
@@ -407,7 +466,9 @@ public class ChatService : IChatService
 
     public async Task<FirebaseTokenDto?> GetFirebaseTokenAsync(Guid groupId, CancellationToken cancellationToken = default)
     {
-        var userId = CurrentUser.Id!.Value;
+        var userIdNullable = CurrentUser.Id;
+        if (!userIdNullable.HasValue) return null;
+        var userId = userIdNullable.Value;
 
         if (!await IsMemberAsync(groupId, userId, cancellationToken))
             return null;

@@ -64,7 +64,7 @@ namespace Contracting.API.Controllers
 
         // Get Clients (paginated)
         [HttpGet]
-        [Authorize(Roles = ManageRoles)]
+        [Authorize(Roles = ReadRoles)]
         public async Task<IActionResult> GetAll([FromQuery] BaseFilterDto filter)
         {
             var result = await _mediator.Send(new GetClientListQuery(filter));

@@ -15,7 +15,7 @@ public class AssignChatMemberCommandHandler : IRequestHandler<AssignChatMemberCo
 
     public async Task<ErrorOr<bool>> Handle(AssignChatMemberCommand request, CancellationToken cancellationToken)
     {
-        var result = await _chatService.AssignMemberAsync(request.GroupId, request.UserId, cancellationToken);
+        var result = await _chatService.AssignMemberAsync(request.GroupId, request.UserId, request.MemberType, cancellationToken);
 
         if (!result)
             return Error.NotFound("Chat.GroupOrUserNotFound", "Chat group or user not found.");
