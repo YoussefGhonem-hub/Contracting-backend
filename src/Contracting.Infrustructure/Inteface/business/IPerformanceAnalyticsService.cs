@@ -8,4 +8,6 @@ public interface IPerformanceAnalyticsService
     Task<ErrorOr<PerformanceAnalyticsResponseDto>> GetSiteAnalyticsAsync(
         PerformanceAnalyticsFilterDto filter,
         CancellationToken ct = default);
+
+    Task<ErrorOr<FullPerformanceReportDto>> GetFullReportAsync(PerformanceAnalyticsFilterDto filter, CancellationToken ct = default);
 }

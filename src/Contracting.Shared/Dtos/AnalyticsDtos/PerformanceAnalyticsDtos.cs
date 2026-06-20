@@ -90,3 +90,68 @@ public class PerformanceAnalyticsResponseDto
     public List<OfficeEngineerPerformanceDto> OfficeEngineers { get; set; } = new();
     public DeptPerformanceIndexDto?           DeptIndex       { get; set; }
 }
+
+// ── Full Report ───────────────────────────────────────────────────────────────
+
+public class FullReportSummaryDto
+{
+    public int    TotalSiteEngineers    { get; set; }
+    public int    TotalOfficeEngineers  { get; set; }
+    public int    TotalRequests         { get; set; }
+    public int    TotalCompleted        { get; set; }
+    public int    TotalHighPriority     { get; set; }
+    public int    TotalReportsSubmitted { get; set; }
+    public double OverallCompletionRate { get; set; }
+    public double OverallQualityScore   { get; set; }
+    public double OverallOnTimeRate     { get; set; }
+    public string? TopPerformerNameEn  { get; set; }
+    public string? TopPerformerNameAr  { get; set; }
+}
+
+public class ScoreBreakdownDto
+{
+    public double ReportCompletionScore  { get; set; }
+    public double RequestQualityScore    { get; set; }
+    public double HighPriorityScore      { get; set; }  // inverted: lower ratio = higher score
+    public double OnTimeDeliveryScore    { get; set; }
+    public double ResponseTimeScore      { get; set; }
+    public double ViolationsScore        { get; set; }
+}
+
+public class SiteEngineerFullDto : SiteEngineerPerformanceDto
+{
+    public int    LowPriorityRequests    { get; set; }
+    public int    MediumPriorityRequests { get; set; }
+    public int    HighPriorityRequests   { get; set; }
+    public int    RejectedRequests       { get; set; }
+    public double CompositeScore         { get; set; }
+}
+
+public class OfficeEngineerFullDto : OfficeEngineerPerformanceDto
+{
+    public int    PendingRequests  { get; set; }
+    public int    InProgressCount  { get; set; }
+    public double CompositeScore   { get; set; }
+}
+
+public class ReportInsightDto
+{
+    public string Type    { get; set; } = "info";  // info | warning | success
+    public string Message { get; set; } = "";
+}
+
+public class FullPerformanceReportDto
+{
+    public string?   DepartmentNameEn { get; set; }
+    public DateTime  GeneratedAt      { get; set; }
+    public DateTime  FromDate         { get; set; }
+    public DateTime  ToDate           { get; set; }
+
+    public DeptPerformanceIndexDto? DeptIndex      { get; set; }
+    public ScoreBreakdownDto        ScoreBreakdown { get; set; } = new();
+    public FullReportSummaryDto     Summary        { get; set; } = new();
+
+    public List<SiteEngineerFullDto>   SiteEngineers   { get; set; } = new();
+    public List<OfficeEngineerFullDto> OfficeEngineers { get; set; } = new();
+    public List<ReportInsightDto>      Insights        { get; set; } = new();
+}

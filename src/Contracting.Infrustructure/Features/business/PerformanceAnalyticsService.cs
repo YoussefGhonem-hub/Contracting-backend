@@ -448,4 +448,193 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
                 days++;
         return days;
     }
+
+    // ── Full Report ───────────────────────────────────────────────────────────────
+
+    public async Task<ErrorOr<FullPerformanceReportDto>> GetFullReportAsync(
+        PerformanceAnalyticsFilterDto filter, CancellationToken ct = default)
+    {
+        var from = filter.FromDate ?? DateTime.UtcNow.AddMonths(-1).Date;
+        var to   = (filter.ToDate  ?? DateTime.UtcNow).Date.AddDays(1);
+
+        var (allowedIds, deptName) = await ResolveAllowedEngineersAsync(filter, ct);
+        if (allowedIds is null)
+            return Error.Forbidden("Performance.Forbidden", "You do not have access to this data.");
+
+        var siteIds   = await FilterByRoleAsync(allowedIds, RoleNames.Siteengineer,   ct);
+        var officeIds = await FilterByRoleAsync(allowedIds, RoleNames.Officeengineer, ct);
+
+        // Reuse base metrics
+        var siteBase   = await BuildSiteMetricsAsync(siteIds,   from, to, ct);
+        var officeBase = await BuildOfficeMetricsAsync(officeIds, from, to, ct);
+        MarkTopPerformer(siteBase);
+
+        // ── Site engineers: enrich with priority breakdown ────────────────────
+        var siteRequests = await _db.EngineerRequests
+            .Include(r => r.Priority)
+            .Include(r => r.Status)
+            .Include(r => r.EngineerRequestActivites.Where(a => !a.IsDeleted))
+                .ThenInclude(a => a.Status)
+            .Where(r => r.EngineerId != null
+                     && siteIds.Contains(r.EngineerId!.Value)
+                     && r.CreatedDate >= from && r.CreatedDate < to
+                     && !r.IsDeleted)
+            .ToListAsync(ct);
+
+        var siteFullList = siteBase.Select(dto =>
+        {
+            var mine = siteRequests.Where(r => r.EngineerId == dto.EngineerId).ToList();
+            int high   = mine.Count(r => r.Priority?.nameEn?.Contains("high",   StringComparison.OrdinalIgnoreCase) == true || r.Priority?.code?.Contains("high", StringComparison.OrdinalIgnoreCase) == true);
+            int medium = mine.Count(r => r.Priority?.nameEn?.Contains("medium", StringComparison.OrdinalIgnoreCase) == true || r.Priority?.code?.Contains("medium", StringComparison.OrdinalIgnoreCase) == true);
+            int low    = mine.Count(r => r.Priority?.nameEn?.Contains("low",    StringComparison.OrdinalIgnoreCase) == true || r.Priority?.code?.Contains("low", StringComparison.OrdinalIgnoreCase) == true);
+            int rejected = mine.Count(r => r.EngineerRequestActivites.Any(a => a.Status?.Code == MasterStatusCodes.Rejected));
+            double composite = Math.Round(dto.ReportCompletionRate * 0.4 + dto.RequestQualityScore * 0.4 + (100 - dto.UrgentRequestsRatio) * 0.2, 1);
+
+            return new SiteEngineerFullDto
+            {
+                EngineerId             = dto.EngineerId,
+                NameEn                 = dto.NameEn,
+                NameAr                 = dto.NameAr,
+                Position               = dto.Position,
+                DepartmentNameEn       = dto.DepartmentNameEn,
+                IsTopPerformer         = dto.IsTopPerformer,
+                ReportCompletionRate   = dto.ReportCompletionRate,
+                ReportsSubmitted       = dto.ReportsSubmitted,
+                WorkingDaysInPeriod    = dto.WorkingDaysInPeriod,
+                UrgentRequestsRatio    = dto.UrgentRequestsRatio,
+                UrgentRequests         = dto.UrgentRequests,
+                TotalRequests          = dto.TotalRequests,
+                RequestQualityScore    = dto.RequestQualityScore,
+                AcceptedOnFirstTry     = dto.AcceptedOnFirstTry,
+                TotalCompletedRequests = dto.TotalCompletedRequests,
+                HighPriorityRequests   = high,
+                MediumPriorityRequests = medium,
+                LowPriorityRequests    = low,
+                RejectedRequests       = rejected,
+                CompositeScore         = composite
+            };
+        }).OrderByDescending(e => e.CompositeScore).ToList();
+
+        // ── Office engineers: enrich ──────────────────────────────────────────
+        var officeRequests = await _db.EngineerRequests
+            .Include(r => r.Status)
+            .Where(r => r.assignToId != null
+                     && officeIds.Contains(r.assignToId!.Value)
+                     && r.CreatedDate >= from && r.CreatedDate < to
+                     && !r.IsDeleted)
+            .ToListAsync(ct);
+
+        var officeFullList = officeBase.Select(dto =>
+        {
+            var mine = officeRequests.Where(r => r.assignToId == dto.EngineerId).ToList();
+            int inProg  = mine.Count(r => r.Status?.Code != MasterStatusCodes.Completed && r.Status?.Code != MasterStatusCodes.Rejected);
+            int pending = mine.Count(r => r.Status?.Code == null);
+            double composite = Math.Round(
+                dto.OnTimeDeliveryRate * 0.5 +
+                Math.Max(0, 100 - dto.AvgResponseTimeHours / 8.0 * 100) * 0.35 +
+                Math.Max(0, 100 - dto.DeliveryDateViolations * 10) * 0.15, 1);
+
+            return new OfficeEngineerFullDto
+            {
+                EngineerId             = dto.EngineerId,
+                NameEn                 = dto.NameEn,
+                NameAr                 = dto.NameAr,
+                Position               = dto.Position,
+                DepartmentNameEn       = dto.DepartmentNameEn,
+                AvgResponseTimeHours   = dto.AvgResponseTimeHours,
+                OnTimeDeliveryRate     = dto.OnTimeDeliveryRate,
+                OnTimeDeliveries       = dto.OnTimeDeliveries,
+                TotalDeliveries        = dto.TotalDeliveries,
+                DeliveryDateViolations = dto.DeliveryDateViolations,
+                WeeklyActivity         = dto.WeeklyActivity,
+                PendingRequests        = pending,
+                InProgressCount        = inProg,
+                CompositeScore         = composite
+            };
+        }).OrderByDescending(e => e.CompositeScore).ToList();
+
+        // ── Summary ───────────────────────────────────────────────────────────
+        int totalReq  = siteFullList.Sum(e => e.TotalRequests);
+        int totalComp = siteFullList.Sum(e => e.TotalCompletedRequests);
+        int totalHigh = siteFullList.Sum(e => e.HighPriorityRequests);
+        int totalReps = siteFullList.Sum(e => e.ReportsSubmitted);
+        var topPerf   = siteFullList.FirstOrDefault(e => e.IsTopPerformer);
+
+        double avgCompletion = siteFullList.Count > 0 ? siteFullList.Average(e => e.ReportCompletionRate) : 0;
+        double avgQuality    = siteFullList.Count > 0 ? siteFullList.Average(e => e.RequestQualityScore)  : 0;
+        double avgOnTime     = officeFullList.Count > 0 ? officeFullList.Average(e => e.OnTimeDeliveryRate) : 0;
+
+        var summary = new FullReportSummaryDto
+        {
+            TotalSiteEngineers    = siteFullList.Count,
+            TotalOfficeEngineers  = officeFullList.Count,
+            TotalRequests         = totalReq,
+            TotalCompleted        = totalComp,
+            TotalHighPriority     = totalHigh,
+            TotalReportsSubmitted = totalReps,
+            OverallCompletionRate = Math.Round(avgCompletion, 1),
+            OverallQualityScore   = Math.Round(avgQuality, 1),
+            OverallOnTimeRate     = Math.Round(avgOnTime, 1),
+            TopPerformerNameEn    = topPerf?.NameEn,
+            TopPerformerNameAr    = topPerf?.NameAr,
+        };
+
+        // ── Score Breakdown ───────────────────────────────────────────────────
+        double highPrioAvg  = siteFullList.Count > 0 ? siteFullList.Average(e => e.UrgentRequestsRatio) : 0;
+        double responseAvg  = officeFullList.Count > 0 ? officeFullList.Average(e => e.AvgResponseTimeHours) : 0;
+        double violAvg      = officeFullList.Count > 0 ? officeFullList.Average(e => e.DeliveryDateViolations) : 0;
+
+        var scoreBreakdown = new ScoreBreakdownDto
+        {
+            ReportCompletionScore = Math.Round(avgCompletion, 1),
+            RequestQualityScore   = Math.Round(avgQuality,    1),
+            HighPriorityScore     = Math.Round(100 - highPrioAvg, 1),
+            OnTimeDeliveryScore   = Math.Round(avgOnTime,     1),
+            ResponseTimeScore     = Math.Round(Math.Max(0, 100 - responseAvg / 8.0 * 100), 1),
+            ViolationsScore       = Math.Round(Math.Max(0, 100 - violAvg * 10), 1)
+        };
+
+        // ── Insights ──────────────────────────────────────────────────────────
+        var insights = new List<ReportInsightDto>();
+
+        if (avgCompletion < 70)
+            insights.Add(new ReportInsightDto { Type = "warning", Message = $"Report completion rate is {avgCompletion:F0}% — below the 70% target. Encourage site engineers to submit daily reports consistently." });
+        else if (avgCompletion >= 90)
+            insights.Add(new ReportInsightDto { Type = "success", Message = $"Excellent report completion rate of {avgCompletion:F0}%. Keep up the consistent reporting." });
+
+        if (avgQuality < 80)
+            insights.Add(new ReportInsightDto { Type = "warning", Message = $"Average request quality score is {avgQuality:F0}% — requests are being rejected before completion. Review request clarity guidelines." });
+        else if (avgQuality >= 95)
+            insights.Add(new ReportInsightDto { Type = "success", Message = $"Outstanding quality score of {avgQuality:F0}% — most requests are accepted without rejection." });
+
+        if (highPrioAvg > 40)
+            insights.Add(new ReportInsightDto { Type = "warning", Message = $"{highPrioAvg:F0}% of requests are high-priority — team may be under pressure. Consider workload balancing." });
+
+        if (avgOnTime < 70 && officeFullList.Count > 0)
+            insights.Add(new ReportInsightDto { Type = "warning", Message = $"On-time delivery rate is {avgOnTime:F0}% — below target. Office engineers should review deadline management." });
+        else if (avgOnTime >= 90 && officeFullList.Count > 0)
+            insights.Add(new ReportInsightDto { Type = "success", Message = $"On-time delivery rate of {avgOnTime:F0}% — excellent delivery performance." });
+
+        if (responseAvg > 8 && officeFullList.Count > 0)
+            insights.Add(new ReportInsightDto { Type = "warning", Message = $"Average response time is {responseAvg:F1}h — exceeds the 8-hour target. Prioritize faster initial responses." });
+
+        if (insights.Count == 0)
+            insights.Add(new ReportInsightDto { Type = "info", Message = "Overall performance is within acceptable ranges. Continue monitoring key metrics." });
+
+        var deptIndex = BuildDeptIndex(siteBase, officeBase);
+
+        return new FullPerformanceReportDto
+        {
+            DepartmentNameEn = deptName,
+            GeneratedAt      = DateTime.UtcNow,
+            FromDate         = from,
+            ToDate           = to.AddDays(-1),
+            DeptIndex        = deptIndex,
+            ScoreBreakdown   = scoreBreakdown,
+            Summary          = summary,
+            SiteEngineers    = siteFullList,
+            OfficeEngineers  = officeFullList,
+            Insights         = insights
+        };
+    }
 }

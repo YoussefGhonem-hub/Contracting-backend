@@ -40,4 +40,13 @@ public class PerformanceAnalyticsController : APIBaseController
         var result = await _service.GetSiteAnalyticsAsync(filter, cancellationToken);
         return result.Match(dto => Ok(dto), errors => Problem(errors));
     }
+
+    [HttpGet("full-report")]
+    public async Task<IActionResult> GetFullReport(
+        [FromQuery] PerformanceAnalyticsFilterDto filter,
+        CancellationToken cancellationToken)
+    {
+        var result = await _service.GetFullReportAsync(filter, cancellationToken);
+        return result.Match(dto => Ok(dto), errors => Problem(errors));
+    }
 }
