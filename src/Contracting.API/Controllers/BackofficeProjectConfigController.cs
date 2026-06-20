@@ -153,19 +153,26 @@ public class BackofficeProjectConfigController : APIBaseController
             .Select(i => new { i.TotalValue, i.PaidAmount })
             .ToListAsync(ct);
 
-        var totalInvoiced = allInvoices.Sum(i => i.TotalValue);
-        var totalPaid     = allInvoices.Sum(i => i.PaidAmount);
+        var totalInvoiced     = allInvoices.Sum(i => i.TotalValue);
+        var totalPaid         = allInvoices.Sum(i => i.PaidAmount);
+        var initialContract   = proj?.ContractValue ?? 0;
+        var totalContractValue = initialContract + approvedVOs;
+        var settledPercent    = totalContractValue > 0
+            ? Math.Round((double)totalPaid / (double)totalContractValue * 100, 2)
+            : 0;
 
         return Ok(new
         {
             FinancialSummary = new
             {
-                InitialContractValue = proj?.ContractValue ?? 0,
+                InitialContractValue = initialContract,
                 ApprovedVariations   = approvedVOs,
-                TotalContractValue   = (proj?.ContractValue ?? 0) + approvedVOs,
+                TotalContractValue   = totalContractValue,
+                TotalValue           = totalContractValue,
                 TotalInvoiced        = totalInvoiced,
                 TotalPaid            = totalPaid,
-                RemainingAmount      = totalInvoiced - totalPaid
+                RemainingAmount      = totalContractValue - totalPaid,
+                SettledPercent       = settledPercent
             },
             Invoices = invoices
         });

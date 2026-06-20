@@ -126,7 +126,7 @@ namespace Contracting.Infrustructure.Features
         {
             var statues = await _db.Statuses
                 .AsNoTracking()
-                .Where(s => s.showInDropdown)
+                .OrderBy(s => s.orderNumber)
                 .ToListAsync();
 
             return _mapper.Map<List<GetDropDownStatusDto>>(statues);

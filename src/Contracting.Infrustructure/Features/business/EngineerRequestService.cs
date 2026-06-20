@@ -1136,8 +1136,8 @@ public class EngineerRequestService : IEngineerRequestService
             }
         }
 
-        // Save received quantities for special field items
-        if (actionDto.SpecialFieldItems != null && actionDto.SpecialFieldItems.Any())
+        // Save received quantities — only when the request is awaiting site engineer receipt confirmation
+        if (request.NeedsReceiptConfirmation && actionDto.SpecialFieldItems != null && actionDto.SpecialFieldItems.Any())
         {
             var itemIds = actionDto.SpecialFieldItems.Select(i => i.ItemId).ToList();
             var dbItems = await _db.EngineerRequestSpecialFieldItems

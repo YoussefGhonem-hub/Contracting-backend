@@ -81,7 +81,11 @@ namespace Contracting.Infrustructure.Features
             // Merge simple projectIds (Guids) into the Projects list so both formats work.
             // ProjectIds takes precedence: if provided it replaces the Projects list entirely.
             var projectsToAssign = dto.ProjectIds != null && dto.ProjectIds.Count > 0
-                ? dto.ProjectIds.Distinct().Select(id => new ProjectAssignDto { ProjectId = id, IsProjectManager = false }).ToList()
+                ? dto.ProjectIds.Distinct().Select(id => new ProjectAssignDto
+                  {
+                      ProjectId = id,
+                      IsProjectManager = dto.Projects?.FirstOrDefault(p => p.ProjectId == id)?.IsProjectManager ?? false
+                  }).ToList()
                 : dto.Projects ?? new();
 
             await ReplaceEngineerProjectsAsync(engineer.Id, projectsToAssign);
