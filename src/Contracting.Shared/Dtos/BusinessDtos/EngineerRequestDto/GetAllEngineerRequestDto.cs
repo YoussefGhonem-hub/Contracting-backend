@@ -22,6 +22,8 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestDto
         public GetDropDownPriorityDto? Priority { get; set; }
         public Guid? EngineerId { get; set; }
         public GetEngineerDto? Engineer { get; set; }
+        public Guid? requestedById { get; set; }
+        public GetEngineerDto? requestedBy { get; set; }
         public Guid StatusId { get; set; }
         public GetDropDownStatusDto? Status { get; set; }
         public Guid? assignToId { get; set; }

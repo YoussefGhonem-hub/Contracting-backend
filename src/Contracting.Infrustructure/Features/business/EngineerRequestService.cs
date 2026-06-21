@@ -2465,9 +2465,25 @@ public class EngineerRequestService : IEngineerRequestService
                 });
         }
 
-        // --- Financial Clearance counts (scoped to this engineer) ---
-        var financialGroups = await _db.FinancialClearances
-            .Where(r => !r.IsDeleted && r.RequestedById == engineerId)
+        // --- Financial Clearance counts ---
+        // Mirrors GetFinancialClearancesForUnifiedAsync: admins see all; team leads see their
+        // departments' clearances plus ones assigned/requested by them; everyone else sees only
+        // ones they requested OR are assigned to.
+        IQueryable<FinancialClearance> financialQuery = _db.FinancialClearances.Where(r => !r.IsDeleted);
+
+        if (!isAdmin)
+        {
+            if (isTeamLead)
+                financialQuery = financialQuery.Where(r =>
+                    (r.DepartmentId.HasValue && teamLeadDeptIds.Contains(r.DepartmentId.Value))
+                    || r.AssignedToId == engineerId
+                    || r.RequestedById == engineerId);
+            else
+                financialQuery = financialQuery.Where(r =>
+                    r.RequestedById == engineerId || r.AssignedToId == engineerId);
+        }
+
+        var financialGroups = await financialQuery
             .GroupBy(r => r.StatusId)
             .Select(g => new { StatusId = g.Key, Count = g.Count() })
             .ToListAsync();

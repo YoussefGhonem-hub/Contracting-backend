@@ -322,6 +322,18 @@ namespace Contracting.Infrustructure.Features.business
 
         public async Task<ErrorOr<GetFinancialClearanceDto>> ReassignAsync(Guid id, ReassignFinancialClearanceDto dto)
         {
+            try
+            {
+                return await ReassignInternalAsync(id, dto);
+            }
+            catch (Exception ex)
+            {
+                return Error.Failure("FinancialClearance.Error", ex.InnerException?.Message ?? ex.Message);
+            }
+        }
+
+        private async Task<ErrorOr<GetFinancialClearanceDto>> ReassignInternalAsync(Guid id, ReassignFinancialClearanceDto dto)
+        {
             var clearance = await _db.FinancialClearances
                 .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
 
@@ -342,22 +354,34 @@ namespace Contracting.Infrustructure.Features.business
             if (clearance.AssignedToId == dto.AssignedToId)
                 return Error.Validation("FinancialClearance.AlreadyAssigned", "The request is already assigned to this engineer.");
 
+            if (clearance.StatusId is null)
+                return Error.Validation("FinancialClearance.InvalidState", "Cannot reassign a clearance with no status.");
+
             var actingEngineer = await _db.Engineers.AsNoTracking()
                 .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
 
-            // Reassign only changes the assignee; the status is kept as-is.
-            var currentStatusId = clearance.StatusId ?? Guid.Empty;
-            clearance.AssignedToId = dto.AssignedToId;
-            clearance.Activities.Add(new FinancialClearanceActivity
+            var userId = CurrentUser.Id;
+            var now = DateTimeHelper.Now;
+
+            // Update the assignee directly to avoid EF tracking issues with unloaded collections.
+            await _db.FinancialClearances
+                .Where(c => c.Id == id)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(c => c.AssignedToId, dto.AssignedToId)
+                    .SetProperty(c => c.ModifiedDate, now)
+                    .SetProperty(c => c.ModifiedBy, userId));
+
+            var activity = new FinancialClearanceActivity
             {
                 FinancialClearanceId = clearance.Id,
                 EngineerId = actingEngineer?.Id,
-                FromStatusId = currentStatusId,
-                ToStatusId = currentStatusId,
+                FromStatusId = clearance.StatusId,
+                ToStatusId = clearance.StatusId.Value,
                 ActionType = "reassign",
                 Comments = dto.Comments
-            });
-
+            };
+            activity.MarkAsCreated(userId ?? Guid.Empty);
+            _db.FinancialClearanceActivities.Add(activity);
             await _db.SaveChangesAsync();
 
             await _notificationService.SendNotificationToUserAsync(

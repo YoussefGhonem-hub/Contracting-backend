@@ -49,8 +49,23 @@ namespace Contracting.Infrustructure.Features
             entity.nameAr = dto.nameAr;
             entity.ItemCode = dto.ItemCode;
 
+            // Soft-delete existing units via DbSet (not navigation collection) so ApplyAuditing
+            // sees them as Deleted and converts to a soft-delete UPDATE before SaveChanges.
             _db.ConstructionItemUnits.RemoveRange(entity.Units);
-            entity.Units = dto.Units.Select(u => new ConstructionItemUnit { nameEn = u.nameEn, nameAr = u.nameAr, ConstructionItemId = entity.Id }).ToList();
+
+            // Add new units explicitly so they enter the change tracker as Added immediately,
+            // ensuring ApplyAuditing sets CreatedDate / IsDeleted before base.SaveChangesAsync.
+            // Never replace the tracked navigation collection reference — that confuses EF Core's
+            // relationship fixer when the old units were already soft-deleted (Deleted → Modified).
+            var newUnits = (dto.Units ?? [])
+                .Select(u => new ConstructionItemUnit
+                {
+                    nameEn = u.nameEn,
+                    nameAr = u.nameAr,
+                    ConstructionItemId = entity.Id
+                })
+                .ToList();
+            _db.ConstructionItemUnits.AddRange(newUnits);
 
             await _db.SaveChangesAsync();
             return MapToDto(entity);

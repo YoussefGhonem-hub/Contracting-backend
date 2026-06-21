@@ -13,5 +13,7 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestDto
         public int LaborCount { get; set; }
         /// <summary>Financial clearance request count for this status.</summary>
         public int FinancialClearanceCount { get; set; }
+        /// <summary>Sum of all request types for this status — use this for dashboard totals.</summary>
+        public int TotalCount => Count + TransferCount + LaborCount + FinancialClearanceCount;
     }
 }

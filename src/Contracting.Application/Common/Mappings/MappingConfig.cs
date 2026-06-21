@@ -155,6 +155,8 @@ public static class MappingConfig
                     .Map(dest => dest.Department, src => src.Department)
                     .Map(dest => dest.Priority, src => src.Priority)
                     .Map(dest => dest.Engineer, src => src.Engineer)
+                    .Map(dest => dest.requestedById, src => src.EngineerId)
+                    .Map(dest => dest.requestedBy, src => src.Engineer)
                     .Map(dest => dest.assignTo, src => src.assignTo)
                     .Map(dest => dest.Status, src => src.Status)
                     .Map(dest => dest.EngineerRequestNotes, src => src.EngineerRequestNotes)
