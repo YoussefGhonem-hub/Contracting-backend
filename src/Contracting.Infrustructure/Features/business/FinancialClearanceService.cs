@@ -180,11 +180,13 @@ namespace Contracting.Infrustructure.Features.business
             if (filter.StatusId.HasValue)
                 query = query.Where(c => c.StatusId == filter.StatusId);
 
-            if (filter.ProjectId.HasValue) query = query.Where(c => c.ProjectId == filter.ProjectId);
+            if (filter.ProjectId.HasValue)    query = query.Where(c => c.ProjectId == filter.ProjectId);
             if (filter.DepartmentId.HasValue) query = query.Where(c => c.DepartmentId == filter.DepartmentId);
+            if (filter.BranchId.HasValue)     query = query.Where(c => c.Project != null && c.Project.BranchId == filter.BranchId);
             if (filter.RequestedById.HasValue) query = query.Where(c => c.RequestedById == filter.RequestedById);
-            if (filter.FromDate.HasValue) query = query.Where(c => c.RequestDate >= filter.FromDate);
-            if (filter.ToDate.HasValue) query = query.Where(c => c.RequestDate <= filter.ToDate);
+            if (filter.AssignedToId.HasValue) query = query.Where(c => c.AssignedToId == filter.AssignedToId);
+            if (filter.FromDate.HasValue)     query = query.Where(c => c.RequestDate >= filter.FromDate);
+            if (filter.ToDate.HasValue)       query = query.Where(c => c.RequestDate <= filter.ToDate);
             if (!string.IsNullOrWhiteSpace(filter.Search))
                 query = query.Where(c => c.ClearanceNumber!.Contains(filter.Search) || c.EmployeeName!.Contains(filter.Search));
 

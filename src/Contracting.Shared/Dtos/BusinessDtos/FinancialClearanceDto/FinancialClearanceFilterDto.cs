@@ -7,7 +7,9 @@ namespace Contracting.Shared.BusinessDtos.FinancialClearanceDto
         public Guid? StatusId { get; set; }
         public Guid? ProjectId { get; set; }
         public Guid? DepartmentId { get; set; }
+        public Guid? BranchId { get; set; }
         public Guid? RequestedById { get; set; }
+        public Guid? AssignedToId { get; set; }
         public DateTime? FromDate { get; set; }
         public DateTime? ToDate { get; set; }
         public string? Search { get; set; }

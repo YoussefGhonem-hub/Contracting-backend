@@ -7,6 +7,7 @@ using Contracting.Application.Features.Business.EngineerRequest.Command.Reassign
 using Contracting.Application.Features.Business.EngineerRequest.Command.TakeActionOnRequest;
 using Contracting.Application.Features.Business.EngineerRequest.Command.UpdateEngineerRequest;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetAllRequestsByDepartment;
+using Contracting.Application.Features.Business.EngineerRequest.Query.GetAllInternalRequests;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetEngineerRequestsByFilter;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequestActivities;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequestById;
@@ -231,6 +232,16 @@ namespace Contracting.API.Controllers
         {
             var result = await _mediator.Send(new CreateInternalRequestCommand(dto));
             return result.Match(r => Ok(r), errors => Problem(errors));
+        }
+
+        // =========================================================================
+        // Internal Request — get list with full filtration
+        // =========================================================================
+        [HttpGet("internal")]
+        public async Task<IActionResult> GetAllInternal([FromQuery] InternalRequestFilterDto filter)
+        {
+            var result = await _mediator.Send(new GetAllInternalRequestsQuery(filter));
+            return Ok(result);
         }
 
         // =========================================================================

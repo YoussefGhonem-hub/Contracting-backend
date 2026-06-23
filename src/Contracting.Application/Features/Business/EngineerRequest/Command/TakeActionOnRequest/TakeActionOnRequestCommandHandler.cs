@@ -17,15 +17,22 @@ namespace Contracting.Application.Features.Business.EngineerRequest.Command.Take
 
         public async Task<ErrorOr<GenericResponse>> Handle(TakeActionRequestCommand request, CancellationToken cancellationToken)
         {
-            var result = await _service.TakeActionOnRequestAsync(
-                request.RequestId,
-                Guid.Parse(CurrentUser.UserId),
-                request.ActionDto
-            );
+            try
+            {
+                var result = await _service.TakeActionOnRequestAsync(
+                    request.RequestId,
+                    Guid.Parse(CurrentUser.UserId),
+                    request.ActionDto
+                );
 
-            return result.Success
-                ? result
-                : Error.Failure(result.Message ?? "You are not authorized or the request cannot be actioned.");
+                return result.Success
+                    ? result
+                    : Error.Validation("EngineerRequest.ActionFailed", result.Message ?? "You are not authorized or the request cannot be actioned.");
+            }
+            catch (Exception ex)
+            {
+                return Error.Failure("EngineerRequest.ActionError", ex.InnerException?.Message ?? ex.Message);
+            }
         }
     }
 }

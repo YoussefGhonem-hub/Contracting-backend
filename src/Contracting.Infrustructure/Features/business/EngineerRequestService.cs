@@ -881,6 +881,152 @@ public class EngineerRequestService : IEngineerRequestService
         }
     }
 
+    // ---------------- GET ALL INTERNAL REQUESTS ----------------
+    public async Task<PaginatedList<GetAllEngineerRequestDto>> GetAllInternalRequestsAsync(
+        InternalRequestFilterDto filter,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // ── Role resolution ──────────────────────────────────────────────────
+            var roles   = CurrentUser.Roles;
+            var isAdmin = roles.Any(r =>
+                r.Equals(RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase) ||
+                r.Equals(RoleNames.Admin, StringComparison.OrdinalIgnoreCase));
+
+            Engineer? currentEngineer = null;
+            List<Guid> teamLeadDeptIds = new();
+
+            if (!isAdmin)
+            {
+                currentEngineer = await _db.Engineers
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(e => e.ApplicationUserId == Guid.Parse(CurrentUser.UserId!), cancellationToken);
+
+                if (currentEngineer is null)
+                    return new PaginatedList<GetAllEngineerRequestDto>(
+                        new List<GetAllEngineerRequestDto>(), 0, filter.PageIndex, filter.PageSize);
+
+                // Departments where the current engineer is team lead (via EngineerDepartments)
+                teamLeadDeptIds = await (from ed in _db.EngineerDepartments
+                                         join role in _db.Roles on ed.RoleId equals role.Id
+                                         where ed.EngineerId == currentEngineer.Id
+                                               && role.Name == RoleNames.Teamleadengineer
+                                         select ed.DepartmentId)
+                                        .ToListAsync(cancellationToken);
+
+                // Fallback: legacy DepartmentId + global role assignment
+                if (!teamLeadDeptIds.Any() && currentEngineer.DepartmentId.HasValue)
+                {
+                    var isTeamLeadViaRoles = await (from ur in _db.UserRoles
+                                                    join role in _db.Roles on ur.RoleId equals role.Id
+                                                    where ur.UserId == currentEngineer.ApplicationUserId
+                                                          && role.Name == RoleNames.Teamleadengineer
+                                                    select role.Id).AnyAsync(cancellationToken);
+                    if (isTeamLeadViaRoles)
+                        teamLeadDeptIds.Add(currentEngineer.DepartmentId.Value);
+                }
+            }
+
+            // ── Base query ───────────────────────────────────────────────────────
+            var query = _db.EngineerRequests
+                .Include(r => r.Department)
+                .Include(r => r.Priority)
+                .Include(r => r.Status)
+                .Include(r => r.Engineer)
+                    .ThenInclude(e => e.Department)
+                .Include(r => r.assignTo)
+                    .ThenInclude(e => e.Department)
+                .Include(r => r.EngineerRequestNotes)
+                    .ThenInclude(n => n.EngineerRequestAttachments)
+                .Include(r => r.EngineerRequestNotes)
+                    .ThenInclude(n => n.Engineer)
+                .Include(r => r.EngineerRequestActivites)
+                    .ThenInclude(a => a.Engineer)
+                .Include(r => r.EngineerRequestActivites)
+                    .ThenInclude(a => a.Status)
+                .Include(r => r.EngineerRequestAttachments)
+                .AsSplitQuery()
+                .AsNoTracking()
+                .Where(r => !r.IsDeleted && r.RequestType == "InternalRequest");
+
+            // ── Role-based visibility ────────────────────────────────────────────
+            if (!isAdmin)
+            {
+                var engineerId = currentEngineer!.Id;
+
+                if (teamLeadDeptIds.Any())
+                {
+                    // Team lead: all requests in their departments
+                    query = query.Where(r =>
+                        r.DepartmentId.HasValue && teamLeadDeptIds.Contains(r.DepartmentId.Value));
+                }
+                else
+                {
+                    // Office engineer (or any non-admin non-lead): own requests + assigned to them
+                    query = query.Where(r =>
+                        r.EngineerId == engineerId || r.assignToId == engineerId);
+                }
+            }
+
+            // ── Explicit filters (applied on top of visibility) ─────────────────
+            if (filter.DepartmentId.HasValue && filter.DepartmentId.Value != Guid.Empty)
+                query = query.Where(r => r.DepartmentId == filter.DepartmentId.Value);
+
+            if (filter.BranchId.HasValue && filter.BranchId.Value != Guid.Empty)
+                query = query.Where(r => r.Department != null && r.Department.BranchId == filter.BranchId.Value);
+
+            if (filter.StatusId.HasValue && filter.StatusId.Value != Guid.Empty)
+                query = query.Where(r => r.StatusId == filter.StatusId.Value);
+
+            if (filter.PriorityId.HasValue && filter.PriorityId.Value != Guid.Empty)
+                query = query.Where(r => r.PriorityId == filter.PriorityId.Value);
+
+            if (filter.RequestedById.HasValue && filter.RequestedById.Value != Guid.Empty)
+                query = query.Where(r => r.EngineerId == filter.RequestedById.Value);
+
+            if (filter.AssignedToId.HasValue && filter.AssignedToId.Value != Guid.Empty)
+                query = query.Where(r => r.assignToId == filter.AssignedToId.Value);
+
+            if (filter.FromDate.HasValue)
+                query = query.Where(r => r.CreatedDate >= filter.FromDate.Value);
+
+            if (filter.ToDate.HasValue)
+                query = query.Where(r => r.CreatedDate <= filter.ToDate.Value);
+
+            if (!string.IsNullOrWhiteSpace(filter.Search))
+                query = query.Where(r =>
+                    (r.RequestTitle != null && r.RequestTitle.Contains(filter.Search)) ||
+                    (r.Descreption  != null && r.Descreption.Contains(filter.Search)));
+
+            query = string.IsNullOrWhiteSpace(filter.Sort)
+                ? query.OrderByDescending(r => r.CreatedDate)
+                : query.OrderByDynamic(filter.Sort, filter.Descending);
+
+            var totalCount = await query.CountAsync(cancellationToken);
+
+            if (totalCount == 0)
+                return new PaginatedList<GetAllEngineerRequestDto>(
+                    new List<GetAllEngineerRequestDto>(), 0, filter.PageIndex, filter.PageSize);
+
+            var requests = await query
+                .Skip((filter.PageIndex - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .ToListAsync(cancellationToken);
+
+            var dtos = _mapper.Map<List<GetAllEngineerRequestDto>>(requests);
+            dtos.ForEach(d => d.RequestType = "InternalRequest");
+
+            return new PaginatedList<GetAllEngineerRequestDto>(
+                dtos, totalCount, filter.PageIndex, filter.PageSize);
+        }
+        catch (Exception)
+        {
+            return new PaginatedList<GetAllEngineerRequestDto>(
+                new List<GetAllEngineerRequestDto>(), 0, filter.PageIndex, filter.PageSize);
+        }
+    }
+
     // ---------------- GET BY ID ----------------
     public async Task<GetAllEngineerRequestDto> GetEngineerRequestByIdAsync(Guid requestId)
     {

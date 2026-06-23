@@ -31,6 +31,10 @@ namespace Contracting.Infrustructure.Inteface.business
         Task<PaginatedList<GetAllEngineerRequestDto>> FilterEngineerRequestsAsync(
             EngineerRequestFilterDto filter,
             CancellationToken cancellationToken = default);
+
+        Task<PaginatedList<GetAllEngineerRequestDto>> GetAllInternalRequestsAsync(
+            InternalRequestFilterDto filter,
+            CancellationToken cancellationToken = default);
         
         // Get all unified requests (EngineerRequest, TransferRequest, LaborAttendance, FinancialClearance)
         // Returns all request types created by or applied to the current engineer
