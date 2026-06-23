@@ -10,6 +10,8 @@ using Contracting.Application.Features.Client.Chat.Query.GetChatMessages;
 using Contracting.Application.Features.Client.Chat.Query.GetChatTabMedia;
 using Contracting.Application.Features.Client.Chat.Query.GetFirebaseToken;
 using Contracting.Application.Features.Client.Chat.Query.GetOrCreateChatGroup;
+using Contracting.Application.Features.Client.Chat.Query.GetUnreadCount;
+using Contracting.Application.Features.Client.Chat.Query.GetUnreadSummary;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.Constants;
 using Contracting.Shared.Dtos.ClientDtos.ChatDtos;
@@ -221,11 +223,12 @@ public class ChatController : APIBaseController
     }
 
     // =========================================================================
-    // Read Receipt
+    // Read Receipt / Unread Counts
     // =========================================================================
 
     /// <summary>
-    /// Mark all unread messages in a chat group as read for the current user.
+    /// Mark all messages in a chat group as read for the current user.
+    /// Call this when the user opens/enters the chat.
     /// </summary>
     [HttpPut("groups/{groupId:guid}/read")]
     public async Task<IActionResult> MarkAsRead(Guid groupId)
@@ -233,6 +236,29 @@ public class ChatController : APIBaseController
         var command = new MarkMessagesReadCommand(groupId);
         var result = await _mediator.Send(command);
         return result.Match(_ => Ok(new { message = "Messages marked as read." }), errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Get the number of unread messages for the current user in a specific chat group.
+    /// </summary>
+    [HttpGet("groups/{groupId:guid}/unread-count")]
+    public async Task<IActionResult> GetUnreadCount(Guid groupId)
+    {
+        var query = new GetUnreadCountQuery(groupId);
+        var result = await _mediator.Send(query);
+        return result.Match(count => Ok(new { groupId, unreadCount = count }), errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Get the unread summary for the current user across all chat groups they belong to:
+    /// a total unread count plus a per-group breakdown. Useful for badges in the chat list.
+    /// </summary>
+    [HttpGet("unread")]
+    public async Task<IActionResult> GetUnreadSummary()
+    {
+        var query = new GetUnreadSummaryQuery();
+        var result = await _mediator.Send(query);
+        return result.Match(summary => Ok(summary), errors => Problem(errors));
     }
 
     // =========================================================================

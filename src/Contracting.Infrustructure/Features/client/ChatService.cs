@@ -477,8 +477,20 @@ public class ChatService : IChatService
 
     public async Task MarkMessagesReadAsync(Guid groupId, CancellationToken cancellationToken = default)
     {
-        var userId = CurrentUser.Id!.Value;
+        var userIdNullable = CurrentUser.Id;
+        if (!userIdNullable.HasValue) return;
+        var userId = userIdNullable.Value;
 
+        var member = await _db.ChatGroupMembers
+            .FirstOrDefaultAsync(m => m.ChatGroupId == groupId && m.ApplicationUserId == userId, cancellationToken);
+
+        // Not a member — nothing to mark
+        if (member is null) return;
+
+        // Per-user read tracking: advance this member's read marker to "now".
+        member.LastReadAt = DateTimeHelper.DateTimeNow;
+
+        // Keep the legacy global flag in sync for messages this user received.
         var unread = await _db.ChatMessages
             .Where(m => m.ChatGroupId == groupId && !m.IsRead && m.SenderId != userId)
             .ToListAsync(cancellationToken);
@@ -486,8 +498,74 @@ public class ChatService : IChatService
         foreach (var msg in unread)
             msg.IsRead = true;
 
-        if (unread.Count > 0)
-            await _db.SaveChangesAsync(cancellationToken);
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<int?> GetUnreadCountAsync(Guid groupId, CancellationToken cancellationToken = default)
+    {
+        var userIdNullable = CurrentUser.Id;
+        if (!userIdNullable.HasValue) return null;
+        var userId = userIdNullable.Value;
+
+        var member = await _db.ChatGroupMembers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(m => m.ChatGroupId == groupId && m.ApplicationUserId == userId, cancellationToken);
+
+        // Not a member of this group
+        if (member is null) return null;
+
+        var lastReadAt = member.LastReadAt;
+
+        return await _db.ChatMessages
+            .CountAsync(m => m.ChatGroupId == groupId
+                          && m.SenderId != userId
+                          && (lastReadAt == null || m.CreatedDate > lastReadAt),
+                        cancellationToken);
+    }
+
+    public async Task<ChatUnreadSummaryDto> GetUnreadSummaryAsync(CancellationToken cancellationToken = default)
+    {
+        var userIdNullable = CurrentUser.Id;
+        if (!userIdNullable.HasValue)
+            return new ChatUnreadSummaryDto();
+        var userId = userIdNullable.Value;
+
+        // All groups the user belongs to, with their per-user read marker and a display name.
+        var memberships = await _db.ChatGroupMembers
+            .AsNoTracking()
+            .Where(m => m.ApplicationUserId == userId)
+            .Select(m => new
+            {
+                m.ChatGroupId,
+                m.LastReadAt,
+                GroupName = m.ChatGroup.Name ?? m.ChatGroup.Project.nameEn
+            })
+            .ToListAsync(cancellationToken);
+
+        // Unread counts per group in a single grouped query (groups with no unread won't appear here).
+        var counts = await (
+            from msg in _db.ChatMessages.AsNoTracking()
+            join mem in _db.ChatGroupMembers.AsNoTracking()
+                on msg.ChatGroupId equals mem.ChatGroupId
+            where mem.ApplicationUserId == userId
+               && msg.SenderId != userId
+               && (mem.LastReadAt == null || msg.CreatedDate > mem.LastReadAt)
+            group msg by msg.ChatGroupId into g
+            select new { ChatGroupId = g.Key, Count = g.Count() }
+        ).ToDictionaryAsync(x => x.ChatGroupId, x => x.Count, cancellationToken);
+
+        var groups = memberships.Select(m => new ChatGroupUnreadDto
+        {
+            GroupId = m.ChatGroupId,
+            GroupName = m.GroupName,
+            UnreadCount = counts.TryGetValue(m.ChatGroupId, out var c) ? c : 0
+        }).ToList();
+
+        return new ChatUnreadSummaryDto
+        {
+            TotalUnread = groups.Sum(g => g.UnreadCount),
+            Groups = groups
+        };
     }
 
     // -------------------------------------------------------------------------

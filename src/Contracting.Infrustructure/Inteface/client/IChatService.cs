@@ -26,6 +26,8 @@ public interface IChatService
 
     // --- Read Receipt ---
     Task MarkMessagesReadAsync(Guid groupId, CancellationToken cancellationToken = default);
+    Task<int?> GetUnreadCountAsync(Guid groupId, CancellationToken cancellationToken = default);
+    Task<ChatUnreadSummaryDto> GetUnreadSummaryAsync(CancellationToken cancellationToken = default);
 
     // --- Firebase Token ---
     Task<FirebaseTokenDto?> GetFirebaseTokenAsync(Guid groupId, CancellationToken cancellationToken = default);
