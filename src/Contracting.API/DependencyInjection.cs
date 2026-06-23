@@ -24,15 +24,24 @@ namespace Contracting.API
             services.AddLocalization();
             services.Configure<RequestLocalizationOptions>(options =>
             {
-                List<CultureInfo> supportedCultures = new List<CultureInfo>
+                // UI cultures drive localized resource strings (Arabic + English).
+                List<CultureInfo> supportedUICultures = new List<CultureInfo>
                   {
                       new CultureInfo("ar"),
                       new CultureInfo("en")
                   };
 
-                options.DefaultRequestCulture = new RequestCulture("ar");
-                options.SupportedCultures = supportedCultures;
-                options.SupportedUICultures = supportedCultures;
+                // Formatting culture drives number/date PARSING during model binding.
+                // Force "en" so decimals always bind with "." as the separator
+                // (Arabic culture uses "٫", which breaks values like 33.22 on form posts).
+                List<CultureInfo> supportedFormattingCultures = new List<CultureInfo>
+                  {
+                      new CultureInfo("en")
+                  };
+
+                options.DefaultRequestCulture = new RequestCulture(culture: "en", uiCulture: "ar");
+                options.SupportedCultures = supportedFormattingCultures;
+                options.SupportedUICultures = supportedUICultures;
                 options.RequestCultureProviders.Insert(
                     0,
                     new AcceptLanguageHeaderRequestCultureProvider()
