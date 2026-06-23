@@ -403,8 +403,12 @@ public class ChatService : IChatService
         if (!userIdNullable.HasValue) return null;
         var userId = userIdNullable.Value;
 
-        if (!await IsMemberAsync(groupId, userId, cancellationToken))
-            return null;
+        var member = await _db.ChatGroupMembers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(m => m.ChatGroupId == groupId && m.ApplicationUserId == userId, cancellationToken);
+        if (member is null) return null;
+
+        var lastReadAt = member.LastReadAt;
 
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
@@ -427,7 +431,7 @@ public class ChatService : IChatService
             PageSize = pageSize,
             TotalCount = total,
             HasMore = (page * pageSize) < total,
-            Messages = messages.Select(MapMessageDto).ToList()
+            Messages = messages.Select(m => MapMessageDto(m, userId, lastReadAt)).ToList()
         };
     }
 
@@ -458,8 +462,12 @@ public class ChatService : IChatService
     {
         var userId = CurrentUser.Id!.Value;
 
-        if (!await IsMemberAsync(groupId, userId, cancellationToken))
-            return null;
+        var member = await _db.ChatGroupMembers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(m => m.ChatGroupId == groupId && m.ApplicationUserId == userId, cancellationToken);
+        if (member is null) return null;
+
+        var lastReadAt = member.LastReadAt;
 
         var messages = await _db.ChatMessages
             .Where(m => m.ChatGroupId == groupId && m.MessageType == type)
@@ -468,7 +476,7 @@ public class ChatService : IChatService
             .Include(m => m.Attachments)
             .ToListAsync(cancellationToken);
 
-        return messages.Select(MapMessageDto).ToList();
+        return messages.Select(m => MapMessageDto(m, userId, lastReadAt)).ToList();
     }
 
     // -------------------------------------------------------------------------
@@ -487,16 +495,11 @@ public class ChatService : IChatService
         // Not a member — nothing to mark
         if (member is null) return;
 
-        // Per-user read tracking: advance this member's read marker to "now".
+        // Per-user read tracking: advance ONLY this member's read marker to "now".
+        // We intentionally do NOT touch ChatMessage.IsRead — that is a single shared field and
+        // flipping it would mark messages read for every member. Each member's unread count is
+        // derived from their own LastReadAt, so reading affects this member only.
         member.LastReadAt = DateTimeHelper.DateTimeNow;
-
-        // Keep the legacy global flag in sync for messages this user received.
-        var unread = await _db.ChatMessages
-            .Where(m => m.ChatGroupId == groupId && !m.IsRead && m.SenderId != userId)
-            .ToListAsync(cancellationToken);
-
-        foreach (var msg in unread)
-            msg.IsRead = true;
 
         await _db.SaveChangesAsync(cancellationToken);
     }
@@ -651,7 +654,11 @@ public class ChatService : IChatService
         }).ToList()
     };
 
-    private GetChatMessageDto MapMessageDto(ChatMessage m) => new()
+    /// <summary>
+    /// Maps a message for a specific viewer. IsRead is computed per-user: a message is "read" by the
+    /// viewer if they sent it, or if it was created on/before the viewer's own LastReadAt marker.
+    /// </summary>
+    private GetChatMessageDto MapMessageDto(ChatMessage m, Guid viewerId, DateTimeOffset? viewerLastReadAt) => new()
     {
         Id = m.Id,
         SenderId = m.SenderId,
@@ -659,7 +666,8 @@ public class ChatService : IChatService
         SenderAvatarUrl = m.Sender?.AvatarUrl,
         Content = m.Content,
         MessageType = m.MessageType.ToString(),
-        IsRead = m.IsRead,
+        IsRead = m.SenderId == viewerId
+                 || (viewerLastReadAt != null && m.CreatedDate <= viewerLastReadAt),
         SentAt = m.CreatedDate,
         Attachments = m.Attachments.Select(a => new GetChatAttachmentDto
         {
