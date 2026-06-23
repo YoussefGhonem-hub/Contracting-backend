@@ -11,13 +11,14 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Storage.AWS3.Services;
 
 namespace Contracting.Infrustructure.Features.client;
 
 public class ChatService : IChatService
 {
     private readonly ApplicationDbContext _db;
-    private readonly IFileStorage _fileStorage;
+    private readonly IStorageService _storage;
     private readonly IFirebaseService _firebase;
     private readonly Features.Firebase.FirebaseOptions _firebaseOptions;
     private readonly INotificationService _notificationService;
@@ -25,14 +26,14 @@ public class ChatService : IChatService
 
     public ChatService(
         ApplicationDbContext db,
-        IFileStorage fileStorage,
+        IStorageService storage,
         IFirebaseService firebase,
         IOptions<Features.Firebase.FirebaseOptions> firebaseOptions,
         INotificationService notificationService,
         ILogger<ChatService> logger)
     {
         _db = db;
-        _fileStorage = fileStorage;
+        _storage = storage;
         _firebase = firebase;
         _firebaseOptions = firebaseOptions.Value;
         _notificationService = notificationService;
@@ -150,6 +151,34 @@ public class ChatService : IChatService
     // -------------------------------------------------------------------------
     // Member Management
     // -------------------------------------------------------------------------
+
+    public async Task<List<GetChatMemberDto>?> GetMembersAsync(Guid groupId, CancellationToken cancellationToken = default)
+    {
+        var userIdNullable = CurrentUser.Id;
+        if (!userIdNullable.HasValue) return null;
+        var userId = userIdNullable.Value;
+
+        var group = await _db.ChatGroups
+            .Include(g => g.Members).ThenInclude(m => m.ApplicationUser)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(g => g.Id == groupId, cancellationToken);
+
+        if (group is null)
+            return null;
+
+        // Only members of the group may view the member list
+        if (!group.Members.Any(m => m.ApplicationUserId == userId))
+            return null;
+
+        return group.Members.Select(m => new GetChatMemberDto
+        {
+            UserId = m.ApplicationUserId,
+            FullName = m.ApplicationUser?.FullName,
+            Email = m.ApplicationUser?.Email,
+            AvatarUrl = m.ApplicationUser?.AvatarUrl,
+            MemberType = m.MemberType
+        }).ToList();
+    }
 
     public async Task<bool> AssignMemberAsync(Guid groupId, Guid userId, string memberType = "TeamMember", CancellationToken cancellationToken = default)
     {
@@ -288,8 +317,9 @@ public class ChatService : IChatService
         var isImage = ext is ".jpg" or ".jpeg" or ".png" or ".gif" or ".webp";
         var msgType = isImage ? ChatMessageType.Image : ChatMessageType.Document;
 
-        var savedPath = await _fileStorage.SaveAsync(file, "uploads/chat", cancellationToken);
-        var fileName = Path.GetFileName(savedPath);
+        // Upload to S3 (private bucket) — the object Key is what we persist; access URLs are
+        // generated on read via pre-signed URLs so they work on AWS and across instances.
+        var stored = await _storage.Upload(file, cancellationToken);
 
         var message = new ChatMessage
         {
@@ -303,11 +333,11 @@ public class ChatService : IChatService
         var attachment = new ChatMessageAttachment
         {
             ChatMessageId = message.Id,
-            Key = savedPath,
-            FileName = file.FileName,
-            Extension = ext,
-            FileSize = file.Length,
-            Url = $"/uploads/chat/{fileName}",
+            Key = stored.Key,
+            FileName = stored.FileName ?? file.FileName,
+            Extension = stored.Extension ?? ext,
+            FileSize = stored.FileSize ?? file.Length,
+            Url = stored.Url,
             AttachmentType = msgType
         };
 
@@ -326,7 +356,7 @@ public class ChatService : IChatService
                 SenderName: sender?.FullName ?? sender?.Email ?? "Unknown",
                 Content: file.FileName,
                 MessageType: msgType,
-                AttachmentUrl: attachment.Url,
+                AttachmentUrl: ResolveAttachmentUrl(attachment.Key, attachment.Url),
                 AttachmentFileName: attachment.FileName,
                 AttachmentFileSize: attachment.FileSize,
                 SentAt: DateTimeHelper.DateTimeNow
@@ -359,7 +389,7 @@ public class ChatService : IChatService
                     FileName = attachment.FileName,
                     Extension = attachment.Extension,
                     FileSize = attachment.FileSize,
-                    Url = attachment.Url,
+                    Url = ResolveAttachmentUrl(attachment.Key, attachment.Url),
                     AttachmentType = msgType.ToString()
                 }
             }
@@ -519,6 +549,14 @@ public class ChatService : IChatService
             .AnyAsync(m => m.ChatGroupId == groupId && m.ApplicationUserId == userId, cancellationToken);
     }
 
+    /// <summary>
+    /// Resolves the URL clients should use to fetch an attachment. The S3 bucket is private, so we
+    /// return a time-limited pre-signed URL generated from the stored object Key. Falls back to the
+    /// stored Url when no Key is available (e.g. legacy local-disk records).
+    /// </summary>
+    private string? ResolveAttachmentUrl(string? key, string? storedUrl)
+        => (string.IsNullOrWhiteSpace(key) ? null : _storage.GetPreSignedUrl(key)) ?? storedUrl;
+
     private static GetChatGroupDto MapGroupDto(ChatGroup group) => new()
     {
         Id = group.Id,
@@ -535,7 +573,7 @@ public class ChatService : IChatService
         }).ToList()
     };
 
-    private static GetChatMessageDto MapMessageDto(ChatMessage m) => new()
+    private GetChatMessageDto MapMessageDto(ChatMessage m) => new()
     {
         Id = m.Id,
         SenderId = m.SenderId,
@@ -551,7 +589,7 @@ public class ChatService : IChatService
             FileName = a.FileName,
             Extension = a.Extension,
             FileSize = a.FileSize,
-            Url = a.Url,
+            Url = ResolveAttachmentUrl(a.Key, a.Url),
             AttachmentType = a.AttachmentType.ToString()
         }).ToList()
     };

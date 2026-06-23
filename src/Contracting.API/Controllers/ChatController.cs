@@ -5,6 +5,7 @@ using Contracting.Application.Features.Client.Chat.Command.RemoveChatMember;
 using Contracting.Application.Features.Client.Chat.Command.SendAttachment;
 using Contracting.Application.Features.Client.Chat.Command.SendTextMessage;
 using Contracting.Application.Features.Client.Chat.Query.GetChatGroup;
+using Contracting.Application.Features.Client.Chat.Query.GetChatMembers;
 using Contracting.Application.Features.Client.Chat.Query.GetChatMessages;
 using Contracting.Application.Features.Client.Chat.Query.GetChatTabMedia;
 using Contracting.Application.Features.Client.Chat.Query.GetFirebaseToken;
@@ -98,6 +99,18 @@ public class ChatController : APIBaseController
     // =========================================================================
     // Member Management (Admin only)
     // =========================================================================
+
+    /// <summary>
+    /// Get the list of members of a chat group (id, name, email, avatar, member type).
+    /// Only members of the group can access this endpoint.
+    /// </summary>
+    [HttpGet("groups/{groupId:guid}/members")]
+    public async Task<IActionResult> GetMembers(Guid groupId)
+    {
+        var query = new GetChatMembersQuery(groupId);
+        var result = await _mediator.Send(query);
+        return result.Match(m => Ok(m), errors => Problem(errors));
+    }
 
     /// <summary>
     /// Assign a team member (by userId) to a chat group so they can reply to the client.
