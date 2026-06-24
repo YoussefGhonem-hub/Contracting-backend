@@ -514,7 +514,7 @@ namespace Contracting.Infrustructure.Features.business
             iconName = s.iconName
         };
 
-        private static GetLaborAttendanceRequestDto MapToDto(LaborAttendanceRequest r) => new()
+        private GetLaborAttendanceRequestDto MapToDto(LaborAttendanceRequest r) => new()
         {
             Id = r.Id,
             RequestNumber = r.RequestNumber,
@@ -547,7 +547,7 @@ namespace Contracting.Infrustructure.Features.business
             Attachments = r.Attachments.Select(a => new GetAttachmentDto
             {
                 Id = a.Id, Key = a.Key, FileName = a.FileName,
-                Extension = a.Extension, FileSize = a.FileSize, Url = a.Url
+                Extension = a.Extension, FileSize = a.FileSize, Url = _storageService.GetPreSignedUrl(a.Key) ?? a.Url
             }).ToList(),
             Activities = r.Activities.Select(a => new GetLaborAttendanceActivityDto
             {

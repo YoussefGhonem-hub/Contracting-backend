@@ -80,6 +80,7 @@ public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, ErrorOr
         var departmentId = engineer?.Department?.Id;
         var branchId = engineer?.Department?.BranchId;
         var engineerId = engineer?.Id;
+        var currency = engineer?.Department?.Branch?.currency;
 
         // Auto-select department from EngineerDepartments if available
         if (engineer != null && engineer.EngineerDepartments.Any())
@@ -91,6 +92,7 @@ public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, ErrorOr
 
             departmentId = selectedDept.DepartmentId;
             branchId = selectedDept.Department?.BranchId;
+            currency = selectedDept.Department?.Branch?.currency;
 
             // Update active department if different
             if (engineer.DepartmentId != departmentId)
@@ -118,7 +120,7 @@ public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, ErrorOr
         }
 
         var roles = await _userManager.GetRolesAsync(user);
-        var accessToken = _tokenService.GenerateToken(user, roles, departmentId, engineerId, departmentHaveTeamLeadOrNot, branchId);
+        var accessToken = _tokenService.GenerateToken(user, roles, departmentId, engineerId, departmentHaveTeamLeadOrNot, branchId, currency);
         var accessExp = DateTime.UtcNow.AddMinutes(_jwt.DurationInMinutes);
 
         var ip = _http.HttpContext?.Connection.RemoteIpAddress?.ToString();
@@ -128,7 +130,8 @@ public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, ErrorOr
             accessToken,
             accessExp,
             refreshToken,
-            refreshExp
+            refreshExp,
+            currency
         );
 
         return pair;

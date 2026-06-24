@@ -412,7 +412,7 @@ namespace Contracting.Infrustructure.Features.business
             iconName = s.iconName
         };
 
-        private static GetFinancialClearanceDto MapToDto(FinancialClearance c) => new()
+        private GetFinancialClearanceDto MapToDto(FinancialClearance c) => new()
         {
             Id = c.Id,
             ClearanceNumber = c.ClearanceNumber,
@@ -436,7 +436,7 @@ namespace Contracting.Infrustructure.Features.business
             Attachments = c.Attachments.Select(a => new GetFinancialClearanceAttachmentDto
             {
                 Id = a.Id, Key = a.Key, FileName = a.FileName,
-                Extension = a.Extension, FileSize = a.FileSize, Url = a.Url,
+                Extension = a.Extension, FileSize = a.FileSize, Url = _storageService.GetPreSignedUrl(a.Key) ?? a.Url,
                 AttachmentType = a.AttachmentType
             }).ToList(),
             Activities = c.Activities.Select(a => new GetFinancialClearanceActivityDto

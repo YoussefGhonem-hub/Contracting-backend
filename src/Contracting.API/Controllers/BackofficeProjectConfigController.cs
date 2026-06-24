@@ -6,6 +6,7 @@ using Contracting.Shared.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Storage.AWS3.Services;
 
 namespace Contracting.API.Controllers;
 
@@ -20,10 +21,12 @@ namespace Contracting.API.Controllers;
 public class BackofficeProjectConfigController : APIBaseController
 {
     private readonly ApplicationDbContext _db;
+    private readonly IStorageService _storage;
 
-    public BackofficeProjectConfigController(ApplicationDbContext db)
+    public BackofficeProjectConfigController(ApplicationDbContext db, IStorageService storage)
     {
         _db = db;
+        _storage = storage;
     }
 
     // =========================================================================
@@ -192,20 +195,21 @@ public class BackofficeProjectConfigController : APIBaseController
         if (!string.IsNullOrWhiteSpace(type) && Enum.TryParse<DrawingType>(type, true, out var dt))
             query = query.Where(d => d.Type == dt);
 
-        var drawings = await query
+        var drawings = (await query
             .OrderByDescending(d => d.CreatedDate)
+            .Select(d => new { d.Id, d.Title, Type = d.Type.ToString(), d.FileName, d.Extension, d.FileSize, d.Key, d.Url, UploadedAt = d.CreatedDate })
+            .ToListAsync(ct))
             .Select(d => new
             {
                 d.Id,
                 d.Title,
-                Type       = d.Type.ToString(),
+                d.Type,
                 d.FileName,
                 d.Extension,
                 d.FileSize,
-                d.Url,
-                UploadedAt = d.CreatedDate
-            })
-            .ToListAsync(ct);
+                Url        = _storage.GetPreSignedUrl(d.Key) ?? d.Url,
+                d.UploadedAt
+            });
 
         return Ok(drawings);
     }
@@ -219,9 +223,11 @@ public class BackofficeProjectConfigController : APIBaseController
         if (!await _db.Projects.AnyAsync(p => p.Id == projectId && !p.IsDeleted, ct))
             return NotFound(new { message = "Project not found." });
 
-        var schedules = await _db.ProjectSchedules
+        var schedules = (await _db.ProjectSchedules
             .Where(s => s.ProjectId == projectId && !s.IsDeleted)
             .OrderByDescending(s => s.CreatedDate)
+            .Select(s => new { s.Id, s.Title, s.Version, s.FileName, s.Extension, s.FileSize, s.Key, s.Url, UploadedAt = s.CreatedDate })
+            .ToListAsync(ct))
             .Select(s => new
             {
                 s.Id,
@@ -230,10 +236,9 @@ public class BackofficeProjectConfigController : APIBaseController
                 s.FileName,
                 s.Extension,
                 s.FileSize,
-                s.Url,
-                UploadedAt = s.CreatedDate
-            })
-            .ToListAsync(ct);
+                Url        = _storage.GetPreSignedUrl(s.Key) ?? s.Url,
+                s.UploadedAt
+            });
 
         return Ok(schedules);
     }
@@ -247,9 +252,11 @@ public class BackofficeProjectConfigController : APIBaseController
         if (!await _db.Projects.AnyAsync(p => p.Id == projectId && !p.IsDeleted, ct))
             return NotFound(new { message = "Project not found." });
 
-        var tenders = await _db.TenderDocuments
+        var tenders = (await _db.TenderDocuments
             .Where(t => t.ProjectId == projectId && !t.IsDeleted)
             .OrderByDescending(t => t.CreatedDate)
+            .Select(t => new { t.Id, t.Title, t.FileName, t.Extension, t.FileSize, t.Key, t.Url, UploadedAt = t.CreatedDate })
+            .ToListAsync(ct))
             .Select(t => new
             {
                 t.Id,
@@ -257,10 +264,9 @@ public class BackofficeProjectConfigController : APIBaseController
                 t.FileName,
                 t.Extension,
                 t.FileSize,
-                t.Url,
-                UploadedAt = t.CreatedDate
-            })
-            .ToListAsync(ct);
+                Url        = _storage.GetPreSignedUrl(t.Key) ?? t.Url,
+                t.UploadedAt
+            });
 
         return Ok(tenders);
     }
@@ -281,7 +287,7 @@ public class BackofficeProjectConfigController : APIBaseController
         if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<VOStatus>(status, true, out var vs))
             query = query.Where(v => v.Status == vs);
 
-        var vos = await query
+        var vosRaw = await query
             .OrderByDescending(v => v.VONumber)
             .Select(v => new
             {
@@ -297,10 +303,32 @@ public class BackofficeProjectConfigController : APIBaseController
                 v.ClientRejectionReason,
                 Attachments = v.Attachments
                     .Where(a => !a.IsDeleted)
-                    .Select(a => new { a.Id, a.FileName, a.Extension, a.FileSize, a.Url })
+                    .Select(a => new { a.Id, a.FileName, a.Extension, a.FileSize, a.Key, a.Url })
                     .ToList()
             })
             .ToListAsync(ct);
+
+        var vos = vosRaw.Select(v => new
+        {
+            v.Id,
+            v.VONumber,
+            v.Title,
+            v.Description,
+            v.Cost,
+            v.Status,
+            v.IssueDate,
+            v.DueDate,
+            v.ClientActionDate,
+            v.ClientRejectionReason,
+            Attachments = v.Attachments.Select(a => new
+            {
+                a.Id,
+                a.FileName,
+                a.Extension,
+                a.FileSize,
+                Url = _storage.GetPreSignedUrl(a.Key) ?? a.Url
+            }).ToList()
+        }).ToList();
 
         var allVOs = await _db.VariationOrders
             .Where(v => v.ProjectId == projectId && !v.IsDeleted)
@@ -351,7 +379,7 @@ public class BackofficeProjectConfigController : APIBaseController
     [HttpGet("monthly-reports/{reportId:guid}")]
     public async Task<IActionResult> GetMonthlyReportById(Guid projectId, Guid reportId, CancellationToken ct)
     {
-        var report = await _db.ClientMonthlyReports
+        var reportRaw = await _db.ClientMonthlyReports
             .Where(r => r.Id == reportId && r.ProjectId == projectId && !r.IsDeleted)
             .Select(r => new
             {
@@ -364,13 +392,32 @@ public class BackofficeProjectConfigController : APIBaseController
                 r.CreatedDate,
                 Attachments = r.Attachments
                     .Where(a => !a.IsDeleted)
-                    .Select(a => new { a.Id, a.FileName, a.Extension, a.FileSize, a.Url })
+                    .Select(a => new { a.Id, a.FileName, a.Extension, a.FileSize, a.Key, a.Url })
                     .ToList()
             })
             .FirstOrDefaultAsync(ct);
 
-        if (report is null)
+        if (reportRaw is null)
             return NotFound(new { message = "Report not found." });
+
+        var report = new
+        {
+            reportRaw.Id,
+            reportRaw.ProjectId,
+            reportRaw.Title,
+            reportRaw.WorkProgress,
+            reportRaw.Month,
+            reportRaw.Year,
+            reportRaw.CreatedDate,
+            Attachments = reportRaw.Attachments.Select(a => new
+            {
+                a.Id,
+                a.FileName,
+                a.Extension,
+                a.FileSize,
+                Url = _storage.GetPreSignedUrl(a.Key) ?? a.Url
+            }).ToList()
+        };
 
         return Ok(report);
     }

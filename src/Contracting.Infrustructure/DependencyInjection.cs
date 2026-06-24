@@ -86,7 +86,7 @@ public static class DependencyInjection
         services.Configure<FirebaseOptions>(configuration.GetSection("Firebase"));
 
         // File storage
-        services.AddScoped<IFileStorage, LocalFileStorage>();
+        services.AddScoped<IFileStorage, S3FileStorage>();
 
         return services;
     }

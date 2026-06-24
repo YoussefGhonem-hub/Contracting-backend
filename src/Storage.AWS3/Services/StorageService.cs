@@ -116,6 +116,43 @@ namespace Storage.AWS3.Services
 
            return GetUploadedFileUrl(fileNameStorage);
         }
+        public async Task<StoredFile> UploadWithKeyPrefix(IFormFile file, string keyPrefix, CancellationToken cancellationToken = default)
+        {
+            var options = AWS3OptionsExtension.GetAWSConfigurationOptions(_configuration);
+            var region = RegionEndpoint.EUNorth1;
+            var credential = AWS3ConfigurationExtension.GetBasicAWSCredentials(_configuration);
+
+            if (credential == null)
+                throw new ArgumentException("AWS credentials not found.");
+
+            var ext = Path.GetExtension(file.FileName);
+            var key = $"{keyPrefix.TrimEnd('/')}/{Guid.NewGuid():N}{ext}";
+            var bucketName = options.DefaultBucket;
+
+            using var stream = file.OpenReadStream();
+            var uploadRequest = new PutObjectRequest
+            {
+                BucketName = bucketName,
+                Key = key,
+                InputStream = stream,
+                ContentType = GetContentType(file.FileName)
+            };
+            uploadRequest.Metadata.Add("Content-Type", uploadRequest.ContentType);
+
+            var client = new AmazonS3Client(credential, region);
+            await EnsureBucketExistsAsync(client, bucketName, region, cancellationToken);
+            await client.PutObjectAsync(uploadRequest, cancellationToken);
+
+            return new StoredFile
+            {
+                FileName = file.FileName,
+                Key = key,
+                Extension = ext,
+                FileSize = file.Length,
+                Url = GetUploadedFileUrl(key)
+            };
+        }
+
         public async Task<List<StoredFile>?> UploadFiles(List<IFormFile>? files, CancellationToken cancellationToken = default)
         {
             if (files == null || files.Count == 0)

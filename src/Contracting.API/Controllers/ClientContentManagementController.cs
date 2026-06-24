@@ -12,6 +12,7 @@ using Contracting.Shared.Storage;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Storage.AWS3.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace Contracting.API.Controllers;
@@ -23,12 +24,14 @@ public class ClientContentManagementController : APIBaseController
 {
     private readonly ApplicationDbContext _db;
     private readonly IFileStorage _fileStorage;
+    private readonly IStorageService _storage;
     private readonly IMediator _mediator;
 
-    public ClientContentManagementController(ApplicationDbContext db, IFileStorage fileStorage, IMediator mediator)
+    public ClientContentManagementController(ApplicationDbContext db, IFileStorage fileStorage, IStorageService storage, IMediator mediator)
     {
         _db = db;
         _fileStorage = fileStorage;
+        _storage = storage;
         _mediator = mediator;
     }
 
@@ -65,7 +68,7 @@ public class ClientContentManagementController : APIBaseController
                     FileName = file.FileName,
                     Extension = Path.GetExtension(file.FileName),
                     FileSize = file.Length,
-                    Url = "/" + relativePath.TrimStart('/')
+                    Url = _storage.GetUploadedFileUrl(relativePath)
                 });
             }
         }
@@ -120,7 +123,7 @@ public class ClientContentManagementController : APIBaseController
                     FileName = file.FileName,
                     Extension = Path.GetExtension(file.FileName),
                     FileSize = file.Length,
-                    Url = "/" + relativePath.TrimStart('/')
+                    Url = _storage.GetUploadedFileUrl(relativePath)
                 });
             }
         }
@@ -156,14 +159,14 @@ public class ClientContentManagementController : APIBaseController
             FileName = request.File.FileName,
             Extension = Path.GetExtension(request.File.FileName),
             FileSize = request.File.Length,
-            Url = "/" + relativePath.TrimStart('/'),
+            Url = _storage.GetUploadedFileUrl(relativePath),
             UploadedBy = userId
         };
 
         await _db.ProjectDrawings.AddAsync(entity, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
-        return Ok(new { entity.Id, entity.ProjectId, Type = entity.Type.ToString(), entity.Title, entity.Url });
+        return Ok(new { entity.Id, entity.ProjectId, Type = entity.Type.ToString(), entity.Title, Url = _storage.GetPreSignedUrl(entity.Key) ?? entity.Url });
     }
 
     [HttpPost("tender-documents")]
@@ -187,14 +190,14 @@ public class ClientContentManagementController : APIBaseController
             FileName = request.File.FileName,
             Extension = Path.GetExtension(request.File.FileName),
             FileSize = request.File.Length,
-            Url = "/" + relativePath.TrimStart('/'),
+            Url = _storage.GetUploadedFileUrl(relativePath),
             UploadedBy = userId
         };
 
         await _db.TenderDocuments.AddAsync(entity, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
-        return Ok(new { entity.Id, entity.ProjectId, entity.Title, entity.Url });
+        return Ok(new { entity.Id, entity.ProjectId, entity.Title, Url = _storage.GetPreSignedUrl(entity.Key) ?? entity.Url });
     }
 
     [HttpPost("schedules")]
@@ -219,14 +222,14 @@ public class ClientContentManagementController : APIBaseController
             FileName = request.File.FileName,
             Extension = Path.GetExtension(request.File.FileName),
             FileSize = request.File.Length,
-            Url = "/" + relativePath.TrimStart('/'),
+            Url = _storage.GetUploadedFileUrl(relativePath),
             UploadedBy = userId
         };
 
         await _db.ProjectSchedules.AddAsync(entity, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
-        return Ok(new { entity.Id, entity.ProjectId, entity.Title, entity.Version, entity.Url });
+        return Ok(new { entity.Id, entity.ProjectId, entity.Title, entity.Version, Url = _storage.GetPreSignedUrl(entity.Key) ?? entity.Url });
     }
 
     [HttpPost("invoices")]
@@ -444,6 +447,53 @@ public class ClientContentManagementController : APIBaseController
         await _db.SaveChangesAsync(cancellationToken);
 
         return Ok(new { message = "Variation order deleted successfully." });
+    }
+
+    // =========================================================================
+    // PUT /api/backoffice/client-content/drawings/{drawingId}
+    // Update title and optionally replace the stored file.
+    // =========================================================================
+    [HttpPut("drawings/{drawingId:guid}")]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> UpdateDrawing(Guid drawingId, [FromForm] UpdateDrawingRequest request, CancellationToken cancellationToken)
+    {
+        var drawing = await _db.ProjectDrawings.FirstOrDefaultAsync(d => d.Id == drawingId && !d.IsDeleted, cancellationToken);
+        if (drawing is null)
+            return NotFound(new { message = "Drawing not found." });
+
+        var userId = CurrentUser.Id ?? Guid.Empty;
+        if (userId == Guid.Empty)
+            return Unauthorized();
+
+        drawing.Title = request.Title;
+
+        if (request.File is not null && request.File.Length > 0)
+        {
+            // Delete old file from S3
+            if (!string.IsNullOrWhiteSpace(drawing.Key))
+                await _fileStorage.DeleteAsync(drawing.Key, cancellationToken);
+
+            var relativePath = await _fileStorage.SaveAsync(request.File, "uploads/drawings", cancellationToken);
+            drawing.Key = relativePath;
+            drawing.FileName = request.File.FileName;
+            drawing.Extension = Path.GetExtension(request.File.FileName);
+            drawing.FileSize = request.File.Length;
+            drawing.Url = _storage.GetUploadedFileUrl(relativePath);
+        }
+
+        drawing.MarkAsModified(userId);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            drawing.Id,
+            drawing.ProjectId,
+            Type = drawing.Type.ToString(),
+            drawing.Title,
+            drawing.FileName,
+            drawing.FileSize,
+            drawing.Url
+        });
     }
 
     // =========================================================================

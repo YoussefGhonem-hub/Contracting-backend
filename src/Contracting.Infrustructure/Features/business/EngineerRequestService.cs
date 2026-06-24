@@ -1762,7 +1762,7 @@ public class EngineerRequestService : IEngineerRequestService
             StartDate = r.startDate,
             EndDate = r.endDate,
             NeedsReceiptConfirmation = r.NeedsReceiptConfirmation,
-            EngineerRequestAttachments = r.EngineerRequestAttachments == null ? new() : r.EngineerRequestAttachments.Select(a => new GetAttachmentDto { Id = a.Id, Key = a.Key, FileName = a.FileName, Extension = a.Extension, FileSize = a.FileSize, Url = a.Url }).ToList(),
+            EngineerRequestAttachments = r.EngineerRequestAttachments == null ? new() : r.EngineerRequestAttachments.Select(a => new GetAttachmentDto { Id = a.Id, Key = a.Key, FileName = a.FileName, Extension = a.Extension, FileSize = a.FileSize, Url = _storageService.GetPreSignedUrl(a.Key) ?? a.Url }).ToList(),
             SpecialFieldValues = r.SpecialFieldValues == null ? new() : r.SpecialFieldValues.Select(v => new EngineerRequestSpecialFieldValueDto
             {
                 Id = v.Id,
@@ -1794,7 +1794,7 @@ public class EngineerRequestService : IEngineerRequestService
                 EngineerId = n.EngineerId,
                 Engineer = n.Engineer == null ? null : new GetEngineerDto { Id = n.Engineer.Id, nameEn = n.Engineer.nameEn, nameAr = n.Engineer.nameAr },
                 CreatedDate = n.CreatedDate,
-                Attachments = n.EngineerRequestAttachments == null ? new List<GetAttachmentDto>() : n.EngineerRequestAttachments.Select(a => new GetAttachmentDto { Id = a.Id, Key = a.Key, FileName = a.FileName, Extension = a.Extension, FileSize = a.FileSize, Url = a.Url }).ToList()
+                Attachments = n.EngineerRequestAttachments == null ? new List<GetAttachmentDto>() : n.EngineerRequestAttachments.Select(a => new GetAttachmentDto { Id = a.Id, Key = a.Key, FileName = a.FileName, Extension = a.Extension, FileSize = a.FileSize, Url = _storageService.GetPreSignedUrl(a.Key) ?? a.Url }).ToList()
             }).ToList(),
             EngineerRequestActivites = r.EngineerRequestActivites == null ? new() : r.EngineerRequestActivites.Select(a => new GetEngineerRequestActiviteDto
             {
@@ -1922,7 +1922,7 @@ public class EngineerRequestService : IEngineerRequestService
                 ReceivedQuantity = i.ReceivedQuantity,
                 Notes = i.Notes
             }).ToList(),
-            EngineerRequestAttachments = r.Attachments == null ? new() : r.Attachments.Select(a => new GetAttachmentDto { Id = a.Id, Key = a.Key, FileName = a.FileName, Extension = a.Extension, FileSize = a.FileSize, Url = a.Url }).ToList(),
+            EngineerRequestAttachments = r.Attachments == null ? new() : r.Attachments.Select(a => new GetAttachmentDto { Id = a.Id, Key = a.Key, FileName = a.FileName, Extension = a.Extension, FileSize = a.FileSize, Url = _storageService.GetPreSignedUrl(a.Key) ?? a.Url }).ToList(),
             EngineerRequestActivites = r.Activities == null ? new() : r.Activities.Select(a => new GetEngineerRequestActiviteDto
             {
                 Id = a.Id,
@@ -2074,7 +2074,7 @@ public class EngineerRequestService : IEngineerRequestService
                 TotalAmount = rec.TotalAmount,
                 Notes = rec.Notes
             }).ToList(),
-            EngineerRequestAttachments = r.Attachments == null ? new() : r.Attachments.Select(a => new GetAttachmentDto { Id = a.Id, Key = a.Key, FileName = a.FileName, Extension = a.Extension, FileSize = a.FileSize, Url = a.Url }).ToList(),
+            EngineerRequestAttachments = r.Attachments == null ? new() : r.Attachments.Select(a => new GetAttachmentDto { Id = a.Id, Key = a.Key, FileName = a.FileName, Extension = a.Extension, FileSize = a.FileSize, Url = _storageService.GetPreSignedUrl(a.Key) ?? a.Url }).ToList(),
             EngineerRequestActivites = r.Activities == null ? new() : r.Activities.Select(a => new GetEngineerRequestActiviteDto
             {
                 Id = a.Id,
@@ -2195,7 +2195,7 @@ public class EngineerRequestService : IEngineerRequestService
             AdvanceAmount = r.AdvanceAmount,
             SpentAmount = r.SpentAmount,
             RemainingAmount = r.RemainingAmount,
-            EngineerRequestAttachments = r.Attachments == null ? new() : r.Attachments.Select(a => new GetAttachmentDto { Id = a.Id, Key = a.Key, FileName = a.FileName, Extension = a.Extension, FileSize = a.FileSize, Url = a.Url }).ToList(),
+            EngineerRequestAttachments = r.Attachments == null ? new() : r.Attachments.Select(a => new GetAttachmentDto { Id = a.Id, Key = a.Key, FileName = a.FileName, Extension = a.Extension, FileSize = a.FileSize, Url = _storageService.GetPreSignedUrl(a.Key) ?? a.Url }).ToList(),
             EngineerRequestActivites = r.Activities == null ? new() : r.Activities.Select(a => new GetEngineerRequestActiviteDto
             {
                 Id = a.Id,

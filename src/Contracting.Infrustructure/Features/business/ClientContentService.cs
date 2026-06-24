@@ -6,6 +6,7 @@ using Contracting.Shared.Dtos.BusinessDtos.ClientContentManagementDtos;
 using Contracting.Shared.Storage;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Storage.AWS3.Services;
 
 namespace Contracting.Infrustructure.Features.business;
 
@@ -13,11 +14,13 @@ public class ClientContentService : IClientContentService
 {
     private readonly ApplicationDbContext _db;
     private readonly IFileStorage _fileStorage;
+    private readonly IStorageService _storageService;
 
-    public ClientContentService(ApplicationDbContext db, IFileStorage fileStorage)
+    public ClientContentService(ApplicationDbContext db, IFileStorage fileStorage, IStorageService storageService)
     {
         _db = db;
         _fileStorage = fileStorage;
+        _storageService = storageService;
     }
 
     public async Task<UpdatedTenderDocumentDto?> UpdateTenderDocumentAsync(
@@ -40,7 +43,7 @@ public class ClientContentService : IClientContentService
             tender.FileName = file.FileName;
             tender.Extension = Path.GetExtension(file.FileName);
             tender.FileSize = file.Length;
-            tender.Url = "/" + relativePath.TrimStart('/');
+            tender.Url = _storageService.GetUploadedFileUrl(relativePath);
 
             if (!string.IsNullOrWhiteSpace(oldKey))
                 await _fileStorage.DeleteAsync(oldKey, cancellationToken);
@@ -81,7 +84,7 @@ public class ClientContentService : IClientContentService
             schedule.FileName = file.FileName;
             schedule.Extension = Path.GetExtension(file.FileName);
             schedule.FileSize = file.Length;
-            schedule.Url = "/" + relativePath.TrimStart('/');
+            schedule.Url = _storageService.GetUploadedFileUrl(relativePath);
 
             if (!string.IsNullOrWhiteSpace(oldKey))
                 await _fileStorage.DeleteAsync(oldKey, cancellationToken);
@@ -150,7 +153,7 @@ public class ClientContentService : IClientContentService
                     FileName = file.FileName,
                     Extension = Path.GetExtension(file.FileName),
                     FileSize = file.Length,
-                    Url = "/" + relativePath.TrimStart('/')
+                    Url = _storageService.GetUploadedFileUrl(relativePath)
                 });
             }
         }
@@ -170,7 +173,7 @@ public class ClientContentService : IClientContentService
             {
                 Id = a.Id,
                 FileName = a.FileName,
-                Url = a.Url,
+                Url = _storageService.GetPreSignedUrl(a.Key) ?? a.Url,
                 FileSize = a.FileSize
             }).ToList()
         };

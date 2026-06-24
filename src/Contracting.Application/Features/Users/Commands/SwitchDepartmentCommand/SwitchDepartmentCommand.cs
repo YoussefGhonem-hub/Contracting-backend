@@ -87,22 +87,24 @@ public class SwitchDepartmentCommandHandler : IRequestHandler<SwitchDepartmentCo
         if (!string.IsNullOrEmpty(newRoleName))
             await _userManager.AddToRoleAsync(user, newRoleName);
 
-        // Get branch
+        // Get branch (include Branch for currency)
         var department = await _db.Departmentes
+            .Include(d => d.Branch)
             .FirstOrDefaultAsync(d => d.Id == request.DepartmentId, cancellationToken);
         var branchId = department?.BranchId;
+        var currency = department?.Branch?.currency;
 
         // Check if department has team lead
         bool departmentHaveTeamLeadOrNot = await _engineerRequestService.DepartmentHasTeamLeadAsync(request.DepartmentId);
 
         // Generate new tokens
         var roles = await _userManager.GetRolesAsync(user);
-        var accessToken = _tokenService.GenerateToken(user, roles, request.DepartmentId, engineer.Id, departmentHaveTeamLeadOrNot, branchId);
+        var accessToken = _tokenService.GenerateToken(user, roles, request.DepartmentId, engineer.Id, departmentHaveTeamLeadOrNot, branchId, currency);
         var accessExp = DateTime.UtcNow.AddMinutes(_jwt.DurationInMinutes);
 
         var ip = _http.HttpContext?.Connection.RemoteIpAddress?.ToString();
         var (refreshToken, refreshExp) = await _refreshTokens.CreateAsync(user, ip, cancellationToken);
 
-        return new TokenPairResponse(accessToken, accessExp, refreshToken, refreshExp);
+        return new TokenPairResponse(accessToken, accessExp, refreshToken, refreshExp, currency);
     }
 }

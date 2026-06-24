@@ -80,6 +80,8 @@ public static class CurrentUser
     public static IReadOnlyList<string> Audiences => GetAudiences();
     public static bool IsAuthenticated => HttpContextAccessor?.HttpContext?.User?.Identity?.IsAuthenticated == true;
 
+    public static string? Currency => GetClaimValue("currency");
+
     public static string? GetClaimValue(string key)
     {
         var principal = HttpContextAccessor?.HttpContext?.User;

@@ -5,6 +5,13 @@ namespace Storage.AWS3.Services;
 public interface IStorageService
 {
     Task<StoredFile> Upload(IFormFile? file, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Uploads a file to S3 using the given keyPrefix as the "folder".
+    /// The stored key will be "{keyPrefix}/{uuid}{ext}" so that
+    /// GetPreSignedUrl(key) can find it later.
+    /// </summary>
+    Task<StoredFile> UploadWithKeyPrefix(IFormFile file, string keyPrefix, CancellationToken cancellationToken = default);
     Task<List<StoredFile>?> UploadFiles(List<IFormFile>? file, CancellationToken cancellationToken = default);
     Task<string> UploadLocalVideoToS3Async(string localFilePath, CancellationToken cancellationToken = default);
     Task<bool> Delete(string key, CancellationToken cancellationToken = default);
@@ -17,6 +24,7 @@ public interface IStorageService
     /// empty or the URL could not be generated. This is a local operation (no network call).
     /// </summary>
     string? GetPreSignedUrl(string? key, TimeSpan? expiresIn = null);
+    string GetUploadedFileUrl(string key);
     public Task<string> DownloadVideoFromS3ToLocalAsync(string keyOrUrl, string localFileName, CancellationToken cancellationToken = default); // ✅ NEW
 
 }

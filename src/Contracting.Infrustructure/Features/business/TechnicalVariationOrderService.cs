@@ -7,6 +7,7 @@ using Contracting.Shared.Dtos.BusinessDtos.VariationOrderDtos;
 using Contracting.Shared.Dtos.ClientDtos.VariationOrderDtos;
 using Contracting.Shared.Storage;
 using Microsoft.EntityFrameworkCore;
+using Storage.AWS3.Services;
 
 namespace Contracting.Infrustructure.Features.business;
 
@@ -14,11 +15,13 @@ public class TechnicalVariationOrderService : ITechnicalVariationOrderService
 {
     private readonly ApplicationDbContext _db;
     private readonly IFileStorage _fileStorage;
+    private readonly IStorageService _storageService;
 
-    public TechnicalVariationOrderService(ApplicationDbContext db, IFileStorage fileStorage)
+    public TechnicalVariationOrderService(ApplicationDbContext db, IFileStorage fileStorage, IStorageService storageService)
     {
         _db = db;
         _fileStorage = fileStorage;
+        _storageService = storageService;
     }
 
     public async Task<GetClientVariationOrderDetailDto?> CreateVariationOrderAsync(CreateVariationOrderDto dto, CancellationToken cancellationToken = default)
@@ -72,7 +75,7 @@ public class TechnicalVariationOrderService : ITechnicalVariationOrderService
                     FileName = file.FileName,
                     Extension = Path.GetExtension(file.FileName),
                     FileSize = file.Length,
-                    Url = "/" + relativePath.TrimStart('/')
+                    Url = _storageService.GetUploadedFileUrl(relativePath)
                 });
             }
         }
@@ -98,7 +101,7 @@ public class TechnicalVariationOrderService : ITechnicalVariationOrderService
                 FileName = a.FileName,
                 Extension = a.Extension,
                 FileSize = a.FileSize,
-                Url = a.Url
+                Url = _storageService.GetPreSignedUrl(a.Key) ?? a.Url
             }).ToList()
         };
     }
