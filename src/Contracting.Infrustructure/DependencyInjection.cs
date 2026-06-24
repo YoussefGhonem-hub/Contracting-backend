@@ -78,6 +78,7 @@ public static class DependencyInjection
         services.AddScoped<ITransferRequestService, TransferRequestService>();
         services.AddScoped<IFinancialClearanceService, FinancialClearanceService>();
         services.AddScoped<ILaborAttendanceService, LaborAttendanceService>();
+        services.AddScoped<IClientContentService, ClientContentService>();
 
         services.AddHttpContextAccessor();
 

@@ -1,4 +1,7 @@
 using Contracting.API.Controllers.Shared;
+using Contracting.Application.Features.Business.ClientContent.Command.UpdateMonthlyReport;
+using Contracting.Application.Features.Business.ClientContent.Command.UpdateSchedule;
+using Contracting.Application.Features.Business.ClientContent.Command.UpdateTenderDocument;
 using Contracting.Domain.Common.Enums;
 using Contracting.Domain.Entities.client;
 using Contracting.Infrustructure.Persistence;
@@ -6,6 +9,7 @@ using Contracting.Shared.Common;
 using Contracting.Shared.CurrentUser;
 using Contracting.Shared.Dtos.BusinessDtos.ClientContentManagementDtos;
 using Contracting.Shared.Storage;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -19,11 +23,13 @@ public class ClientContentManagementController : APIBaseController
 {
     private readonly ApplicationDbContext _db;
     private readonly IFileStorage _fileStorage;
+    private readonly IMediator _mediator;
 
-    public ClientContentManagementController(ApplicationDbContext db, IFileStorage fileStorage)
+    public ClientContentManagementController(ApplicationDbContext db, IFileStorage fileStorage, IMediator mediator)
     {
         _db = db;
         _fileStorage = fileStorage;
+        _mediator = mediator;
     }
 
     [HttpPost("monthly-reports")]
@@ -461,6 +467,19 @@ public class ClientContentManagementController : APIBaseController
     }
 
     // =========================================================================
+    // PUT /api/backoffice/client-content/schedules/{scheduleId}
+    // Update title/version and optionally replace the stored file.
+    // =========================================================================
+    [HttpPut("schedules/{scheduleId:guid}")]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> UpdateSchedule(Guid scheduleId, [FromForm] UpdateScheduleRequest request, CancellationToken cancellationToken)
+    {
+        var command = new UpdateScheduleCommand(scheduleId, request.Title, request.Version, request.File);
+        var result = await _mediator.Send(command, cancellationToken);
+        return result.Match(value => Ok(value), errors => Problem(errors));
+    }
+
+    // =========================================================================
     // DELETE /api/backoffice/client-content/schedules/{scheduleId}
     // =========================================================================
     [HttpDelete("schedules/{scheduleId:guid}")]
@@ -481,6 +500,19 @@ public class ClientContentManagementController : APIBaseController
     }
 
     // =========================================================================
+    // PUT /api/backoffice/client-content/tender-documents/{tenderId}
+    // Update title and optionally replace the stored file.
+    // =========================================================================
+    [HttpPut("tender-documents/{tenderId:guid}")]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> UpdateTenderDocument(Guid tenderId, [FromForm] UpdateTenderDocumentRequest request, CancellationToken cancellationToken)
+    {
+        var command = new UpdateTenderDocumentCommand(tenderId, request.Title, request.File);
+        var result = await _mediator.Send(command, cancellationToken);
+        return result.Match(value => Ok(value), errors => Problem(errors));
+    }
+
+    // =========================================================================
     // DELETE /api/backoffice/client-content/tender-documents/{tenderId}
     // =========================================================================
     [HttpDelete("tender-documents/{tenderId:guid}")]
@@ -498,6 +530,21 @@ public class ClientContentManagementController : APIBaseController
         await _db.SaveChangesAsync(cancellationToken);
 
         return Ok(new { message = "Tender document deleted successfully." });
+    }
+
+    // =========================================================================
+    // PUT /api/backoffice/client-content/monthly-reports/{reportId}
+    // Update metadata, append new attachments, and/or remove existing attachments.
+    // =========================================================================
+    [HttpPut("monthly-reports/{reportId:guid}")]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> UpdateMonthlyReport(Guid reportId, [FromForm] UpdateMonthlyReportRequest request, CancellationToken cancellationToken)
+    {
+        var command = new UpdateMonthlyReportCommand(
+            reportId, request.Month, request.Year, request.Title, request.WorkProgress,
+            request.Attachments, request.RemoveAttachmentIds);
+        var result = await _mediator.Send(command, cancellationToken);
+        return result.Match(value => Ok(value), errors => Problem(errors));
     }
 
     // =========================================================================
