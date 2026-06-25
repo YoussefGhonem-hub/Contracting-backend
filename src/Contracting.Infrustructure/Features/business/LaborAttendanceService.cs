@@ -5,6 +5,7 @@ using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Infrustructure.Inteface.business;
 using Contracting.Infrustructure.Inteface.Helper;
 using Contracting.Infrustructure.Persistence;
+using Contracting.Shared.BusinessDtos.EngineerRequestNotesDtos;
 using Contracting.Shared.BusinessDtos.LaborAttendanceDto;
 using Contracting.Shared.Common;
 using Contracting.Shared.CurrentUser;
@@ -560,7 +561,20 @@ namespace Contracting.Infrustructure.Features.business
                 Comments = a.Comments,
                 Engineer = a.Engineer is null ? null : new GetEngineerDto { Id = a.Engineer.Id, nameEn = a.Engineer.nameEn, nameAr = a.Engineer.nameAr },
                 CreatedDate = a.CreatedDate
-            }).ToList()
+            }).ToList(),
+            EngineerRequestNotes = r.Activities
+                .Where(a => !string.IsNullOrWhiteSpace(a.Comments))
+                .Select(a => new GetEngineerRequestNotesDto
+                {
+                    Id          = a.Id,
+                    note        = a.Comments,
+                    EngineerId  = a.EngineerId,
+                    Engineer    = a.Engineer is null ? null : new GetEngineerDto { Id = a.Engineer.Id, nameEn = a.Engineer.nameEn, nameAr = a.Engineer.nameAr },
+                    CreatedDate = a.CreatedDate,
+                    Attachments = new List<GetAttachmentDto>()
+                })
+                .OrderBy(n => n.CreatedDate)
+                .ToList()
         };
     }
 }

@@ -2,6 +2,7 @@ using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.ProjectDtos;
 using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
 using Contracting.Shared.Dtos.MasterDtos.StatusDtos;
+using Contracting.Shared.BusinessDtos.EngineerRequestNotesDtos;
 
 namespace Contracting.Shared.BusinessDtos.TransferRequestDto
 {
@@ -25,5 +26,7 @@ namespace Contracting.Shared.BusinessDtos.TransferRequestDto
         public List<GetTransferRequestItemDto> Items { get; set; } = new();
         public List<GetAttachmentDto> Attachments { get; set; } = new();
         public List<GetTransferRequestActivityDto> Activities { get; set; } = new();
+        /// <summary>Activity comments projected into the same Notes shape used by other request types.</summary>
+        public List<GetEngineerRequestNotesDto> EngineerRequestNotes { get; set; } = new();
     }
 }

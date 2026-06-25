@@ -1,3 +1,4 @@
+using Contracting.Shared.BusinessDtos.EngineerRequestNotesDtos;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.DepartmentDtos;
 using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
@@ -28,5 +29,7 @@ namespace Contracting.Shared.BusinessDtos.LaborAttendanceDto
         public List<GetLaborAttendanceRecordDto> Records { get; set; } = new();
         public List<GetAttachmentDto> Attachments { get; set; } = new();
         public List<GetLaborAttendanceActivityDto> Activities { get; set; } = new();
+        /// <summary>Activity comments projected into the same Notes shape used by other request types.</summary>
+        public List<GetEngineerRequestNotesDto> EngineerRequestNotes { get; set; } = new();
     }
 }
