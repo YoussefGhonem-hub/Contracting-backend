@@ -39,7 +39,7 @@ namespace Contracting.API
                       new CultureInfo("en")
                   };
 
-                options.DefaultRequestCulture = new RequestCulture(culture: "en", uiCulture: "ar");
+                options.DefaultRequestCulture = new RequestCulture(culture: "en", uiCulture: "en");
                 options.SupportedCultures = supportedFormattingCultures;
                 options.SupportedUICultures = supportedUICultures;
                 options.RequestCultureProviders.Insert(

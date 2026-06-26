@@ -1,4 +1,5 @@
-﻿using Contracting.Domain.Entities.helper;
+﻿using Contracting.Domain.Common.Enums;
+using Contracting.Domain.Entities.helper;
 using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Infrustructure.Inteface.Helper;
 using Contracting.Infrustructure.Persistence;
@@ -149,6 +150,7 @@ namespace Contracting.Infrustructure.Features.Helper
                     EngineerId = engineerId,
                     DepartmentId = departmentId,
                     RequestId = requestId,
+                    Key = notification.Key,
                     SentAt = Contracting.Shared.Common.DateTimeHelper.Now
                 };
 
@@ -161,7 +163,7 @@ namespace Contracting.Infrustructure.Features.Helper
             }
         }
 
-        public async Task SendNotificationToUserAsync(Guid userId, string title, string body, Guid? requestId = null, Guid? departmentId = null)
+        public async Task SendNotificationToUserAsync(Guid userId, string title, string body, Guid? requestId = null, Guid? departmentId = null, NotificationKey? key = null)
         {
             if (userId == Guid.Empty)
                 return;
@@ -187,7 +189,8 @@ namespace Contracting.Infrustructure.Features.Helper
                     Body = body,
                     EngineerId = engineerId?.ToString(),
                     RequestId = requestId?.ToString(),
-                    DepartmentId = departmentId?.ToString()
+                    DepartmentId = departmentId?.ToString(),
+                    Key = key
                 };
                 try
                 {

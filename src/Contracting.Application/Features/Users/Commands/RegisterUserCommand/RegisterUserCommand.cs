@@ -7,6 +7,7 @@ using ErrorOr;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Options;
 
 namespace Contracting.Application.Features.Users.Commands.RegisterUserCommand;
 
@@ -16,13 +17,14 @@ public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, E
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ITokenService _tokenService;
     private readonly IStringLocalizer<SharedResources> _localizer;
+    private readonly JwtSettings _jwt;
 
-
-    public RegisterUserCommandHandler(UserManager<ApplicationUser> userManager, ITokenService tokenService, IStringLocalizer<SharedResources> localizer)
+    public RegisterUserCommandHandler(UserManager<ApplicationUser> userManager, ITokenService tokenService, IStringLocalizer<SharedResources> localizer, IOptions<JwtSettings> jwtOptions)
     {
         _userManager = userManager;
         _tokenService = tokenService;
         _localizer = localizer;
+        _jwt = jwtOptions.Value;
     }
 
     public async Task<ErrorOr<AuthResponse>> Handle(RegisterUserCommand request, CancellationToken cancellationToken)
@@ -30,8 +32,7 @@ public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, E
         var existingByEmail = await _userManager.FindByEmailAsync(request.Request.Email);
         if (existingByEmail is not null)
             return Error.Conflict("General.Conflict",_localizer[SharedResourcesKeys.DublicateEmail]);
-        
-        
+
         var user = new ApplicationUser
         {
             FullName = request.Request.FullName,
@@ -47,7 +48,7 @@ public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, E
         await _userManager.AddToRoleAsync(user, "Admin");
 
         var token = _tokenService.GenerateToken(user, new List<string> { "Admin" });
-        var response = new AuthResponse(token, DateTime.UtcNow.AddHours(1), CurrentUser.UserId, user.Email!);
+        var response = new AuthResponse(token, DateTime.UtcNow.AddMinutes(_jwt.DurationInMinutes), CurrentUser.UserId, user.Email!);
 
         return response;
     }
