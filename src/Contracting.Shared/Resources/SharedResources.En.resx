@@ -133,7 +133,7 @@
     <value>This Feild Is Required</value>
   </data>
   <data name="InvalidCredentials" xml:space="preserve">
-    <value>Invalid Credentials</value>
+    <value>Incorrect email address or password. Please check your details and try again.</value>
   </data>
   <data name="value" xml:space="preserve">
     <value />

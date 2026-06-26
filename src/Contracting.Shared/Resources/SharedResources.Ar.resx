@@ -133,7 +133,7 @@
     <value>هذا الحقل مطلوب</value>
   </data>
   <data name="InvalidCredentials" xml:space="preserve">
-    <value>بيانات الاعتماد غير صحيحة.</value>
+    <value>البريد الإلكتروني أو كلمة المرور غير صحيحة. يرجى التحقق من بياناتك والمحاولة مرة أخرى.</value>
   </data>
   <data name="value" xml:space="preserve">
     <value />
