@@ -5,6 +5,7 @@ using ErrorOr;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Storage.AWS3.Services;
 
 namespace Contracting.Application.Features.Users.Queries.GetSignatureByReportId;
 
@@ -14,11 +15,13 @@ public class GetSignatureByReportIdQueryHandler : IRequestHandler<GetSignatureBy
 {
     private readonly ApplicationDbContext _db;
     private readonly IStringLocalizer<SharedResources> _localizer;
+    private readonly IStorageService _s3;
 
-    public GetSignatureByReportIdQueryHandler(ApplicationDbContext db, IStringLocalizer<SharedResources> localizer)
+    public GetSignatureByReportIdQueryHandler(ApplicationDbContext db, IStringLocalizer<SharedResources> localizer, IStorageService s3)
     {
         _db = db;
         _localizer = localizer;
+        _s3 = s3;
     }
 
     public async Task<ErrorOr<UserSignatureDto>> Handle(GetSignatureByReportIdQuery request, CancellationToken cancellationToken)
@@ -44,7 +47,9 @@ public class GetSignatureByReportIdQueryHandler : IRequestHandler<GetSignatureBy
         {
             Id = signature.Id,
             UserId = signature.UserId,
-            SignatureUrl = signature.SignatureUrl,
+            SignatureUrl = string.IsNullOrWhiteSpace(signature.SignatureUrl)
+                ? signature.SignatureUrl
+                : _s3.GetPreSignedUrl(signature.SignatureUrl),
             FileName = signature.FileName,
             ContentType = signature.ContentType,
             FileSize = signature.FileSize,

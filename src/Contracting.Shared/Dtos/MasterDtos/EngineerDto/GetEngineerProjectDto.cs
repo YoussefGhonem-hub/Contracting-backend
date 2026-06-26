@@ -1,3 +1,4 @@
+using Contracting.Shared.Common.Enums;
 using Contracting.Shared.Dtos.MasterDtos.BranchDto;
 
 namespace Contracting.Shared.Dtos.MasterDtos.EngineerDto
@@ -13,5 +14,6 @@ namespace Contracting.Shared.Dtos.MasterDtos.EngineerDto
         public Guid? BranchId { get; set; }
         public GetBranchDto? Branch { get; set; }
         public bool IsProjectManager { get; set; }
+        public ProjectStatus? ProjectStatus { get; set; }
     }
 }

@@ -1504,6 +1504,15 @@ public class EngineerRequestService : IEngineerRequestService
             var financialClearances = await GetFinancialClearancesForUnifiedAsync(engineer, filter, cancellationToken);
             allUnifiedRequests.AddRange(financialClearances);
 
+            // Apply RequestType filter if provided
+            if (!string.IsNullOrWhiteSpace(filter.RequestType))
+            {
+                // InternalRequest is stored as RequestType "InternalRequest" but is also an EngineerRequest
+                allUnifiedRequests = allUnifiedRequests
+                    .Where(r => string.Equals(r.RequestType, filter.RequestType, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+
             // Sort by CreatedDate descending
             var sortedRequests = allUnifiedRequests.OrderByDescending(r => r.CreatedDate).ToList();
 
@@ -1823,12 +1832,16 @@ public class EngineerRequestService : IEngineerRequestService
         EngineerRequestParticipationFilterDto filter,
         CancellationToken cancellationToken)
     {
-        // Any engineer who created the request OR is assigned to the destination project can see it.
-        // Admins see all transfers.
+        // Only Site Engineers and Admins can see Transfer Requests.
         var transferRoles = CurrentUser.Roles;
         var isTransferAdmin = transferRoles.Any(r =>
             r.Equals(RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase) ||
             r.Equals(RoleNames.Admin, StringComparison.OrdinalIgnoreCase));
+        var isSiteEngineer = transferRoles.Any(r =>
+            r.Equals(RoleNames.Siteengineer, StringComparison.OrdinalIgnoreCase));
+
+        if (!isTransferAdmin && !isSiteEngineer)
+            return new List<GetUnifiedRequestDto>();
 
         // Get all project IDs this engineer is assigned to (destination project visibility)
         var engineerProjectIds = await _db.EngineerProjects
@@ -1857,9 +1870,10 @@ public class EngineerRequestService : IEngineerRequestService
                     && engineerProjectIds.Contains(r.DestinationProjectId.Value)));
 
         if (filter.ProjectId.HasValue && filter.ProjectId.Value != Guid.Empty)
-        {
             query = query.Where(r => r.SourceProjectId == filter.ProjectId.Value || r.DestinationProjectId == filter.ProjectId.Value);
-        }
+
+        if (filter.StatusId.HasValue && filter.StatusId.Value != Guid.Empty)
+            query = query.Where(r => r.StatusId == filter.StatusId.Value);
 
         var requests = await query.ToListAsync(cancellationToken);
 
@@ -2022,6 +2036,9 @@ public class EngineerRequestService : IEngineerRequestService
             }
         }
         // Admin/SuperAdmin: sees all requests (only filtered by data params above)
+
+        if (filter.StatusId.HasValue && filter.StatusId.Value != Guid.Empty)
+            query = query.Where(r => r.StatusId == filter.StatusId.Value);
 
         var requests = await query.ToListAsync(cancellationToken);
 
@@ -2459,8 +2476,9 @@ public class EngineerRequestService : IEngineerRequestService
                                   || r.Equals(RoleNames.Admin, StringComparison.OrdinalIgnoreCase));
 
         // --- Transfer Request counts ---
-        // Any engineer assigned to the destination project (or who created it) can see transfers.
-        // Admins see all.
+        // Only Site Engineers and Admins can see transfers.
+        var isSiteEngineerForCount = roles.Any(r => r.Equals(RoleNames.Siteengineer, StringComparison.OrdinalIgnoreCase));
+        if (isAdmin || isSiteEngineerForCount)
         {
             var transferProjectIds = await _db.EngineerProjects
                 .Where(ep => ep.EngineerId == engineerId)

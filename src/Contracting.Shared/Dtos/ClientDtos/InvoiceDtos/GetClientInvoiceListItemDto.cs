@@ -8,6 +8,7 @@ public class GetClientInvoiceListItemDto
     public decimal TotalValue { get; set; }
     public decimal PaidAmount { get; set; }
     public string Status { get; set; } = string.Empty;
+    public string? Notes { get; set; }
     public DateTimeOffset? IssueDate { get; set; }
     public DateTimeOffset? DueDate { get; set; }
 }

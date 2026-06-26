@@ -48,6 +48,7 @@ public class ClientInvoiceService : IClientInvoiceService
                 i.TotalValue,
                 i.PaidAmount,
                 i.Status,
+                i.Notes,
                 i.IssueDate,
                 i.DueDate
             })
@@ -61,6 +62,7 @@ public class ClientInvoiceService : IClientInvoiceService
             TotalValue = i.TotalValue,
             PaidAmount = i.PaidAmount,
             Status = FormatInvoiceStatus(i.Status, i.DueDate),
+            Notes = i.Notes,
             IssueDate = i.IssueDate,
             DueDate = i.DueDate
         }).ToList();

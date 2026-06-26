@@ -9,5 +9,7 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestDto
         public Guid? AssignToId { get; set; }
         public Guid? DepartmentId { get; set; }
         public Guid? StatusId { get; set; }
+        /// <summary>Filter by request type: EngineerRequest, InternalRequest, TransferRequest, LaborAttendance, FinancialClearance</summary>
+        public string? RequestType { get; set; }
     }
 }

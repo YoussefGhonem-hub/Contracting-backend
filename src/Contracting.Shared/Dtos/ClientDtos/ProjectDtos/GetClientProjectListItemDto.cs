@@ -14,4 +14,6 @@ public class GetClientProjectListItemDto
     public DateTimeOffset? ExpectedEndDate { get; set; }
     public ProjectStatus? ProjectStatus { get; set; }
     public string? Code { get; set; }
+    public Guid? BranchId { get; set; }
+    public string? Currency { get; set; }
 }

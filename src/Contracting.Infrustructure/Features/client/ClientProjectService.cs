@@ -34,7 +34,9 @@ public class ClientProjectService : IClientProjectService
                     Area = cp.Project.Area,
                     StartDate = cp.Project.StartDate,
                     ProjectStatus = cp.Project.ProjectStatus,
-                    Code = cp.Project.Code
+                    Code = cp.Project.Code,
+                    BranchId = cp.Project.BranchId,
+                    Currency = cp.Project.Branch != null ? cp.Project.Branch.currency : null
                 })
                 .ToListAsync(cancellationToken);
         }
@@ -51,7 +53,9 @@ public class ClientProjectService : IClientProjectService
                 Area = p.Area,
                 StartDate = p.StartDate,
                 ProjectStatus = p.ProjectStatus,
-                Code = p.Code
+                Code = p.Code,
+                BranchId = p.BranchId,
+                Currency = p.Branch != null ? p.Branch.currency : null
             })
             .ToListAsync(cancellationToken);
     }

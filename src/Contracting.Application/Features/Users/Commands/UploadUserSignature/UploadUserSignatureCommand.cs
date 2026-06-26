@@ -7,6 +7,7 @@ using ErrorOr;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Storage.AWS3.Services;
 
 namespace Contracting.Application.Features.Users.Commands.UploadUserSignature;
 
@@ -16,11 +17,13 @@ public class UploadUserSignatureCommandHandler : IRequestHandler<UploadUserSigna
 {
     private readonly ApplicationDbContext _db;
     private readonly IFileStorage _storage;
+    private readonly IStorageService _s3;
 
-    public UploadUserSignatureCommandHandler(ApplicationDbContext db, IFileStorage storage)
+    public UploadUserSignatureCommandHandler(ApplicationDbContext db, IFileStorage storage, IStorageService s3)
     {
         _db = db;
         _storage = storage;
+        _s3 = s3;
     }
 
     public async Task<ErrorOr<UserSignatureDto>> Handle(UploadUserSignatureCommand request, CancellationToken cancellationToken)
@@ -77,14 +80,16 @@ public class UploadUserSignatureCommandHandler : IRequestHandler<UploadUserSigna
             await _storage.DeleteAsync(previousPath, cancellationToken);
         }
 
-        return MapToDto(signature);
+        return MapToDto(signature, _s3);
     }
 
-    private static UserSignatureDto MapToDto(UserSignature entity) => new UserSignatureDto
+    private static UserSignatureDto MapToDto(UserSignature entity, IStorageService s3) => new UserSignatureDto
     {
         Id = entity.Id,
         UserId = entity.UserId,
-        SignatureUrl = entity.SignatureUrl,
+        SignatureUrl = string.IsNullOrWhiteSpace(entity.SignatureUrl)
+            ? entity.SignatureUrl
+            : s3.GetPreSignedUrl(entity.SignatureUrl),
         FileName = entity.FileName,
         ContentType = entity.ContentType,
         FileSize = entity.FileSize,

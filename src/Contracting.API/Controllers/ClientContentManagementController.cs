@@ -278,6 +278,7 @@ public class ClientContentManagementController : APIBaseController
             invoice.TotalValue,
             invoice.PaidAmount,
             Status = invoice.Status.ToString(),
+            invoice.Notes,
             invoice.IssueDate,
             invoice.DueDate
         });

@@ -428,7 +428,8 @@ namespace Contracting.Infrustructure.Features
                     location = ep.Project.Branch.location,
                     currency = ep.Project.Branch.currency
                 },
-                IsProjectManager = ep.IsProjectManager
+                IsProjectManager = ep.IsProjectManager,
+                ProjectStatus    = ep.Project?.ProjectStatus
             }).ToList();
         }
 
