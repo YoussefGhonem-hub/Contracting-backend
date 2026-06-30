@@ -37,6 +37,9 @@ namespace Contracting.Infrustructure.Persistence.Configurations.Helper
             builder.Property(x => x.ErrorMessage)
                 .HasMaxLength(1000);
 
+            builder.Property(x => x.Type)
+                .HasMaxLength(50);
+
             builder.Property(x => x.SentAt)
                 .IsRequired();
 
@@ -64,6 +67,9 @@ namespace Contracting.Infrustructure.Persistence.Configurations.Helper
 
             builder.HasIndex(x => x.EngineerId)
                 .HasDatabaseName("idx_NotificationLogs_EngineerId");
+
+            builder.HasIndex(x => x.ChatGroupId)
+                .HasDatabaseName("idx_NotificationLogs_ChatGroupId");
 
             builder.HasIndex(x => x.CreatedDate)
                 .HasDatabaseName("idx_NotificationLogs_CreatedDate");

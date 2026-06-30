@@ -58,17 +58,35 @@ namespace Contracting.Infrustructure.Features.Helper
 
         public async Task<bool> GenerateToken(string fcmToken)
         {
+            var currentUserId = Guid.Parse(CurrentUser.UserId);
+
+            // A device push token uniquely identifies a single physical device, so it must belong
+            // to exactly one user — the one currently logged in on it. Remove any registrations of
+            // the same token under OTHER users (e.g. a previous account that logged in on this
+            // device and never cleaned up). Otherwise messages meant for that previous account get
+            // pushed to this device, which shows up as "I received a notification for my own message".
+            var staleTokens = await _db.userDeviceTokens
+                .Where(t => t.FcmToken == fcmToken && t.UserId != currentUserId)
+                .ToListAsync();
+
+            if (staleTokens.Count > 0)
+                _db.userDeviceTokens.RemoveRange(staleTokens);
+
             var exists = await _db.userDeviceTokens
-                        .AnyAsync(t => t.UserId == Guid.Parse(CurrentUser.UserId)
+                        .AnyAsync(t => t.UserId == currentUserId
                             && t.FcmToken == fcmToken);
 
             if (!exists)
             {
                 _db.userDeviceTokens.Add(new UserDeviceToken
                 {
-                    UserId = Guid.Parse(CurrentUser.UserId),
+                    UserId = currentUserId,
                     FcmToken = fcmToken
                 });
+            }
+
+            if (staleTokens.Count > 0 || !exists)
+            {
                 await _db.SaveChangesAsync();
                 return true;
             }
@@ -98,6 +116,10 @@ namespace Contracting.Infrustructure.Features.Helper
                 data["DepartmentId"] = notification.DepartmentId;
             if (!string.IsNullOrEmpty(notification.RequestId))
                 data["RequestId"] = notification.RequestId;
+            if (!string.IsNullOrEmpty(notification.ChatGroupId))
+                data["ChatGroupId"] = notification.ChatGroupId;
+            if (!string.IsNullOrEmpty(notification.Type))
+                data["Type"] = notification.Type;
 
             var message = new Message()
             {
@@ -137,10 +159,16 @@ namespace Contracting.Infrustructure.Features.Helper
                 var engineerId = string.IsNullOrEmpty(notification.EngineerId) ? (Guid?)null : Guid.Parse(notification.EngineerId);
                 var departmentId = string.IsNullOrEmpty(notification.DepartmentId) ? (Guid?)null : Guid.Parse(notification.DepartmentId);
                 var requestId = string.IsNullOrEmpty(notification.RequestId) ? (Guid?)null : Guid.Parse(notification.RequestId);
+                var chatGroupId = string.IsNullOrEmpty(notification.ChatGroupId) ? (Guid?)null : Guid.Parse(notification.ChatGroupId);
+
+                // Attribute the log to the recipient. CurrentUser is empty inside the Hangfire
+                // background job (no HTTP context), so rely on the recipient id carried on the DTO.
+                var logUserId = notification.UserId
+                    ?? (Guid.TryParse(CurrentUser.UserId, out var current) ? current : Guid.Empty);
 
                 var notificationLog = new NotificationLog
                 {
-                    UserId = Guid.Parse(CurrentUser.UserId),
+                    UserId = logUserId,
                     Token = notification.Token,
                     Title = notification.Title,
                     Body = notification.Body,
@@ -149,6 +177,8 @@ namespace Contracting.Infrustructure.Features.Helper
                     EngineerId = engineerId,
                     DepartmentId = departmentId,
                     RequestId = requestId,
+                    ChatGroupId = chatGroupId,
+                    Type = notification.Type,
                     SentAt = Contracting.Shared.Common.DateTimeHelper.Now
                 };
 
@@ -161,9 +191,13 @@ namespace Contracting.Infrustructure.Features.Helper
             }
         }
 
-        public async Task SendNotificationToUserAsync(Guid userId, string title, string body, Guid? requestId = null, Guid? departmentId = null)
+        public async Task SendNotificationToUserAsync(Guid userId, string title, string body, Guid? requestId = null, Guid? departmentId = null, Guid? chatGroupId = null, string? type = null)
         {
             if (userId == Guid.Empty)
+                return;
+
+            // Never notify the user who triggered the action about their own action.
+            if (Guid.TryParse(CurrentUser.UserId, out var actingUserId) && actingUserId == userId)
                 return;
 
             // Resolve the EngineerId from the ApplicationUserId
@@ -175,7 +209,22 @@ namespace Contracting.Infrustructure.Features.Helper
             var tokens = await _db.userDeviceTokens
                 .Where(t => t.UserId == userId)
                 .Select(t => t.FcmToken)
+                .Distinct()
                 .ToListAsync();
+
+            // Defensive: never push to a token that is also registered to the acting user — that
+            // token is physically the sender's device, so pushing to it would notify the sender of
+            // their own action. (GenerateToken keeps tokens single-owner; this guards stale data.)
+            if (actingUserId != Guid.Empty)
+            {
+                var actingUserTokens = await _db.userDeviceTokens
+                    .Where(t => t.UserId == actingUserId)
+                    .Select(t => t.FcmToken)
+                    .ToListAsync();
+
+                if (actingUserTokens.Count > 0)
+                    tokens = tokens.Where(t => !actingUserTokens.Contains(t)).ToList();
+            }
 
             // enqueue a background job per token
             foreach (var token in tokens)
@@ -183,19 +232,25 @@ namespace Contracting.Infrustructure.Features.Helper
                 var notification = new PushNotificationDto
                 {
                     Token = token,
+                    UserId = userId,
                     Title = title,
                     Body = body,
                     EngineerId = engineerId?.ToString(),
                     RequestId = requestId?.ToString(),
-                    DepartmentId = departmentId?.ToString()
+                    DepartmentId = departmentId?.ToString(),
+                    ChatGroupId = chatGroupId?.ToString(),
+                    Type = type
                 };
                 try
                 {
+                    // SendAsync (the background job) is the single source of truth for logging — it
+                    // records the real send result. Do NOT log here too, or every notification would
+                    // be written to NotificationLogs twice and show up duplicated in the list.
                     _backgroundJobClient.Enqueue<NotificationService>(svc => svc.SendAsync(notification));
-                    await LogNotificationAsync(notification, true, null);
                 }
                 catch (Exception ex)
                 {
+                    // Enqueue itself failed, so SendAsync will never run — log the failure here.
                     _logger.LogError(ex, "Failed to enqueue notification job");
                     await LogNotificationAsync(notification, false, ex.Message);
                 }
@@ -332,6 +387,106 @@ namespace Contracting.Infrustructure.Features.Helper
         {
             return await _db.NotificationLogs
                 .Where(n => n.EngineerId == engineerId && !n.IsRead)
+                .CountAsync();
+        }
+
+        // ---------------------------------------------------------------------
+        // Current-user (token-resolved) variants — keyed on UserId so they work
+        // for every recipient, including clients/team members who are not engineers.
+        // ---------------------------------------------------------------------
+
+        public async Task<PaginatedList<GetNotificationDto>> GetMyNotificationsAsync(NotificationFilterDto filter)
+        {
+            if (!Guid.TryParse(CurrentUser.UserId, out var userId) || userId == Guid.Empty)
+            {
+                return new PaginatedList<GetNotificationDto>(
+                    new List<GetNotificationDto>(), 0, filter.PageIndex, filter.PageSize);
+            }
+
+            var query = _db.NotificationLogs
+                .Include(n => n.Engineer)
+                .Where(n => n.UserId == userId)
+                .AsNoTracking();
+
+            if (filter.IsRead.HasValue)
+            {
+                query = query.Where(n => n.IsRead == filter.IsRead.Value);
+            }
+
+            query = query.OrderByDescending(n => n.CreatedDate);
+
+            var totalCount = await query.CountAsync();
+
+            if (totalCount == 0)
+            {
+                return new PaginatedList<GetNotificationDto>(
+                    new List<GetNotificationDto>(), 0, filter.PageIndex, filter.PageSize);
+            }
+
+            var notifications = await query
+                .Skip((filter.PageIndex - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .ToListAsync();
+
+            var requestIds = notifications
+                .Where(n => n.RequestId.HasValue)
+                .Select(n => n.RequestId!.Value)
+                .Distinct()
+                .ToList();
+
+            var requestTitles = requestIds.Any()
+                ? await _db.EngineerRequests
+                    .Where(r => requestIds.Contains(r.Id))
+                    .Select(r => new { r.Id, r.RequestTitle })
+                    .ToDictionaryAsync(r => r.Id, r => r.RequestTitle)
+                : new Dictionary<Guid, string?>();
+
+            var dtos = notifications.Select(n =>
+            {
+                var dto = _mapper.Map<GetNotificationDto>(n);
+                dto.EngineerName = n.Engineer != null
+                    ? $"{n.Engineer.nameEn} / {n.Engineer.nameAr}"
+                    : null;
+                dto.RequestTitle = n.RequestId.HasValue && requestTitles.TryGetValue(n.RequestId.Value, out var title)
+                    ? title
+                    : null;
+                return dto;
+            }).ToList();
+
+            return new PaginatedList<GetNotificationDto>(
+                dtos, totalCount, filter.PageIndex, filter.PageSize);
+        }
+
+        public async Task<GenericResponse> MarkAllAsReadForCurrentUserAsync()
+        {
+            if (!Guid.TryParse(CurrentUser.UserId, out var userId) || userId == Guid.Empty)
+                return GenericResponse.FailureResult("User not found.");
+
+            var unread = await _db.NotificationLogs
+                .Where(n => n.UserId == userId && !n.IsRead)
+                .ToListAsync();
+
+            if (unread.Count == 0)
+                return GenericResponse.SuccessResult("No unread notifications.");
+
+            var now = Contracting.Shared.Common.DateTimeHelper.Now;
+            foreach (var n in unread)
+            {
+                n.IsRead = true;
+                n.ReadAt = now;
+            }
+
+            await _db.SaveChangesAsync();
+            return GenericResponse.SuccessResult($"{unread.Count} notifications marked as read.");
+        }
+
+        public async Task<int> GetMyUnreadCountAsync()
+        {
+            if (!Guid.TryParse(CurrentUser.UserId, out var userId) || userId == Guid.Empty)
+                return 0;
+
+            return await _db.NotificationLogs
+                .Where(n => n.UserId == userId && !n.IsRead)
                 .CountAsync();
         }
 

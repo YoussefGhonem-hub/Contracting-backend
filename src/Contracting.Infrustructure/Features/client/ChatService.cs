@@ -613,13 +613,16 @@ public class ChatService : IChatService
         var otherMembers = group.Members
             .Where(m => m.ApplicationUserId != senderId)
             .Select(m => m.ApplicationUserId)
+            .Distinct()
             .ToList();
 
         var tasks = otherMembers.Select(userId =>
             _notificationService.SendNotificationToUserAsync(
                 userId,
                 groupName,
-                $"{senderName}: {messagePreview}"));
+                $"{senderName}: {messagePreview}",
+                chatGroupId: groupId,
+                type: "Chat"));
 
         await Task.WhenAll(tasks);
     }

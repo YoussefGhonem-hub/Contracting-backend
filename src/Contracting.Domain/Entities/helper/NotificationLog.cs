@@ -17,6 +17,8 @@ namespace Contracting.Domain.Entities.helper
         public Engineer? Engineer { get; set; }
         public Guid? DepartmentId { get; set; }
         public Guid? RequestId { get; set; }
+        public Guid? ChatGroupId { get; set; }
+        public string? Type { get; set; }
         public DateTimeOffset SentAt { get; set; }
     }
 }

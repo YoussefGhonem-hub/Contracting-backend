@@ -1,6 +1,9 @@
 using Contracting.API.Controllers.Shared;
+using Contracting.Application.Features.Helper.Notification.Command.MarkAllMyNotificationsAsRead;
 using Contracting.Application.Features.Helper.Notification.Command.MarkAllNotificationsAsRead;
 using Contracting.Application.Features.Helper.Notification.Command.MarkNotificationAsRead;
+using Contracting.Application.Features.Helper.Notification.Query.GetMyNotifications;
+using Contracting.Application.Features.Helper.Notification.Query.GetMyUnreadNotificationCount;
 using Contracting.Application.Features.Helper.Notification.Query.GetNotificationById;
 using Contracting.Application.Features.Helper.Notification.Query.GetNotificationsByEngineer;
 using Contracting.Application.Features.Helper.Notification.Query.GetUnreadNotificationCount;
@@ -21,6 +24,46 @@ namespace Contracting.API.Controllers
         public NotificationController(IMediator mediator)
         {
             _mediator = mediator;
+        }
+
+        // Get notifications for the current logged-in user (works for every user type, including
+        // clients and team members who are not engineers — e.g. chat notifications).
+        [HttpGet("me")]
+        public async Task<IActionResult> GetMine([FromQuery] NotificationFilterDto filter)
+        {
+            var query = new GetMyNotificationsQuery(filter);
+            var result = await _mediator.Send(query);
+
+            return result.Match(
+                notifications => Ok(notifications),
+                errors => Problem(errors)
+            );
+        }
+
+        // Mark all of the current user's notifications as read
+        [HttpPut("me/read-all")]
+        public async Task<IActionResult> MarkAllMineAsRead()
+        {
+            var command = new MarkAllMyNotificationsAsReadCommand();
+            var result = await _mediator.Send(command);
+
+            return result.Match(
+                success => Ok(success),
+                errors => Problem(errors)
+            );
+        }
+
+        // Get unread notification count for the current user
+        [HttpGet("me/unread-count")]
+        public async Task<IActionResult> GetMyUnreadCount()
+        {
+            var query = new GetMyUnreadNotificationCountQuery();
+            var result = await _mediator.Send(query);
+
+            return result.Match(
+                count => Ok(new { count }),
+                errors => Problem(errors)
+            );
         }
 
         // Get notifications for a specific engineer (paginated, optionally filter by IsRead)

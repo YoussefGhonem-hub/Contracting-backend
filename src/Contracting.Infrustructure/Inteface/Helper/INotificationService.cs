@@ -6,7 +6,7 @@ namespace Contracting.Infrustructure.Inteface.Helper
 {
     public interface INotificationService
     {
-        Task SendNotificationToUserAsync(Guid userId, string title, string body, Guid? requestId = null, Guid? departmentId = null);
+        Task SendNotificationToUserAsync(Guid userId, string title, string body, Guid? requestId = null, Guid? departmentId = null, Guid? chatGroupId = null, string? type = null);
         Task SendAsync(PushNotificationDto notification);
         Task<bool> GenerateToken(string token);
         Task<bool> RemoveToken(string token);
@@ -15,5 +15,11 @@ namespace Contracting.Infrustructure.Inteface.Helper
         Task<GenericResponse> MarkAsReadAsync(Guid notificationId);
         Task<GenericResponse> MarkAllAsReadAsync(Guid engineerId);
         Task<int> GetUnreadCountAsync(Guid engineerId);
+
+        // Current-user (token-resolved) variants — work for every user type, including clients and
+        // team members who have no Engineer record (e.g. chat notifications).
+        Task<PaginatedList<GetNotificationDto>> GetMyNotificationsAsync(NotificationFilterDto filter);
+        Task<GenericResponse> MarkAllAsReadForCurrentUserAsync();
+        Task<int> GetMyUnreadCountAsync();
     }
 }

@@ -12,6 +12,8 @@ namespace Contracting.Shared.Dtos.HelperDtos
         public Guid? DepartmentId { get; set; }
         public Guid? RequestId { get; set; }
         public string? RequestTitle { get; set; }
+        public Guid? ChatGroupId { get; set; }
+        public string? Type { get; set; }
         public DateTimeOffset SentAt { get; set; }
         public DateTimeOffset CreatedDate { get; set; }
     }
