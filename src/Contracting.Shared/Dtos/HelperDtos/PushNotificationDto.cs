@@ -1,6 +1,4 @@
-﻿using Contracting.Domain.Common.Enums;
-
-namespace Contracting.Shared.Dtos.HelperDtos
+﻿namespace Contracting.Shared.Dtos.HelperDtos
 {
     public class PushNotificationDto
     {
@@ -10,7 +8,6 @@ namespace Contracting.Shared.Dtos.HelperDtos
         public string? EngineerId { get; set; }
         public string? DepartmentId { get; set; }
         public string? RequestId { get; set; }
-        public NotificationKey? Key { get; set; }
         public Dictionary<string, string>? Data { get; set; }
     }
 }

@@ -1,5 +1,4 @@
 using Contracting.Domain.Common;
-using Contracting.Domain.Common.Enums;
 using Contracting.Domain.Entities.master;
 
 namespace Contracting.Domain.Entities.helper
@@ -18,7 +17,6 @@ namespace Contracting.Domain.Entities.helper
         public Engineer? Engineer { get; set; }
         public Guid? DepartmentId { get; set; }
         public Guid? RequestId { get; set; }
-        public NotificationKey? Key { get; set; }
         public DateTimeOffset SentAt { get; set; }
     }
 }

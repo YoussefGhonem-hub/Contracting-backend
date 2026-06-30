@@ -1,4 +1,4 @@
-namespace Contracting.Domain.Common.Enums;
+namespace Contracting.Shared.Constants;
 
 public enum NotificationKey
 {
