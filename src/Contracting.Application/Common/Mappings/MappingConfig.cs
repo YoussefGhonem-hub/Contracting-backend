@@ -99,10 +99,12 @@ public static class MappingConfig
 
         config.NewConfig<CreateEngineerRequestDto, EngineerRequest>()
             .Ignore(dest => dest.SpecialFieldValues)
-            .Ignore(dest => dest.SpecialFieldItems);
+            .Ignore(dest => dest.SpecialFieldItems)
+            .Ignore(dest => dest.SpecialFieldListItems);
         config.NewConfig<UpdateEngineerRequestDto, EngineerRequest>()
             .Ignore(dest => dest.SpecialFieldValues)
-            .Ignore(dest => dest.SpecialFieldItems);
+            .Ignore(dest => dest.SpecialFieldItems)
+            .Ignore(dest => dest.SpecialFieldListItems);
 
         config.NewConfig<EngineerRequestSpecialFieldValue, EngineerRequestSpecialFieldValueDto>()
             .Map(dest => dest.fieldName, src => src.DepartmentSpecialField != null && src.DepartmentSpecialField.SpecialField != null ? src.DepartmentSpecialField.SpecialField.name : null)
@@ -110,6 +112,12 @@ public static class MappingConfig
 
         config.NewConfig<EngineerRequestSpecialFieldItem, GetEngineerRequestSpecialFieldItemDto>()
             .Map(dest => dest.ConstructionItem, src => src.ConstructionItem);
+
+        config.NewConfig<EngineerRequestSpecialFieldListItem, GetEngineerRequestSpecialFieldListItemDto>()
+            .Map(dest => dest.fieldName, src => src.DepartmentSpecialField != null && src.DepartmentSpecialField.SpecialField != null ? src.DepartmentSpecialField.SpecialField.name : null)
+            .Map(dest => dest.fieldType, src => src.DepartmentSpecialField != null && src.DepartmentSpecialField.SpecialField != null ? src.DepartmentSpecialField.SpecialField.fieldType : null)
+            .Map(dest => dest.Order, src => src.DepartmentSpecialField != null ? src.DepartmentSpecialField.Order : 0)
+            .Map(dest => dest.ListGroupKey, src => src.DepartmentSpecialField != null ? src.DepartmentSpecialField.ListGroupKey : null);
 
         config.NewConfig<CrearteEngineerRequestNotesDto, EngineerRequestNotes>();
           config.NewConfig<EngineerRequestNotes, GetEngineerRequestNotesDto>()
@@ -162,7 +170,8 @@ public static class MappingConfig
                     .Map(dest => dest.EngineerRequestNotes, src => src.EngineerRequestNotes)
                     .Map(dest => dest.EngineerRequestActivites, src => src.EngineerRequestActivites)
                     .Map(dest => dest.EngineerRequestAttachments, src => src.EngineerRequestAttachments)
-                    .Map(dest => dest.SpecialFieldItems, src => src.SpecialFieldItems);
+                    .Map(dest => dest.SpecialFieldItems, src => src.SpecialFieldItems)
+                    .Map(dest => dest.SpecialFieldListItems, src => src.SpecialFieldListItems);
 
 
         config.NewConfig<CreateRoleDto, ApplicationRole>()

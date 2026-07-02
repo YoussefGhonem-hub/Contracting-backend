@@ -24,6 +24,7 @@ namespace Contracting.Infrustructure.Persistence.Configurations.Master
 
             builder.Property(dsf => dsf.Order).HasDefaultValue(0);
             builder.Property(dsf => dsf.ColSpan).HasDefaultValue(1);
+            builder.Property(dsf => dsf.ListGroupKey).HasMaxLength(100);
         }
     }
 }

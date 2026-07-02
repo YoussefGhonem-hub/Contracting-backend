@@ -31,6 +31,7 @@ namespace Contracting.Domain.Entities.business
         public ICollection<EngineerRequestAttachment> EngineerRequestAttachments { get; set; }
         public ICollection<EngineerRequestSpecialFieldValue> SpecialFieldValues { get; set; } = new List<EngineerRequestSpecialFieldValue>();
         public ICollection<EngineerRequestSpecialFieldItem> SpecialFieldItems { get; set; } = new List<EngineerRequestSpecialFieldItem>();
+        public ICollection<EngineerRequestSpecialFieldListItem> SpecialFieldListItems { get; set; } = new List<EngineerRequestSpecialFieldListItem>();
 
         // Goods receipt records (Purchase Request workflow)
         public ICollection<PurchaseRequestReceipt> PurchaseReceipts { get; set; } = new List<PurchaseRequestReceipt>();

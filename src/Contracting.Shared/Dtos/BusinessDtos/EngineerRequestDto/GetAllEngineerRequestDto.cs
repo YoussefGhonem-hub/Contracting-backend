@@ -38,6 +38,7 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestDto
         public ICollection<Contracting.Shared.Dtos.GetAttachmentDto>? EngineerRequestAttachments { get; set; } = new List<GetAttachmentDto>();
         public List<EngineerRequestSpecialFieldValueDto> SpecialFieldValues { get; set; } = new();
         public List<GetEngineerRequestSpecialFieldItemDto> SpecialFieldItems { get; set; } = new();
+        public List<GetEngineerRequestSpecialFieldListItemDto> SpecialFieldListItems { get; set; } = new();
 
         // Goods receipts (populated when request is a Purchase Request for Procurement dept)
         public List<GetGoodsReceiptDto> Receipts { get; set; } = new();

@@ -183,6 +183,21 @@ public class EngineerRequestService : IEngineerRequestService
                 return Error.NotFound("DepartmentSpecialField.NotFound", _localizer[SharedResourcesKeys.NotFound]);
         }
 
+        // Validate all DepartmentSpecialFieldIds in SpecialFieldListItems
+        if (dto.SpecialFieldListItems != null && dto.SpecialFieldListItems.Any())
+        {
+            var sfliFieldIds = dto.SpecialFieldListItems.Select(i => i.DepartmentSpecialFieldId).Distinct().ToList();
+            var existingSfliFields = await _db.DepartmentSpecialFields
+                .Where(dsf => sfliFieldIds.Contains(dsf.Id))
+                .Select(dsf => new { dsf.Id, dsf.ListGroupKey })
+                .ToListAsync();
+            var missingSfliFieldId = sfliFieldIds.Except(existingSfliFields.Select(f => f.Id)).FirstOrDefault();
+            if (missingSfliFieldId != Guid.Empty)
+                return Error.NotFound("DepartmentSpecialField.NotFound", _localizer[SharedResourcesKeys.NotFound]);
+            if (existingSfliFields.Any(f => string.IsNullOrWhiteSpace(f.ListGroupKey)))
+                return Error.Validation("SpecialField.NotList", "This field is not configured as a repeatable list.");
+        }
+
         await _db.EngineerRequests.AddAsync(request);
         
         // Save special field values
@@ -225,6 +240,21 @@ public class EngineerRequestService : IEngineerRequestService
             }
         }
 
+        // Save special field list items (repeatable row values for list-flagged fields)
+        if (dto.SpecialFieldListItems != null && dto.SpecialFieldListItems.Any())
+        {
+            foreach (var item in dto.SpecialFieldListItems)
+            {
+                await _db.EngineerRequestSpecialFieldListItems.AddAsync(new EngineerRequestSpecialFieldListItem
+                {
+                    EngineerRequestId = request.Id,
+                    DepartmentSpecialFieldId = item.DepartmentSpecialFieldId,
+                    RowIndex = item.RowIndex,
+                    value = item.value
+                });
+            }
+        }
+
         // Create initial activity for request creation
         var createActivity = new EngineerRequestActivite
         {
@@ -257,6 +287,9 @@ public class EngineerRequestService : IEngineerRequestService
                             .Include(r => r.SpecialFieldItems)
                                 .ThenInclude(i => i.ConstructionItem)
                                     .ThenInclude(c => c.Units)
+                            .Include(r => r.SpecialFieldListItems)
+                                .ThenInclude(i => i.DepartmentSpecialField)
+                                    .ThenInclude(psf => psf.SpecialField)
                             .AsSplitQuery()
                             .AsNoTracking()
                             .FirstOrDefaultAsync(r => r.Id == request.Id);
@@ -447,6 +480,7 @@ public class EngineerRequestService : IEngineerRequestService
             .Include(r => r.EngineerRequestNotes)
             .Include(r => r.SpecialFieldValues)
             .Include(r => r.SpecialFieldItems)
+            .Include(r => r.SpecialFieldListItems)
             .Include(r => r.Status)
             .FirstOrDefaultAsync(r => r.Id == dto.Id);
         if (request is null)
@@ -625,6 +659,42 @@ public class EngineerRequestService : IEngineerRequestService
             }
         }
 
+        // Handle special field list items (repeatable row values for list-flagged fields)
+        if (dto.SpecialFieldListItems != null)
+        {
+            if (dto.SpecialFieldListItems.Any())
+            {
+                var sfliFieldIds = dto.SpecialFieldListItems.Select(i => i.DepartmentSpecialFieldId).Distinct().ToList();
+                var existingSfliFields = await _db.DepartmentSpecialFields
+                    .Where(dsf => sfliFieldIds.Contains(dsf.Id))
+                    .Select(dsf => new { dsf.Id, dsf.ListGroupKey })
+                    .ToListAsync();
+                var missingSfliFieldId = sfliFieldIds.Except(existingSfliFields.Select(f => f.Id)).FirstOrDefault();
+                if (missingSfliFieldId != Guid.Empty)
+                    return Error.NotFound("DepartmentSpecialField.NotFound", _localizer[SharedResourcesKeys.NotFound]);
+                if (existingSfliFields.Any(f => string.IsNullOrWhiteSpace(f.ListGroupKey)))
+                    return Error.Validation("SpecialField.NotList", "This field is not configured as a repeatable list.");
+            }
+
+            // Remove existing list items
+            if (request.SpecialFieldListItems != null && request.SpecialFieldListItems.Any())
+            {
+                _db.EngineerRequestSpecialFieldListItems.RemoveRange(request.SpecialFieldListItems);
+            }
+
+            // Add new list items
+            foreach (var item in dto.SpecialFieldListItems)
+            {
+                await _db.EngineerRequestSpecialFieldListItems.AddAsync(new EngineerRequestSpecialFieldListItem
+                {
+                    EngineerRequestId = request.Id,
+                    DepartmentSpecialFieldId = item.DepartmentSpecialFieldId,
+                    RowIndex = item.RowIndex,
+                    value = item.value
+                });
+            }
+        }
+
         await _db.SaveChangesAsync();
 
         // If request was in Missing Information, auto-reset status back to New
@@ -671,6 +741,9 @@ public class EngineerRequestService : IEngineerRequestService
             .Include(r => r.SpecialFieldItems)
                 .ThenInclude(i => i.ConstructionItem)
                     .ThenInclude(c => c.Units)
+            .Include(r => r.SpecialFieldListItems)
+                .ThenInclude(i => i.DepartmentSpecialField)
+                    .ThenInclude(psf => psf.SpecialField)
             .AsSplitQuery()
             .AsNoTracking()
             .FirstOrDefaultAsync(r => r.Id == request.Id);
@@ -728,6 +801,9 @@ public class EngineerRequestService : IEngineerRequestService
                 .Include(r => r.SpecialFieldItems)
                     .ThenInclude(i => i.ConstructionItem)
                         .ThenInclude(c => c.Units)
+                .Include(r => r.SpecialFieldListItems)
+                    .ThenInclude(i => i.DepartmentSpecialField)
+                        .ThenInclude(psf => psf.SpecialField)
                 .Where(r => r.DepartmentId == departmentId)
                 .AsSplitQuery()
                 .AsNoTracking();
@@ -810,6 +886,9 @@ public class EngineerRequestService : IEngineerRequestService
                 .Include(r => r.SpecialFieldItems)
                     .ThenInclude(i => i.ConstructionItem)
                         .ThenInclude(c => c.Units)
+                .Include(r => r.SpecialFieldListItems)
+                    .ThenInclude(i => i.DepartmentSpecialField)
+                        .ThenInclude(psf => psf.SpecialField)
                 .AsSplitQuery()
                 .AsNoTracking();
 
@@ -1052,6 +1131,9 @@ public class EngineerRequestService : IEngineerRequestService
             .Include(r => r.SpecialFieldItems)
                 .ThenInclude(i => i.ConstructionItem)
                     .ThenInclude(c => c.Units)
+            .Include(r => r.SpecialFieldListItems)
+                .ThenInclude(i => i.DepartmentSpecialField)
+                    .ThenInclude(psf => psf.SpecialField)
             .Include(r => r.PurchaseReceipts)
                 .ThenInclude(rc => rc.ReceivedBy)
             .AsSplitQuery()
@@ -1630,6 +1712,9 @@ public class EngineerRequestService : IEngineerRequestService
             .Include(r => r.SpecialFieldItems)
                 .ThenInclude(i => i.ConstructionItem)
                     .ThenInclude(c => c.Units)
+            .Include(r => r.SpecialFieldListItems)
+                .ThenInclude(i => i.DepartmentSpecialField)
+                    .ThenInclude(dsf => dsf.SpecialField)
             .Include(r => r.EngineerRequestAttachments)
             .Where(r => !r.IsDeleted)
             .AsSplitQuery()
@@ -1800,6 +1885,19 @@ public class EngineerRequestService : IEngineerRequestService
                     Units = i.ConstructionItem.Units == null ? new() : i.ConstructionItem.Units.Select(u => new ConstructionItemUnitDto { nameEn = u.nameEn, nameAr = u.nameAr }).ToList()
                 }
             }).ToList(),
+            SpecialFieldListItems = r.SpecialFieldListItems == null ? new() : r.SpecialFieldListItems
+                .OrderBy(i => i.RowIndex).ThenBy(i => i.DepartmentSpecialField != null ? i.DepartmentSpecialField.Order : 0)
+                .Select(i => new GetEngineerRequestSpecialFieldListItemDto
+                {
+                    Id = i.Id,
+                    DepartmentSpecialFieldId = i.DepartmentSpecialFieldId,
+                    fieldName = i.DepartmentSpecialField != null && i.DepartmentSpecialField.SpecialField != null ? i.DepartmentSpecialField.SpecialField.name : null,
+                    fieldType = i.DepartmentSpecialField != null && i.DepartmentSpecialField.SpecialField != null ? i.DepartmentSpecialField.SpecialField.fieldType : null,
+                    RowIndex = i.RowIndex,
+                    value = i.value,
+                    Order = i.DepartmentSpecialField != null ? i.DepartmentSpecialField.Order : 0,
+                    ListGroupKey = i.DepartmentSpecialField != null ? i.DepartmentSpecialField.ListGroupKey : null
+                }).ToList(),
             EngineerRequestNotes = r.EngineerRequestNotes == null ? new() : r.EngineerRequestNotes.Select(n => new GetEngineerRequestNotesDto
             {
                 Id = n.Id,

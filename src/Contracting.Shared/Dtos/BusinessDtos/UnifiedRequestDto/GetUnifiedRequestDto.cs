@@ -76,6 +76,7 @@ namespace Contracting.Shared.BusinessDtos.UnifiedRequestDto
         // Engineer Request special fields
         public List<EngineerRequestSpecialFieldValueDto> SpecialFieldValues { get; set; } = new();
         public List<GetEngineerRequestSpecialFieldItemDto> SpecialFieldItems { get; set; } = new();
+        public List<GetEngineerRequestSpecialFieldListItemDto> SpecialFieldListItems { get; set; } = new();
 
         // Engineer Request notes and activities
         public List<GetEngineerRequestNotesDto> EngineerRequestNotes { get; set; } = new();

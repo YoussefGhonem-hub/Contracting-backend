@@ -126,7 +126,8 @@ namespace Contracting.Infrustructure.Features
                             fieldType = dsf.SpecialField?.fieldType,
                             value = dsf.value,
                             Order = dsf.Order,
-                            ColSpan = dsf.ColSpan
+                            ColSpan = dsf.ColSpan,
+                            ListGroupKey = dsf.ListGroupKey
                         })
                         .ToList();
 
@@ -189,7 +190,8 @@ namespace Contracting.Infrustructure.Features
                     fieldType = dsf.SpecialField?.fieldType,
                     value = dsf.value,
                     Order = dsf.Order,
-                    ColSpan = dsf.ColSpan
+                    ColSpan = dsf.ColSpan,
+                    ListGroupKey = dsf.ListGroupKey
                 }).ToList()
             }).ToList();
 
@@ -230,7 +232,8 @@ namespace Contracting.Infrustructure.Features
                     fieldType = dsf.SpecialField?.fieldType,
                     value = dsf.value,
                     Order = dsf.Order,
-                    ColSpan = dsf.ColSpan
+                    ColSpan = dsf.ColSpan,
+                    ListGroupKey = dsf.ListGroupKey
                 })
                 .ToList();
             var hasSpecialFields = specialFields.Any();
@@ -268,7 +271,8 @@ namespace Contracting.Infrustructure.Features
                     fieldType = dsf.SpecialField?.fieldType,
                     value = dsf.value,
                     Order = dsf.Order,
-                    ColSpan = dsf.ColSpan
+                    ColSpan = dsf.ColSpan,
+                    ListGroupKey = dsf.ListGroupKey
                 })
                 .ToList();
 
@@ -302,7 +306,8 @@ namespace Contracting.Infrustructure.Features
                     SpecialField = specialField,
                     value = field.value,
                     Order = field.Order != 0 ? field.Order : i,
-                    ColSpan = field.ColSpan is >= 1 and <= 4 ? field.ColSpan : 1
+                    ColSpan = field.ColSpan is >= 1 and <= 4 ? field.ColSpan : 1,
+                    ListGroupKey = field.ListGroupKey
                 });
             }
 

@@ -14,6 +14,7 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestDto
         public ICollection<IFormFile>? Attachments { get; set; }
         public List<CreateEngineerRequestSpecialFieldValueDto>? SpecialFieldValues { get; set; } = new();
         public List<CreateEngineerRequestSpecialFieldItemDto>? SpecialFieldItems { get; set; } = new();
+        public List<CreateEngineerRequestSpecialFieldListItemDto>? SpecialFieldListItems { get; set; } = new();
     }
 }
 
