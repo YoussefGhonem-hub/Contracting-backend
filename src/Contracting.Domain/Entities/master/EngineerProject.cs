@@ -11,5 +11,7 @@ namespace Contracting.Domain.Entities.master
         public Project? Project { get; set; }
 
         public bool IsProjectManager { get; set; }
+
+        public ICollection<EngineerProjectFeature> Features { get; set; } = new List<EngineerProjectFeature>();
     }
 }

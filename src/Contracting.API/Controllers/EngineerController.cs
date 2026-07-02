@@ -10,6 +10,7 @@ using Contracting.Application.Features.Master.Engineer.Query.GetEngineerListByBr
 using Contracting.Application.Features.Master.Engineer.Query.GetEngineerProjects;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetEngineerRequestCountByStatus;
 using Contracting.Application.Features.Master.Engineer.Query.GetEngineerDepartments;
+using Contracting.Application.Features.Master.Engineer.Command.UpdateEngineerProjectFeatures;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
 using MediatR;
@@ -143,6 +144,22 @@ namespace Contracting.API.Controllers
 
             return result.Match(
                 projects => Ok(projects),
+                errors => Problem(errors)
+            );
+        }
+
+        // Update feature permissions for an engineer on a specific project
+        [HttpPut("{engineerId:guid}/projects/{projectId:guid}/features")]
+        public async Task<IActionResult> UpdateProjectFeatures(
+            Guid engineerId,
+            Guid projectId,
+            [FromBody] UpdateEngineerProjectFeaturesDto dto)
+        {
+            var command = new UpdateEngineerProjectFeaturesCommand(engineerId, projectId, dto.Features);
+            var result = await _mediator.Send(command);
+
+            return result.Match(
+                project => Ok(project),
                 errors => Problem(errors)
             );
         }

@@ -1,6 +1,7 @@
 using Contracting.Shared.Resources;
 using Contracting.Domain.Entities;
 using Contracting.Domain.Entities.master;
+using ErrorOr;
 using Contracting.Infrustructure.Extensions;
 using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Infrustructure.Inteface;
@@ -373,6 +374,7 @@ namespace Contracting.Infrustructure.Features
                 .Where(ep => ep.EngineerId == engineerId)
                 .Include(ep => ep.Project)
                     .ThenInclude(p => p.Branch)
+                .Include(ep => ep.Features)
                 .AsNoTracking()
                 .ToListAsync();
 
@@ -401,37 +403,67 @@ namespace Contracting.Infrustructure.Features
                 {
                     EngineerId = engineerId,
                     ProjectId = p.ProjectId,
-                    IsProjectManager = p.IsProjectManager
+                    IsProjectManager = p.IsProjectManager,
+                    Features = (p.Features ?? new List<string>())
+                        .Distinct()
+                        .Select(f => new EngineerProjectFeature { Feature = f })
+                        .ToList()
                 });
 
             await _db.EngineerProjects.AddRangeAsync(newLinks);
             await _db.SaveChangesAsync();
         }
 
-        private static List<GetEngineerProjectDto> MapEngineerProjects(IEnumerable<EngineerProject> engineerProjects)
+        public async Task<ErrorOr<GetEngineerProjectDto>> UpdateEngineerProjectFeaturesAsync(
+            Guid engineerId, Guid projectId, List<string> features)
         {
-            return engineerProjects.Select(ep => new GetEngineerProjectDto
-            {
-                ProjectId = ep.ProjectId,
-                nameEn = ep.Project?.nameEn,
-                nameAr = ep.Project?.nameAr,
-                location = ep.Project?.location,
-                Code = ep.Project?.Code,
-                imageUrl = ep.Project?.imageUrl,
-                BranchId = ep.Project?.BranchId,
-                Branch = ep.Project?.Branch == null ? null : new GetBranchDto
-                {
-                    Id = ep.Project.Branch.Id,
-                    nameEn = ep.Project.Branch.nameEn,
-                    nameAr = ep.Project.Branch.nameAr,
-                    address = ep.Project.Branch.address,
-                    location = ep.Project.Branch.location,
-                    currency = ep.Project.Branch.currency
-                },
-                IsProjectManager = ep.IsProjectManager,
-                ProjectStatus    = ep.Project?.ProjectStatus
-            }).ToList();
+            var link = await _db.EngineerProjects
+                .Include(ep => ep.Features)
+                .Include(ep => ep.Project).ThenInclude(p => p!.Branch)
+                .FirstOrDefaultAsync(ep => ep.EngineerId == engineerId && ep.ProjectId == projectId);
+
+            if (link is null)
+                return ErrorOr.Error.NotFound("EngineerProject.NotFound", "Engineer is not assigned to this project.");
+
+            _db.EngineerProjectFeatures.RemoveRange(link.Features);
+
+            var newFeatures = (features ?? new List<string>())
+                .Distinct()
+                .Select(f => new EngineerProjectFeature { EngineerProjectId = link.Id, Feature = f })
+                .ToList();
+
+            await _db.EngineerProjectFeatures.AddRangeAsync(newFeatures);
+            await _db.SaveChangesAsync();
+
+            link.Features = newFeatures;
+            return MapEngineerProject(link);
         }
+
+        private static List<GetEngineerProjectDto> MapEngineerProjects(IEnumerable<EngineerProject> engineerProjects)
+            => engineerProjects.Select(MapEngineerProject).ToList();
+
+        private static GetEngineerProjectDto MapEngineerProject(EngineerProject ep) => new()
+        {
+            ProjectId = ep.ProjectId,
+            nameEn = ep.Project?.nameEn,
+            nameAr = ep.Project?.nameAr,
+            location = ep.Project?.location,
+            Code = ep.Project?.Code,
+            imageUrl = ep.Project?.imageUrl,
+            BranchId = ep.Project?.BranchId,
+            Branch = ep.Project?.Branch == null ? null : new GetBranchDto
+            {
+                Id = ep.Project.Branch.Id,
+                nameEn = ep.Project.Branch.nameEn,
+                nameAr = ep.Project.Branch.nameAr,
+                address = ep.Project.Branch.address,
+                location = ep.Project.Branch.location,
+                currency = ep.Project.Branch.currency
+            },
+            IsProjectManager = ep.IsProjectManager,
+            ProjectStatus = ep.Project?.ProjectStatus,
+            Features = ep.Features?.Select(f => f.Feature).ToList() ?? new List<string>()
+        };
 
         public async Task<bool> CheckDepartmentHaveManagerAsync(Guid departmentId, Guid? excludeEngineerId = null)
         {

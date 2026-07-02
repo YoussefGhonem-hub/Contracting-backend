@@ -1,9 +1,7 @@
 namespace Contracting.Shared.Dtos.MasterDtos.EngineerDto
 {
-    public class ProjectAssignDto
+    public class UpdateEngineerProjectFeaturesDto
     {
-        public Guid ProjectId { get; set; }
-        public bool IsProjectManager { get; set; }
         public List<string> Features { get; set; } = new();
     }
 }

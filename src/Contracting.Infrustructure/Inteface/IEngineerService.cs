@@ -3,6 +3,7 @@ using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Shared.Common;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
+using ErrorOr;
 
 namespace Contracting.Infrustructure.Inteface
 {
@@ -38,5 +39,8 @@ namespace Contracting.Infrustructure.Inteface
         Task<List<EngineerDepartmentRoleDto>> GetEngineerDepartmentsAsync(Guid engineerId);
         Task SwitchActiveDepartmentAsync(Guid engineerId, Guid departmentId);
         Task<GenericResponse> DeleteEngineerDepartmentAsync(Guid engineerId, Guid departmentId);
+
+        // Project feature permissions
+        Task<ErrorOr<GetEngineerProjectDto>> UpdateEngineerProjectFeaturesAsync(Guid engineerId, Guid projectId, List<string> features);
     }
 }

@@ -15,5 +15,6 @@ namespace Contracting.Shared.Dtos.MasterDtos.EngineerDto
         public GetBranchDto? Branch { get; set; }
         public bool IsProjectManager { get; set; }
         public ProjectStatus? ProjectStatus { get; set; }
+        public List<string> Features { get; set; } = new();
     }
 }
