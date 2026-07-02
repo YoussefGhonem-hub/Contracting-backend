@@ -21,6 +21,9 @@ namespace Contracting.Infrustructure.Persistence.Configurations.Master
                 .WithMany(sf => sf.DepartmentSpecialFields)
                 .HasForeignKey(dsf => dsf.SpecialFieldId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Property(dsf => dsf.Order).HasDefaultValue(0);
+            builder.Property(dsf => dsf.ColSpan).HasDefaultValue(1);
         }
     }
 }

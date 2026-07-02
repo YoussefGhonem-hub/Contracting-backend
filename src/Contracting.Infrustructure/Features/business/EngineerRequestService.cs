@@ -1772,14 +1772,18 @@ public class EngineerRequestService : IEngineerRequestService
             EndDate = r.endDate,
             NeedsReceiptConfirmation = r.NeedsReceiptConfirmation,
             EngineerRequestAttachments = r.EngineerRequestAttachments == null ? new() : r.EngineerRequestAttachments.Select(a => new GetAttachmentDto { Id = a.Id, Key = a.Key, FileName = a.FileName, Extension = a.Extension, FileSize = a.FileSize, Url = _storageService.GetPreSignedUrl(a.Key) ?? a.Url }).ToList(),
-            SpecialFieldValues = r.SpecialFieldValues == null ? new() : r.SpecialFieldValues.Select(v => new EngineerRequestSpecialFieldValueDto
-            {
-                Id = v.Id,
-                DepartmentSpecialFieldId = v.DepartmentSpecialFieldId,
-                fieldName = v.DepartmentSpecialField?.SpecialField?.name,
-                fieldType = v.DepartmentSpecialField?.SpecialField?.fieldType,
-                value = v.value
-            }).ToList(),
+            SpecialFieldValues = r.SpecialFieldValues == null ? new() : r.SpecialFieldValues
+                .OrderBy(v => v.DepartmentSpecialField?.Order)
+                .Select(v => new EngineerRequestSpecialFieldValueDto
+                {
+                    Id = v.Id,
+                    DepartmentSpecialFieldId = v.DepartmentSpecialFieldId,
+                    fieldName = v.DepartmentSpecialField?.SpecialField?.name,
+                    fieldType = v.DepartmentSpecialField?.SpecialField?.fieldType,
+                    value = v.value,
+                    Order = v.DepartmentSpecialField?.Order ?? 0,
+                    ColSpan = v.DepartmentSpecialField?.ColSpan ?? 1
+                }).ToList(),
             SpecialFieldItems = r.SpecialFieldItems == null ? new() : r.SpecialFieldItems.Select(i => new GetEngineerRequestSpecialFieldItemDto
             {
                 Id = i.Id,
@@ -2723,6 +2727,7 @@ public class EngineerRequestService : IEngineerRequestService
             .Include(r => r.Status)
             .Include(r => r.Department)
             .Include(r => r.assignTo)
+            .Include(r => r.SpecialFieldItems)
             .FirstOrDefaultAsync(r => r.Id == requestId);
 
         if (request is null)
@@ -2796,6 +2801,27 @@ public class EngineerRequestService : IEngineerRequestService
             StatusId = newStatusId,
             ActionType = actionType,
         });
+
+        // Update received quantities on items
+        if (request.SpecialFieldItems != null && request.SpecialFieldItems.Any())
+        {
+            if (dto.IsPartialReceipt && dto.SpecialFieldItems != null && dto.SpecialFieldItems.Any())
+            {
+                // Partial receipt: apply the quantities provided by the engineer
+                var receiptLookup = dto.SpecialFieldItems.ToDictionary(i => i.ItemId, i => i.ReceivedQuantity);
+                foreach (var item in request.SpecialFieldItems)
+                {
+                    if (receiptLookup.TryGetValue(item.Id, out var receivedQty))
+                        item.ReceivedQuantity = Math.Max(0, Math.Min(receivedQty, item.Quantity));
+                }
+            }
+            else if (!dto.IsPartialReceipt)
+            {
+                // Full receipt: mark all items as fully received
+                foreach (var item in request.SpecialFieldItems)
+                    item.ReceivedQuantity = item.Quantity;
+            }
+        }
 
         await _db.SaveChangesAsync();
 

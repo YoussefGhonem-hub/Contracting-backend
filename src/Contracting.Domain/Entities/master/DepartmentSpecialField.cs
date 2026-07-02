@@ -11,5 +11,11 @@ namespace Contracting.Domain.Entities.master
         public SpecialField? SpecialField { get; set; }
 
         public string? value { get; set; }
+
+        /// <summary>Display order within the department (0-based).</summary>
+        public int Order { get; set; }
+
+        /// <summary>How many columns this field spans in a 4-column grid (1–4). Default 1.</summary>
+        public int ColSpan { get; set; } = 1;
     }
 }

@@ -115,13 +115,16 @@ namespace Contracting.Infrustructure.Features
                 for (var index = 0; index < departments.Count; index++)
                 {
                     var specialFields = departments[index].DepartmentSpecialFields
+                        .OrderBy(dsf => dsf.Order)
                         .Select(dsf => new DepartmentSpecialFieldDto
                         {
                             Id = dsf.Id,
                             SpecialFieldId = dsf.SpecialFieldId,
                             name = dsf.SpecialField?.name,
                             fieldType = dsf.SpecialField?.fieldType,
-                            value = dsf.value
+                            value = dsf.value,
+                            Order = dsf.Order,
+                            ColSpan = dsf.ColSpan
                         })
                         .ToList();
 
@@ -175,13 +178,15 @@ namespace Contracting.Infrustructure.Features
                 nameEn = x.nameEn,
                 hasSpecialFields = x.hasSpecialFields || x.DepartmentSpecialFields.Any(),
                 RequiresGoodsReceipt = x.RequiresGoodsReceipt,
-                SpecialFields = x.DepartmentSpecialFields.Select(dsf => new DepartmentSpecialFieldDto
+                SpecialFields = x.DepartmentSpecialFields.OrderBy(dsf => dsf.Order).Select(dsf => new DepartmentSpecialFieldDto
                 {
                     Id = dsf.Id,
                     SpecialFieldId = dsf.SpecialFieldId,
                     name = dsf.SpecialField?.name,
                     fieldType = dsf.SpecialField?.fieldType,
-                    value = dsf.value
+                    value = dsf.value,
+                    Order = dsf.Order,
+                    ColSpan = dsf.ColSpan
                 }).ToList()
             }).ToList();
 
@@ -213,13 +218,16 @@ namespace Contracting.Infrustructure.Features
                 : allDepartmentSpecialFields;
 
             var specialFields = departmentSpecialFieldsToReturn
+                .OrderBy(dsf => dsf.Order)
                 .Select(dsf => new DepartmentSpecialFieldDto
                 {
                     Id = dsf.Id,
                     SpecialFieldId = dsf.SpecialFieldId,
                     name = dsf.SpecialField?.name,
                     fieldType = dsf.SpecialField?.fieldType,
-                    value = dsf.value
+                    value = dsf.value,
+                    Order = dsf.Order,
+                    ColSpan = dsf.ColSpan
                 })
                 .ToList();
             var hasSpecialFields = specialFields.Any();
@@ -248,13 +256,16 @@ namespace Contracting.Infrustructure.Features
 
             var dto = _mapper.Map<GetDepartmentDto>(department);
             var specialFields = department.DepartmentSpecialFields
+                .OrderBy(dsf => dsf.Order)
                 .Select(dsf => new DepartmentSpecialFieldDto
                 {
                     Id = dsf.Id,
                     SpecialFieldId = dsf.SpecialFieldId,
                     name = dsf.SpecialField?.name,
                     fieldType = dsf.SpecialField?.fieldType,
-                    value = dsf.value
+                    value = dsf.value,
+                    Order = dsf.Order,
+                    ColSpan = dsf.ColSpan
                 })
                 .ToList();
 
@@ -273,8 +284,9 @@ namespace Contracting.Infrustructure.Features
 
             var departmentFields = new List<DepartmentSpecialField>();
 
-            foreach (var field in fields)
+            for (var i = 0; i < fields.Count; i++)
             {
+                var field = fields[i];
                 var specialField = new SpecialField
                 {
                     name = field.name,
@@ -285,7 +297,9 @@ namespace Contracting.Infrustructure.Features
                 {
                     DepartmentId = department.Id,
                     SpecialField = specialField,
-                    value = field.value
+                    value = field.value,
+                    Order = field.Order != 0 ? field.Order : i,
+                    ColSpan = field.ColSpan is >= 1 and <= 4 ? field.ColSpan : 1
                 });
             }
 

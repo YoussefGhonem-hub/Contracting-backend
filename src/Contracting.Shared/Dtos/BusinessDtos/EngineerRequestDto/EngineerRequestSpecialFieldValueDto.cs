@@ -7,5 +7,7 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestDto
         public string? fieldName { get; set; }
         public string? fieldType { get; set; }
         public string? value { get; set; }
+        public int Order { get; set; }
+        public int ColSpan { get; set; } = 1;
     }
 }
