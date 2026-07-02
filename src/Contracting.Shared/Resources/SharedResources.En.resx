@@ -426,4 +426,46 @@
   <data name="NotificationTransferCompletedBody" xml:space="preserve">
     <value>Your transfer request has been completed and the items have been received.</value>
   </data>
+  <data name="ClientNotificationInvoiceCreatedTitle" xml:space="preserve">
+    <value>New Invoice Added</value>
+  </data>
+  <data name="ClientNotificationInvoiceCreatedBody" xml:space="preserve">
+    <value>A new invoice has been added to your project. Please review the details.</value>
+  </data>
+  <data name="ClientNotificationInvoicePaymentUpdatedTitle" xml:space="preserve">
+    <value>Invoice Payment Updated</value>
+  </data>
+  <data name="ClientNotificationInvoicePaymentUpdatedBody" xml:space="preserve">
+    <value>The payment status for one of your invoices has been updated.</value>
+  </data>
+  <data name="ClientNotificationVariationCreatedTitle" xml:space="preserve">
+    <value>New Variation Order</value>
+  </data>
+  <data name="ClientNotificationVariationCreatedBody" xml:space="preserve">
+    <value>A new variation order has been submitted for your project. Please review and approve.</value>
+  </data>
+  <data name="ClientNotificationMonthlyReportCreatedTitle" xml:space="preserve">
+    <value>Monthly Report Available</value>
+  </data>
+  <data name="ClientNotificationMonthlyReportCreatedBody" xml:space="preserve">
+    <value>A new monthly progress report has been uploaded for your project.</value>
+  </data>
+  <data name="ClientNotificationTenderUploadedTitle" xml:space="preserve">
+    <value>Tender Document Uploaded</value>
+  </data>
+  <data name="ClientNotificationTenderUploadedBody" xml:space="preserve">
+    <value>A new tender document has been uploaded for your project.</value>
+  </data>
+  <data name="ClientNotificationScheduleUploadedTitle" xml:space="preserve">
+    <value>Project Schedule Updated</value>
+  </data>
+  <data name="ClientNotificationScheduleUploadedBody" xml:space="preserve">
+    <value>A new project schedule has been uploaded. Please review the latest timeline.</value>
+  </data>
+  <data name="ClientNotificationDrawingUploadedTitle" xml:space="preserve">
+    <value>New Drawing Uploaded</value>
+  </data>
+  <data name="ClientNotificationDrawingUploadedBody" xml:space="preserve">
+    <value>A new drawing has been uploaded for your project.</value>
+  </data>
 </root>

@@ -31,13 +31,16 @@ namespace Contracting.Shared.BusinessDtos.EngineerSiteReportDto
         // 6. Issues / Delay
         public string? IssuesOrDelays { get; set; }
 
-        // 7. Client Visit Today
+        // 7. No Work Today
+        public bool NoWorkToday { get; set; }
+
+        // 8. Client Visit Today
         public bool ClientVisitToday { get; set; }
 
-        // 8. Visit Details
+        // 9. Visit Details
         public string? VisitDetails { get; set; }
 
-        // 9. Attachments
+        // 10. Attachments
         public ICollection<GetAttachmentDto> Attachments { get; set; } = new List<GetAttachmentDto>();
     }
 

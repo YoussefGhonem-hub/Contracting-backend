@@ -19,4 +19,5 @@ public class ProjectInvoice : BaseAuditableEntity
     public Guid UpdatedBy { get; set; }
     public ApplicationUser UpdatedByUser { get; set; } = null!;
     public ICollection<InvoicePayment> Payments { get; set; } = new List<InvoicePayment>();
+    public ICollection<InvoiceAttachment> Attachments { get; set; } = new List<InvoiceAttachment>();
 }

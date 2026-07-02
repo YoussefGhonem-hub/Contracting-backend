@@ -4,6 +4,7 @@ using Contracting.Infrustructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Contracting.Infrustructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260702102428_AddNoWorkTodayToSiteReport")]
+    partial class AddNoWorkTodayToSiteReport
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2313,64 +2316,6 @@ namespace Contracting.Infrustructure.Migrations
                     b.HasIndex("ProjectId");
 
                     b.ToTable("ClientProjects", "client");
-                });
-
-            modelBuilder.Entity("Contracting.Domain.Entities.client.InvoiceAttachment", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset>("CreatedDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset?>("DeletedDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("Extension")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("FileName")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<long?>("FileSize")
-                        .HasColumnType("bigint");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Key")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<Guid?>("ModifiedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset?>("ModifiedDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<Guid>("ProjectInvoiceId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Url")
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("IsDeleted");
-
-                    b.HasIndex("ProjectInvoiceId");
-
-                    b.ToTable("InvoiceAttachments", "client");
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.client.InvoicePayment", b =>
@@ -4767,17 +4712,6 @@ namespace Contracting.Infrustructure.Migrations
                     b.Navigation("Project");
                 });
 
-            modelBuilder.Entity("Contracting.Domain.Entities.client.InvoiceAttachment", b =>
-                {
-                    b.HasOne("Contracting.Domain.Entities.client.ProjectInvoice", "ProjectInvoice")
-                        .WithMany("Attachments")
-                        .HasForeignKey("ProjectInvoiceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ProjectInvoice");
-                });
-
             modelBuilder.Entity("Contracting.Domain.Entities.client.InvoicePayment", b =>
                 {
                     b.HasOne("Contracting.Domain.Entities.client.ProjectInvoice", "ProjectInvoice")
@@ -5226,8 +5160,6 @@ namespace Contracting.Infrustructure.Migrations
 
             modelBuilder.Entity("Contracting.Domain.Entities.client.ProjectInvoice", b =>
                 {
-                    b.Navigation("Attachments");
-
                     b.Navigation("Payments");
                 });
 

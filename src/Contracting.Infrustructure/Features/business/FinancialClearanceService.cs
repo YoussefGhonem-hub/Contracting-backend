@@ -274,9 +274,9 @@ namespace Contracting.Infrustructure.Features.business
                     break;
 
                 case "submit":
-                    // New → InProgress (submit for review)
-                    if (clearance.StatusId != s.New)
-                        return Error.Validation("FinancialClearance.InvalidAction", "Only new clearances can be submitted.");
+                    // New → InProgress (first submit) or MissingInformation → InProgress (resubmit after fix)
+                    if (clearance.StatusId != s.New && clearance.StatusId != s.MissingInformation)
+                        return Error.Validation("FinancialClearance.InvalidAction", "Only new or missing-information clearances can be submitted.");
                     toStatusId = s.InProgress;
                     break;
 
@@ -318,8 +318,17 @@ namespace Contracting.Infrustructure.Features.business
                     toStatusId = s.Rejected;
                     break;
 
+                case "missing_info":
+                case "missinginfo":
+                case "needs_update":
+                    // InProgress → MissingInformation (office engineer requests more info from submitter)
+                    if (clearance.StatusId != s.InProgress)
+                        return Error.Validation("FinancialClearance.InvalidAction", "Missing info can only be requested on a submitted clearance.");
+                    toStatusId = s.MissingInformation;
+                    break;
+
                 default:
-                    return Error.Validation("FinancialClearance.UnknownAction", $"Unknown action: {dto.ActionType}. Valid values: Assign, Submit, Review, Approve, Close, Reject");
+                    return Error.Validation("FinancialClearance.UnknownAction", $"Unknown action: {dto.ActionType}. Valid values: Assign, Submit, Review, Approve, Close, Reject, MissingInfo");
             }
 
             var now = Contracting.Shared.Common.DateTimeHelper.Now;

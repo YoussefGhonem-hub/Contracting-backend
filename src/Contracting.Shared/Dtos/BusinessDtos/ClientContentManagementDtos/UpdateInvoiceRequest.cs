@@ -1,4 +1,6 @@
-﻿namespace Contracting.Shared.Dtos.BusinessDtos.ClientContentManagementDtos;
+using Microsoft.AspNetCore.Http;
+
+namespace Contracting.Shared.Dtos.BusinessDtos.ClientContentManagementDtos;
 
 public class UpdateInvoiceRequest
 {
@@ -8,4 +10,5 @@ public class UpdateInvoiceRequest
     public string? Notes { get; set; }
     public DateTimeOffset? IssueDate { get; set; }
     public DateTimeOffset? DueDate { get; set; }
+    public ICollection<IFormFile>? Attachments { get; set; }
 }

@@ -27,10 +27,13 @@ namespace Contracting.Domain.Entities.business
         // 6. Issues / Delay
         public string? IssuesOrDelays { get; set; }
 
-        // 7. Client Visit Today (flag)
+        // 7. No Work Today (flag — engineer confirms site was idle, no work performed)
+        public bool NoWorkToday { get; set; }
+
+        // 8. Client Visit Today (flag)
         public bool ClientVisitToday { get; set; }
 
-        // 8. Visit Details (if client visit)
+        // 9. Visit Details (if client visit)
         public string? VisitDetails { get; set; }
 
         // 9. Attachments

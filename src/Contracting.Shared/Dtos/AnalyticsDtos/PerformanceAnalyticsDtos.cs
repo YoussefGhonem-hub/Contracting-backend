@@ -31,6 +31,10 @@ public class SiteEngineerPerformanceDto
     public int    UrgentRequests      { get; set; }
     public int    TotalRequests       { get; set; }
 
+    // Missing Information
+    public int    MissingInfoRequests { get; set; }    // requests currently in "Missing Information" status
+    public double MissingInfoRatio    { get; set; }    // MissingInfoRequests / TotalRequests × 100
+
     // Request Quality
     public double RequestQualityScore    { get; set; } // 0–100
     public int    AcceptedOnFirstTry     { get; set; }

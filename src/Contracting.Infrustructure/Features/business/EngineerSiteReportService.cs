@@ -36,20 +36,22 @@ namespace Contracting.Infrustructure.Features.business
 
             var report = new EngineerSiteReport
             {
-                EngineerId = engineer.Id,
-                ProjectId = dto.ProjectId == Guid.Empty ? null : dto.ProjectId,
-                ReportDate = dto.ReportDate ?? Contracting.Shared.Common.DateTimeHelper.Now,
-                WorkPerformedToday = dto.WorkPerformedToday,
-                MaterialDetails = dto.MaterialDetails,
-                IssuesOrDelays = dto.IssuesOrDelays,
-                ClientVisitToday = dto.ClientVisitToday,
-                VisitDetails = dto.VisitDetails,
-                Workers = new List<ReportConstructionItemWorker>(),
-                Attachments = new List<EngineerSiteReportAttachment>()
+                EngineerId         = engineer.Id,
+                ProjectId          = dto.ProjectId == Guid.Empty ? null : dto.ProjectId,
+                ReportDate         = dto.ReportDate ?? Contracting.Shared.Common.DateTimeHelper.Now,
+                NoWorkToday        = dto.NoWorkToday,
+                // When NoWorkToday is true, work-detail fields are intentionally left null/empty
+                WorkPerformedToday = dto.NoWorkToday ? null : dto.WorkPerformedToday,
+                MaterialDetails    = dto.NoWorkToday ? null : dto.MaterialDetails,
+                IssuesOrDelays     = dto.NoWorkToday ? null : dto.IssuesOrDelays,
+                ClientVisitToday   = dto.NoWorkToday ? false : dto.ClientVisitToday,
+                VisitDetails       = dto.NoWorkToday ? null : dto.VisitDetails,
+                Workers            = new List<ReportConstructionItemWorker>(),
+                Attachments        = new List<EngineerSiteReportAttachment>()
             };
 
-            // 3. Workers by Construction Item
-            if (dto.Workers != null && dto.Workers.Any())
+            // Workers by Construction Item — skip when NoWorkToday is set
+            if (!dto.NoWorkToday && dto.Workers != null && dto.Workers.Any())
             {
                 foreach (var w in dto.Workers)
                 {

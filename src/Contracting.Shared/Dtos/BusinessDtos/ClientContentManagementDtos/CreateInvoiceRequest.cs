@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Http;
+
 namespace Contracting.Shared.Dtos.BusinessDtos.ClientContentManagementDtos;
 
 public class CreateInvoiceRequest
@@ -9,4 +11,5 @@ public class CreateInvoiceRequest
     public string? Notes { get; set; }
     public DateTimeOffset? IssueDate { get; set; }
     public DateTimeOffset? DueDate { get; set; }
+    public ICollection<IFormFile>? Attachments { get; set; }
 }

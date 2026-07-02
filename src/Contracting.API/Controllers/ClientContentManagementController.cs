@@ -4,14 +4,17 @@ using Contracting.Application.Features.Business.ClientContent.Command.UpdateSche
 using Contracting.Application.Features.Business.ClientContent.Command.UpdateTenderDocument;
 using Contracting.Domain.Common.Enums;
 using Contracting.Domain.Entities.client;
+using Contracting.Infrustructure.Inteface.Helper;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.Common;
 using Contracting.Shared.CurrentUser;
 using Contracting.Shared.Dtos.BusinessDtos.ClientContentManagementDtos;
+using Contracting.Shared.Resources;
 using Contracting.Shared.Storage;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Localization;
 using Storage.AWS3.Services;
 using Microsoft.EntityFrameworkCore;
 
@@ -26,13 +29,39 @@ public class ClientContentManagementController : APIBaseController
     private readonly IFileStorage _fileStorage;
     private readonly IStorageService _storage;
     private readonly IMediator _mediator;
+    private readonly INotificationService _notificationService;
+    private readonly IStringLocalizer<SharedResources> _localizer;
 
-    public ClientContentManagementController(ApplicationDbContext db, IFileStorage fileStorage, IStorageService storage, IMediator mediator)
+    public ClientContentManagementController(
+        ApplicationDbContext db,
+        IFileStorage fileStorage,
+        IStorageService storage,
+        IMediator mediator,
+        INotificationService notificationService,
+        IStringLocalizer<SharedResources> localizer)
     {
         _db = db;
         _fileStorage = fileStorage;
         _storage = storage;
         _mediator = mediator;
+        _notificationService = notificationService;
+        _localizer = localizer;
+    }
+
+    private async Task NotifyProjectClientsAsync(Guid projectId, string titleKey, string bodyKey, Guid entityId, string type, CancellationToken ct)
+    {
+        var clientUserIds = await _db.ClientProjects
+            .Where(cp => cp.ProjectId == projectId && !cp.IsDeleted)
+            .Select(cp => cp.Client.ApplicationUserId)
+            .ToListAsync(ct);
+
+        var title = _localizer[titleKey].Value;
+        var body = _localizer[bodyKey].Value;
+
+        foreach (var userId in clientUserIds)
+        {
+            _ = _notificationService.SendNotificationToUserAsync(userId, title, body, entityId, null, null, type);
+        }
     }
 
     [HttpPost("monthly-reports")]
@@ -75,6 +104,11 @@ public class ClientContentManagementController : APIBaseController
 
         await _db.ClientMonthlyReports.AddAsync(report, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
+
+        await NotifyProjectClientsAsync(request.ProjectId,
+            SharedResourcesKeys.ClientNotificationMonthlyReportCreatedTitle,
+            SharedResourcesKeys.ClientNotificationMonthlyReportCreatedBody,
+            report.Id, "monthly_report", cancellationToken);
 
         return Ok(new { report.Id, report.ProjectId, report.Month, report.Year, report.Title, report.WorkProgress });
     }
@@ -131,6 +165,11 @@ public class ClientContentManagementController : APIBaseController
         await _db.VariationOrders.AddAsync(entity, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
+        await NotifyProjectClientsAsync(request.ProjectId,
+            SharedResourcesKeys.ClientNotificationVariationCreatedTitle,
+            SharedResourcesKeys.ClientNotificationVariationCreatedBody,
+            entity.Id, "variation_order", cancellationToken);
+
         return Ok(new { entity.Id, entity.ProjectId, entity.VONumber, entity.Title, entity.Status });
     }
 
@@ -166,6 +205,11 @@ public class ClientContentManagementController : APIBaseController
         await _db.ProjectDrawings.AddAsync(entity, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
+        await NotifyProjectClientsAsync(request.ProjectId,
+            SharedResourcesKeys.ClientNotificationDrawingUploadedTitle,
+            SharedResourcesKeys.ClientNotificationDrawingUploadedBody,
+            entity.Id, "drawing", cancellationToken);
+
         return Ok(new { entity.Id, entity.ProjectId, Type = entity.Type.ToString(), entity.Title, Url = _storage.GetPreSignedUrl(entity.Key) ?? entity.Url });
     }
 
@@ -196,6 +240,11 @@ public class ClientContentManagementController : APIBaseController
 
         await _db.TenderDocuments.AddAsync(entity, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
+
+        await NotifyProjectClientsAsync(request.ProjectId,
+            SharedResourcesKeys.ClientNotificationTenderUploadedTitle,
+            SharedResourcesKeys.ClientNotificationTenderUploadedBody,
+            entity.Id, "tender_document", cancellationToken);
 
         return Ok(new { entity.Id, entity.ProjectId, entity.Title, Url = _storage.GetPreSignedUrl(entity.Key) ?? entity.Url });
     }
@@ -229,11 +278,17 @@ public class ClientContentManagementController : APIBaseController
         await _db.ProjectSchedules.AddAsync(entity, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
+        await NotifyProjectClientsAsync(request.ProjectId,
+            SharedResourcesKeys.ClientNotificationScheduleUploadedTitle,
+            SharedResourcesKeys.ClientNotificationScheduleUploadedBody,
+            entity.Id, "schedule", cancellationToken);
+
         return Ok(new { entity.Id, entity.ProjectId, entity.Title, entity.Version, Url = _storage.GetPreSignedUrl(entity.Key) ?? entity.Url });
     }
 
     [HttpPost("invoices")]
-    public async Task<IActionResult> CreateInvoice([FromBody] CreateInvoiceRequest request, CancellationToken cancellationToken)
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> CreateInvoice([FromForm] CreateInvoiceRequest request, CancellationToken cancellationToken)
     {
         if (!await _db.Projects.AnyAsync(p => p.Id == request.ProjectId, cancellationToken))
             return NotFound(new { message = "Project not found." });
@@ -263,11 +318,33 @@ public class ClientContentManagementController : APIBaseController
             Notes = request.Notes,
             IssueDate = request.IssueDate ?? DateTimeHelper.DateTimeNow,
             DueDate = request.DueDate,
-            UpdatedBy = userId
+            UpdatedBy = userId,
+            Attachments = new List<InvoiceAttachment>()
         };
+
+        if (request.Attachments is not null)
+        {
+            foreach (var file in request.Attachments.Where(f => f is not null && f.Length > 0))
+            {
+                var relativePath = await _fileStorage.SaveAsync(file, "uploads/invoices", cancellationToken);
+                invoice.Attachments.Add(new InvoiceAttachment
+                {
+                    Key = relativePath,
+                    FileName = file.FileName,
+                    Extension = Path.GetExtension(file.FileName),
+                    FileSize = file.Length,
+                    Url = _storage.GetUploadedFileUrl(relativePath)
+                });
+            }
+        }
 
         await _db.ProjectInvoices.AddAsync(invoice, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
+
+        await NotifyProjectClientsAsync(request.ProjectId,
+            SharedResourcesKeys.ClientNotificationInvoiceCreatedTitle,
+            SharedResourcesKeys.ClientNotificationInvoiceCreatedBody,
+            invoice.Id, "invoice", cancellationToken);
 
         return Ok(new
         {
@@ -280,7 +357,8 @@ public class ClientContentManagementController : APIBaseController
             Status = invoice.Status.ToString(),
             invoice.Notes,
             invoice.IssueDate,
-            invoice.DueDate
+            invoice.DueDate,
+            Attachments = invoice.Attachments.Select(a => new { a.Id, a.FileName, a.Url })
         });
     }
 
@@ -307,6 +385,11 @@ public class ClientContentManagementController : APIBaseController
 
         await _db.SaveChangesAsync(cancellationToken);
 
+        await NotifyProjectClientsAsync(invoice.ProjectId,
+            SharedResourcesKeys.ClientNotificationInvoicePaymentUpdatedTitle,
+            SharedResourcesKeys.ClientNotificationInvoicePaymentUpdatedBody,
+            invoice.Id, "invoice", cancellationToken);
+
         return Ok(new
         {
             invoice.Id,
@@ -324,9 +407,12 @@ public class ClientContentManagementController : APIBaseController
     // Full edit of an invoice. Status auto-recalculates from amounts.
     // =========================================================================
     [HttpPut("invoices/{invoiceId:guid}")]
-    public async Task<IActionResult> UpdateInvoice(Guid invoiceId, [FromBody] UpdateInvoiceRequest request, CancellationToken cancellationToken)
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> UpdateInvoice(Guid invoiceId, [FromForm] UpdateInvoiceRequest request, CancellationToken cancellationToken)
     {
-        var invoice = await _db.ProjectInvoices.FirstOrDefaultAsync(i => i.Id == invoiceId && !i.IsDeleted, cancellationToken);
+        var invoice = await _db.ProjectInvoices
+            .Include(i => i.Attachments)
+            .FirstOrDefaultAsync(i => i.Id == invoiceId && !i.IsDeleted, cancellationToken);
         if (invoice is null)
             return NotFound(new { message = "Invoice not found." });
 
@@ -348,6 +434,22 @@ public class ClientContentManagementController : APIBaseController
         invoice.UpdatedBy = userId;
         invoice.MarkAsModified(userId);
 
+        if (request.Attachments is not null)
+        {
+            foreach (var file in request.Attachments.Where(f => f is not null && f.Length > 0))
+            {
+                var relativePath = await _fileStorage.SaveAsync(file, "uploads/invoices", cancellationToken);
+                invoice.Attachments.Add(new InvoiceAttachment
+                {
+                    Key = relativePath,
+                    FileName = file.FileName,
+                    Extension = Path.GetExtension(file.FileName),
+                    FileSize = file.Length,
+                    Url = _storage.GetUploadedFileUrl(relativePath)
+                });
+            }
+        }
+
         await _db.SaveChangesAsync(cancellationToken);
 
         return Ok(new
@@ -361,7 +463,8 @@ public class ClientContentManagementController : APIBaseController
             Status = invoice.Status.ToString(),
             invoice.IssueDate,
             invoice.DueDate,
-            invoice.Notes
+            invoice.Notes,
+            Attachments = invoice.Attachments.Select(a => new { a.Id, a.FileName, a.Url })
         });
     }
 

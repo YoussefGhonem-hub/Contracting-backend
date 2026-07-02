@@ -106,6 +106,22 @@
         public const string NotificationTransferCompletedBody = "NotificationTransferCompletedBody";
         public const string MissingInfoRequiresNoteAndAttachment = "MissingInfoRequiresNoteAndAttachment";
 
+        // Client App notifications
+        public const string ClientNotificationInvoiceCreatedTitle = "ClientNotificationInvoiceCreatedTitle";
+        public const string ClientNotificationInvoiceCreatedBody = "ClientNotificationInvoiceCreatedBody";
+        public const string ClientNotificationInvoicePaymentUpdatedTitle = "ClientNotificationInvoicePaymentUpdatedTitle";
+        public const string ClientNotificationInvoicePaymentUpdatedBody = "ClientNotificationInvoicePaymentUpdatedBody";
+        public const string ClientNotificationVariationCreatedTitle = "ClientNotificationVariationCreatedTitle";
+        public const string ClientNotificationVariationCreatedBody = "ClientNotificationVariationCreatedBody";
+        public const string ClientNotificationMonthlyReportCreatedTitle = "ClientNotificationMonthlyReportCreatedTitle";
+        public const string ClientNotificationMonthlyReportCreatedBody = "ClientNotificationMonthlyReportCreatedBody";
+        public const string ClientNotificationTenderUploadedTitle = "ClientNotificationTenderUploadedTitle";
+        public const string ClientNotificationTenderUploadedBody = "ClientNotificationTenderUploadedBody";
+        public const string ClientNotificationScheduleUploadedTitle = "ClientNotificationScheduleUploadedTitle";
+        public const string ClientNotificationScheduleUploadedBody = "ClientNotificationScheduleUploadedBody";
+        public const string ClientNotificationDrawingUploadedTitle = "ClientNotificationDrawingUploadedTitle";
+        public const string ClientNotificationDrawingUploadedBody = "ClientNotificationDrawingUploadedBody";
+
         // Validation messages - Field specific
         public const string NameEnRequired = "NameEnRequired";
         public const string NameArRequired = "NameArRequired";

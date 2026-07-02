@@ -424,4 +424,46 @@
   <data name="NotificationTransferCompletedBody" xml:space="preserve">
     <value>تم اكتمال طلب النقل الخاص بك واستلام المواد.</value>
   </data>
+  <data name="ClientNotificationInvoiceCreatedTitle" xml:space="preserve">
+    <value>تمت إضافة فاتورة جديدة</value>
+  </data>
+  <data name="ClientNotificationInvoiceCreatedBody" xml:space="preserve">
+    <value>تمت إضافة فاتورة جديدة لمشروعك. يرجى مراجعة التفاصيل.</value>
+  </data>
+  <data name="ClientNotificationInvoicePaymentUpdatedTitle" xml:space="preserve">
+    <value>تحديث حالة الدفع</value>
+  </data>
+  <data name="ClientNotificationInvoicePaymentUpdatedBody" xml:space="preserve">
+    <value>تم تحديث حالة الدفع لإحدى فواتيرك.</value>
+  </data>
+  <data name="ClientNotificationVariationCreatedTitle" xml:space="preserve">
+    <value>أمر تغيير جديد</value>
+  </data>
+  <data name="ClientNotificationVariationCreatedBody" xml:space="preserve">
+    <value>تم تقديم أمر تغيير جديد لمشروعك. يرجى المراجعة والموافقة.</value>
+  </data>
+  <data name="ClientNotificationMonthlyReportCreatedTitle" xml:space="preserve">
+    <value>التقرير الشهري متاح</value>
+  </data>
+  <data name="ClientNotificationMonthlyReportCreatedBody" xml:space="preserve">
+    <value>تم رفع تقرير التقدم الشهري الجديد لمشروعك.</value>
+  </data>
+  <data name="ClientNotificationTenderUploadedTitle" xml:space="preserve">
+    <value>تم رفع وثيقة المناقصة</value>
+  </data>
+  <data name="ClientNotificationTenderUploadedBody" xml:space="preserve">
+    <value>تم رفع وثيقة مناقصة جديدة لمشروعك.</value>
+  </data>
+  <data name="ClientNotificationScheduleUploadedTitle" xml:space="preserve">
+    <value>تحديث جدول المشروع</value>
+  </data>
+  <data name="ClientNotificationScheduleUploadedBody" xml:space="preserve">
+    <value>تم رفع جدول زمني جديد للمشروع. يرجى مراجعة آخر المستجدات.</value>
+  </data>
+  <data name="ClientNotificationDrawingUploadedTitle" xml:space="preserve">
+    <value>تم رفع مخطط جديد</value>
+  </data>
+  <data name="ClientNotificationDrawingUploadedBody" xml:space="preserve">
+    <value>تم رفع مخطط جديد لمشروعك.</value>
+  </data>
 </root>

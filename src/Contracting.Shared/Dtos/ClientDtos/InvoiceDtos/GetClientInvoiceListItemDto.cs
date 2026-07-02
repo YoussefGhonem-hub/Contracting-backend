@@ -11,4 +11,5 @@ public class GetClientInvoiceListItemDto
     public string? Notes { get; set; }
     public DateTimeOffset? IssueDate { get; set; }
     public DateTimeOffset? DueDate { get; set; }
+    public List<InvoiceAttachmentDto> Attachments { get; set; } = new();
 }

@@ -6,9 +6,10 @@ namespace Contracting.Shared.Constants
     /// </summary>
     public static class MasterStatusCodes
     {
-        public const string New        = "NEW";
-        public const string InProgress = "IN_PROGRESS";
-        public const string Completed  = "COMPLETED";
-        public const string Rejected   = "REJECTED";
+        public const string New                = "NEW";
+        public const string InProgress        = "IN_PROGRESS";
+        public const string Completed         = "COMPLETED";
+        public const string Rejected          = "REJECTED";
+        public const string MissingInformation = "missing_information";
     }
 }

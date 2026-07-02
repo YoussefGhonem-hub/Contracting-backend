@@ -10,11 +10,11 @@ namespace Contracting.Infrustructure.Extensions.Helpers
     /// </summary>
     public static class StatusResolver
     {
-        public record RequestStatusIds(Guid New, Guid InProgress, Guid Completed, Guid Rejected);
+        public record RequestStatusIds(Guid New, Guid InProgress, Guid Completed, Guid Rejected, Guid MissingInformation);
 
         public static async Task<RequestStatusIds> LoadRequestStatusIdsAsync(ApplicationDbContext db)
         {
-            var needed = new[] { MasterStatusCodes.New, MasterStatusCodes.InProgress, MasterStatusCodes.Completed, MasterStatusCodes.Rejected };
+            var needed = new[] { MasterStatusCodes.New, MasterStatusCodes.InProgress, MasterStatusCodes.Completed, MasterStatusCodes.Rejected, MasterStatusCodes.MissingInformation };
 
             var rows = await db.Statuses
                 .AsNoTracking()
@@ -30,10 +30,11 @@ namespace Contracting.Infrustructure.Extensions.Helpers
             }
 
             return new RequestStatusIds(
-                New:        Resolve(MasterStatusCodes.New),
-                InProgress: Resolve(MasterStatusCodes.InProgress),
-                Completed:  Resolve(MasterStatusCodes.Completed),
-                Rejected:   Resolve(MasterStatusCodes.Rejected)
+                New:                Resolve(MasterStatusCodes.New),
+                InProgress:         Resolve(MasterStatusCodes.InProgress),
+                Completed:          Resolve(MasterStatusCodes.Completed),
+                Rejected:           Resolve(MasterStatusCodes.Rejected),
+                MissingInformation: Resolve(MasterStatusCodes.MissingInformation)
             );
         }
     }

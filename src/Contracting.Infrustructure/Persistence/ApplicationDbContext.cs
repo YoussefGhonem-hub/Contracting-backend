@@ -63,6 +63,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<ClientMonthlyReport> ClientMonthlyReports => Set<ClientMonthlyReport>();
     public DbSet<ClientMonthlyReportAttachment> ClientMonthlyReportAttachments => Set<ClientMonthlyReportAttachment>();
     public DbSet<ProjectInvoice> ProjectInvoices => Set<ProjectInvoice>();
+    public DbSet<InvoiceAttachment> InvoiceAttachments => Set<InvoiceAttachment>();
     public DbSet<InvoicePayment> InvoicePayments => Set<InvoicePayment>();
     public DbSet<VariationOrder> VariationOrders => Set<VariationOrder>();
     public DbSet<VariationOrderAttachment> VariationOrderAttachments => Set<VariationOrderAttachment>();

@@ -5,16 +5,19 @@ using Contracting.Shared.Common;
 using Contracting.Shared.CurrentUser;
 using Contracting.Shared.Dtos.ClientDtos.InvoiceDtos;
 using Microsoft.EntityFrameworkCore;
+using Storage.AWS3.Services;
 
 namespace Contracting.Infrustructure.Features.client;
 
 public class ClientInvoiceService : IClientInvoiceService
 {
     private readonly ApplicationDbContext _db;
+    private readonly IStorageService _storage;
 
-    public ClientInvoiceService(ApplicationDbContext db)
+    public ClientInvoiceService(ApplicationDbContext db, IStorageService storage)
     {
         _db = db;
+        _storage = storage;
     }
 
     public async Task<GetClientInvoicesDto?> GetClientInvoicesAsync(
@@ -31,27 +34,16 @@ public class ClientInvoiceService : IClientInvoiceService
             .FirstOrDefaultAsync(cancellationToken);
 
         var query = _db.ProjectInvoices
+            .Include(i => i.Attachments)
             .Where(i => i.ProjectId == projectId);
 
         if (!string.IsNullOrEmpty(status) && Enum.TryParse<PaymentStatus>(status, ignoreCase: true, out var parsedStatus))
             query = query.Where(i => i.Status == parsedStatus);
 
-        // Materialize the raw rows, then format the status in memory so we can return
+        // Materialize with attachments, then format the status in memory so we can return
         // user-friendly labels (and derive "Overdue") instead of raw enum names.
         var invoiceRows = await query
             .OrderBy(i => i.InvoiceNumber)
-            .Select(i => new
-            {
-                i.Id,
-                i.InvoiceNumber,
-                i.Title,
-                i.TotalValue,
-                i.PaidAmount,
-                i.Status,
-                i.Notes,
-                i.IssueDate,
-                i.DueDate
-            })
             .ToListAsync(cancellationToken);
 
         var invoices = invoiceRows.Select(i => new GetClientInvoiceListItemDto
@@ -64,7 +56,15 @@ public class ClientInvoiceService : IClientInvoiceService
             Status = FormatInvoiceStatus(i.Status, i.DueDate),
             Notes = i.Notes,
             IssueDate = i.IssueDate,
-            DueDate = i.DueDate
+            DueDate = i.DueDate,
+            Attachments = i.Attachments.Select(a => new InvoiceAttachmentDto
+            {
+                Id = a.Id,
+                FileName = a.FileName,
+                Extension = a.Extension,
+                FileSize = a.FileSize,
+                Url = _storage.GetPreSignedUrl(a.Key) ?? a.Url
+            }).ToList()
         }).ToList();
 
         // Contract financial summary: initial contract value + approved variations.

@@ -235,6 +235,16 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
                 ? Math.Round((double)urgent / total * 100, 1)
                 : 0;
 
+            // Missing Information — requests that ever had a "Missing Information" activity
+            // (covers both currently in that status AND those that recovered and moved on)
+            int missingInfo = myRequests.Count(r =>
+                r.EngineerRequestActivites.Any(a =>
+                    a.Status?.Code != null &&
+                    a.Status.Code.Equals(MasterStatusCodes.MissingInformation, StringComparison.OrdinalIgnoreCase)));
+            double missingInfoRatio = total > 0
+                ? Math.Round((double)missingInfo / total * 100, 1)
+                : 0;
+
             // Request Quality Score — completed without ever having a Rejected activity
             var completed = myRequests
                 .Where(r => r.Status?.Code == MasterStatusCodes.Completed)
@@ -263,6 +273,8 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
                 UrgentRequestsRatio    = urgentRatio,
                 UrgentRequests         = urgent,
                 TotalRequests          = total,
+                MissingInfoRequests    = missingInfo,
+                MissingInfoRatio       = missingInfoRatio,
                 RequestQualityScore    = qualityScore,
                 AcceptedOnFirstTry     = acceptedFirstTry,
                 TotalCompletedRequests = completed.Count
