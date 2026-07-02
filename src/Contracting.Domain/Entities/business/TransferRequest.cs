@@ -19,6 +19,10 @@ namespace Contracting.Domain.Entities.business
         public Guid? StatusId { get; set; }
         public Status? Status { get; set; }
 
+        // Set when status changes to Completed and department has NotifyOnTransferComplete = true.
+        // Cleared when the creator acknowledges the completion.
+        public bool NeedsAcknowledgment { get; set; }
+
         public ICollection<TransferRequestItem> Items { get; set; } = new List<TransferRequestItem>();
         public ICollection<TransferRequestAttachment> Attachments { get; set; } = new List<TransferRequestAttachment>();
         public ICollection<TransferRequestActivity> Activities { get; set; } = new List<TransferRequestActivity>();

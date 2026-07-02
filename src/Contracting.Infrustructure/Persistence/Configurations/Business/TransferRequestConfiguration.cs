@@ -33,6 +33,8 @@ namespace Contracting.Infrustructure.Persistence.Configurations.Business
                    .WithMany()
                    .HasForeignKey(r => r.RequestedById)
                    .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Property(r => r.NeedsAcknowledgment).HasDefaultValue(false);
         }
     }
 }

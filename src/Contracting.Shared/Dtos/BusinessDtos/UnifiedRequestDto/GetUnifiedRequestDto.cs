@@ -44,6 +44,7 @@ namespace Contracting.Shared.BusinessDtos.UnifiedRequestDto
         public DateTime? StartDate { get; set; }
         public DateTime? EndDate { get; set; }
         public bool NeedsReceiptConfirmation { get; set; }
+        public bool NeedsAcknowledgment { get; set; }
         
         // Transfer Request specific fields
         public Guid? SourceProjectId { get; set; }

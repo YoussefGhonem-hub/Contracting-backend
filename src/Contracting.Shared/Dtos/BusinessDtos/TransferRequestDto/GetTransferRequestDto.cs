@@ -28,5 +28,6 @@ namespace Contracting.Shared.BusinessDtos.TransferRequestDto
         public List<GetTransferRequestActivityDto> Activities { get; set; } = new();
         /// <summary>Activity comments projected into the same Notes shape used by other request types.</summary>
         public List<GetEngineerRequestNotesDto> EngineerRequestNotes { get; set; } = new();
+        public bool NeedsAcknowledgment { get; set; }
     }
 }

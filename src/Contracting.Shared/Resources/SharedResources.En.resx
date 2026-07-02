@@ -420,4 +420,10 @@
   <data name="NotificationReceiptRequiredBody" xml:space="preserve">
     <value>The office engineer has marked this request as complete. Please confirm goods receipt to close the request.</value>
   </data>
+  <data name="NotificationTransferCompletedTitle" xml:space="preserve">
+    <value>Transfer Request Completed</value>
+  </data>
+  <data name="NotificationTransferCompletedBody" xml:space="preserve">
+    <value>Your transfer request has been completed and the items have been received.</value>
+  </data>
 </root>

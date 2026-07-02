@@ -1853,6 +1853,23 @@ public class EngineerRequestService : IEngineerRequestService
             .Select(ep => ep.ProjectId)
             .ToListAsync(cancellationToken);
 
+        // Collect all department IDs this engineer belongs to
+        var engineerDeptIds = await _db.EngineerDepartments
+            .Where(ed => ed.EngineerId == engineer.Id)
+            .Select(ed => ed.DepartmentId)
+            .ToListAsync(cancellationToken);
+
+        if (engineer.DepartmentId.HasValue && !engineerDeptIds.Contains(engineer.DepartmentId.Value))
+            engineerDeptIds.Add(engineer.DepartmentId.Value);
+
+        // Which of those departments have NotifyOnTransferComplete enabled
+        var notifyDeptIds = await _db.Departmentes
+            .Where(d => engineerDeptIds.Contains(d.Id) && d.NotifyOnTransferComplete)
+            .Select(d => d.Id)
+            .ToListAsync(cancellationToken);
+
+        var hasNotifyDepts = notifyDeptIds.Any();
+
         var query = _db.TransferRequests
             .Include(r => r.SourceProject)
             .Include(r => r.DestinationProject)
@@ -1868,16 +1885,39 @@ public class EngineerRequestService : IEngineerRequestService
             .AsNoTracking();
 
         if (!isTransferAdmin)
-            query = query.Where(r =>
-                r.RequestedById == engineer.Id
-                || (r.DestinationProjectId.HasValue
-                    && engineerProjectIds.Contains(r.DestinationProjectId.Value)));
+        {
+            if (hasNotifyDepts)
+                query = query.Where(r =>
+                    r.RequestedById == engineer.Id
+                    || (r.DestinationProjectId.HasValue && engineerProjectIds.Contains(r.DestinationProjectId.Value))
+                    // Department members see NeedsAcknowledgment requests from their notify-enabled departments
+                    || (r.NeedsAcknowledgment
+                        && r.RequestedBy != null
+                        && r.RequestedBy.DepartmentId.HasValue
+                        && notifyDeptIds.Contains(r.RequestedBy.DepartmentId.Value)));
+            else
+                query = query.Where(r =>
+                    r.RequestedById == engineer.Id
+                    || (r.DestinationProjectId.HasValue
+                        && engineerProjectIds.Contains(r.DestinationProjectId.Value)));
+        }
 
         if (filter.ProjectId.HasValue && filter.ProjectId.Value != Guid.Empty)
             query = query.Where(r => r.SourceProjectId == filter.ProjectId.Value || r.DestinationProjectId == filter.ProjectId.Value);
 
+        // Status filter: bypass for NeedsAcknowledgment requests visible to this engineer
         if (filter.StatusId.HasValue && filter.StatusId.Value != Guid.Empty)
-            query = query.Where(r => r.StatusId == filter.StatusId.Value);
+        {
+            if (hasNotifyDepts)
+                query = query.Where(r =>
+                    r.StatusId == filter.StatusId.Value
+                    || (r.NeedsAcknowledgment
+                        && r.RequestedBy != null
+                        && r.RequestedBy.DepartmentId.HasValue
+                        && notifyDeptIds.Contains(r.RequestedBy.DepartmentId.Value)));
+            else
+                query = query.Where(r => r.StatusId == filter.StatusId.Value);
+        }
 
         var requests = await query.ToListAsync(cancellationToken);
 
@@ -1907,8 +1947,10 @@ public class EngineerRequestService : IEngineerRequestService
                 nameEn = r.RequestedBy.Department.nameEn,
                 nameAr = r.RequestedBy.Department.nameAr,
                 RequiresGoodsReceipt = r.RequestedBy.Department.RequiresGoodsReceipt,
-                hasSpecialFields = r.RequestedBy.Department.hasSpecialFields
+                hasSpecialFields = r.RequestedBy.Department.hasSpecialFields,
+                NotifyOnTransferComplete = r.RequestedBy.Department.NotifyOnTransferComplete
             },
+            NeedsAcknowledgment = r.NeedsAcknowledgment,
             StatusId = r.StatusId,
             Status = r.Status == null ? null : new GetDropDownStatusDto { Id = r.Status.Id, nameEn = r.Status.nameEn, nameAr = r.Status.nameAr, Code = r.Status.Code, orderNumber = r.Status.orderNumber, iconName = r.Status.iconName },
             Notes = r.Notes,

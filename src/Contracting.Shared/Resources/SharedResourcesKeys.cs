@@ -102,6 +102,8 @@
         public const string NotificationReceiptConfirmedBody = "NotificationReceiptConfirmedBody";
         public const string NotificationReceiptRequiredTitle = "NotificationReceiptRequiredTitle";
         public const string NotificationReceiptRequiredBody = "NotificationReceiptRequiredBody";
+        public const string NotificationTransferCompletedTitle = "NotificationTransferCompletedTitle";
+        public const string NotificationTransferCompletedBody = "NotificationTransferCompletedBody";
         public const string MissingInfoRequiresNoteAndAttachment = "MissingInfoRequiresNoteAndAttachment";
 
         // Validation messages - Field specific

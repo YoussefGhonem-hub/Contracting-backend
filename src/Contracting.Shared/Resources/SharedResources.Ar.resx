@@ -418,4 +418,10 @@
   <data name="NotificationReceiptRequiredBody" xml:space="preserve">
     <value>قام مهندس المكتب بتأكيد اكتمال الطلب. يرجى تأكيد استلام البضائع لإغلاق الطلب.</value>
   </data>
+  <data name="NotificationTransferCompletedTitle" xml:space="preserve">
+    <value>تم اكتمال طلب النقل</value>
+  </data>
+  <data name="NotificationTransferCompletedBody" xml:space="preserve">
+    <value>تم اكتمال طلب النقل الخاص بك واستلام المواد.</value>
+  </data>
 </root>

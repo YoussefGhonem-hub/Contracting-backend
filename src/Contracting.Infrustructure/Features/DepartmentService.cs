@@ -36,6 +36,7 @@ namespace Contracting.Infrustructure.Features
             department.BranchId = branchId;
             department.hasSpecialFields = departmentDto.hasSpecialFields;
             department.RequiresGoodsReceipt = departmentDto.RequiresGoodsReceipt;
+            department.NotifyOnTransferComplete = departmentDto.NotifyOnTransferComplete;
 
             await _db.Departmentes.AddAsync(department);
             await _db.SaveChangesAsync();
@@ -62,6 +63,7 @@ namespace Contracting.Infrustructure.Features
             department.nameAr = departmentDto.nameAr;
             department.hasSpecialFields = departmentDto.hasSpecialFields;
             department.RequiresGoodsReceipt = departmentDto.RequiresGoodsReceipt;
+            department.NotifyOnTransferComplete = departmentDto.NotifyOnTransferComplete;
 
             await _db.SaveChangesAsync();
 
@@ -178,6 +180,7 @@ namespace Contracting.Infrustructure.Features
                 nameEn = x.nameEn,
                 hasSpecialFields = x.hasSpecialFields || x.DepartmentSpecialFields.Any(),
                 RequiresGoodsReceipt = x.RequiresGoodsReceipt,
+                NotifyOnTransferComplete = x.NotifyOnTransferComplete,
                 SpecialFields = x.DepartmentSpecialFields.OrderBy(dsf => dsf.Order).Select(dsf => new DepartmentSpecialFieldDto
                 {
                     Id = dsf.Id,

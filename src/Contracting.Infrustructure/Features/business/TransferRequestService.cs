@@ -2,6 +2,7 @@ using Contracting.Domain.Entities.business;
 using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Infrustructure.Inteface.business;
+using Contracting.Infrustructure.Inteface.Helper;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.BusinessDtos.EngineerRequestNotesDtos;
 using Contracting.Shared.BusinessDtos.TransferRequestDto;
@@ -12,8 +13,10 @@ using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
 using Contracting.Shared.Dtos.MasterDtos.ProjectDtos;
 using Contracting.Shared.Dtos.MasterDtos.StatusDtos;
+using Contracting.Shared.Resources;
 using ErrorOr;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 
 namespace Contracting.Infrustructure.Features.business
 {
@@ -21,11 +24,19 @@ namespace Contracting.Infrustructure.Features.business
     {
         private readonly ApplicationDbContext _db;
         private readonly Storage.AWS3.Services.IStorageService _storageService;
+        private readonly INotificationService _notificationService;
+        private readonly IStringLocalizer<SharedResources> _localizer;
 
-        public TransferRequestService(ApplicationDbContext db, Storage.AWS3.Services.IStorageService storageService)
+        public TransferRequestService(
+            ApplicationDbContext db,
+            Storage.AWS3.Services.IStorageService storageService,
+            INotificationService notificationService,
+            IStringLocalizer<SharedResources> localizer)
         {
             _db = db;
             _storageService = storageService;
+            _notificationService = notificationService;
+            _localizer = localizer;
         }
 
         public async Task<ErrorOr<GetTransferRequestDto>> CreateAsync(CreateTransferRequestDto dto)
@@ -261,7 +272,7 @@ namespace Contracting.Infrustructure.Features.business
         {
             var s = await StatusResolver.LoadRequestStatusIdsAsync(_db);
             var request = await _db.TransferRequests
-                .AsNoTracking()
+                .Include(r => r.RequestedBy)
                 .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
 
             if (request is null) return Error.NotFound("TransferRequest.NotFound", "Transfer request not found.");
@@ -271,8 +282,9 @@ namespace Contracting.Infrustructure.Features.business
 
             var fromStatusId = request.StatusId;
             Guid toStatusId;
+            var actionLower = dto.ActionType.Trim().ToLower();
 
-            switch (dto.ActionType.ToLower())
+            switch (actionLower)
             {
                 case "submit":
                     if (request.StatusId != s.InProgress)
@@ -295,6 +307,11 @@ namespace Contracting.Infrustructure.Features.business
                         return Error.Validation("TransferRequest.InvalidQuantity", "Received quantity cannot be negative.");
                     toStatusId = s.Completed;
                     break;
+                case "acknowledge":
+                    if (!request.NeedsAcknowledgment)
+                        return Error.Validation("TransferRequest.NoAcknowledgmentNeeded", "This request does not require acknowledgment.");
+                    toStatusId = request.StatusId ?? s.Completed;
+                    break;
                 case "cancel":
                     if (request.StatusId == s.Completed)
                         return Error.Validation("TransferRequest.InvalidAction", "Closed requests cannot be cancelled.");
@@ -305,7 +322,6 @@ namespace Contracting.Infrustructure.Features.business
             }
 
             // Save received quantities per item for confirm actions
-            var actionLower = dto.ActionType.ToLower();
             if ((actionLower == "confirmreceipt" || actionLower == "confirmpartialreceipt") && dto.Items.Any())
             {
                 var itemIds = dto.Items.Select(i => i.ItemId).ToList();
@@ -317,10 +333,7 @@ namespace Contracting.Infrustructure.Features.business
                 {
                     var receipt = dto.Items.FirstOrDefault(i => i.ItemId == item.Id);
                     if (receipt is not null)
-                    {
-                        // Clamp received quantity to the originally requested quantity
                         item.ReceivedQuantity = Math.Min(receipt.ReceivedQuantity, item.Quantity);
-                    }
                 }
 
                 // For ConfirmReceipt: any item not explicitly listed defaults to full quantity
@@ -335,10 +348,32 @@ namespace Contracting.Infrustructure.Features.business
                 }
             }
 
+            // Determine NeedsAcknowledgment flag changes
+            bool needsAcknowledgment = request.NeedsAcknowledgment;
+            bool isCompletionAction = actionLower == "confirmreceipt" || actionLower == "confirmpartialreceipt";
+
+            if (isCompletionAction)
+            {
+                // Check if the department has NotifyOnTransferComplete
+                var deptId = request.RequestedBy?.DepartmentId;
+                if (deptId.HasValue)
+                {
+                    var dept = await _db.Departmentes.AsNoTracking()
+                        .FirstOrDefaultAsync(d => d.Id == deptId.Value);
+                    if (dept?.NotifyOnTransferComplete == true)
+                        needsAcknowledgment = true;
+                }
+            }
+            else if (actionLower == "acknowledge")
+            {
+                needsAcknowledgment = false;
+            }
+
             await _db.TransferRequests
                 .Where(r => r.Id == id)
                 .ExecuteUpdateAsync(s => s
                     .SetProperty(r => r.StatusId, toStatusId)
+                    .SetProperty(r => r.NeedsAcknowledgment, needsAcknowledgment)
                     .SetProperty(r => r.ModifiedDate, DateTimeOffset.UtcNow)
                     .SetProperty(r => r.ModifiedBy, engineer != null ? engineer.Id : (Guid?)null));
 
@@ -353,6 +388,18 @@ namespace Contracting.Infrustructure.Features.business
             });
 
             await _db.SaveChangesAsync();
+
+            // Notify the requesting engineer when the transfer request is completed
+            if (isCompletionAction && needsAcknowledgment && request.RequestedBy?.ApplicationUserId is not null
+                && request.RequestedBy.ApplicationUserId != Guid.Empty)
+            {
+                await _notificationService.SendNotificationToUserAsync(
+                    request.RequestedBy.ApplicationUserId,
+                    _localizer[SharedResourcesKeys.NotificationTransferCompletedTitle],
+                    _localizer[SharedResourcesKeys.NotificationTransferCompletedBody],
+                    id);
+            }
+
             return await GetByIdAsync(request.Id);
         }
 
@@ -424,7 +471,8 @@ namespace Contracting.Infrustructure.Features.business
                     Attachments = new List<GetAttachmentDto>()
                 })
                 .OrderBy(n => n.CreatedDate)
-                .ToList()
+                .ToList(),
+            NeedsAcknowledgment = r.NeedsAcknowledgment
         };
     }
 }
