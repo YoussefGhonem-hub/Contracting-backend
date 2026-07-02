@@ -38,6 +38,8 @@ namespace Contracting.Infrustructure.Features.business
             var engineer = await _db.Engineers.AsNoTracking()
                 .FirstOrDefaultAsync(e => e.ApplicationUserId == Guid.Parse(CurrentUser.UserId!));
 
+            var itemsTotal = dto.Items.Sum(i => i.Value);
+
             var clearance = new FinancialClearance
             {
                 ClearanceNumber = await GenerateClearanceNumberAsync(),
@@ -46,12 +48,21 @@ namespace Contracting.Infrustructure.Features.business
                 ProjectId = dto.ProjectId == Guid.Empty ? null : dto.ProjectId,
                 RequestDate = dto.RequestDate,
                 AdvanceAmount = dto.AdvanceAmount,
-                SpentAmount = dto.SpentAmount,
-                RemainingAmount = dto.AdvanceAmount - dto.SpentAmount,
+                SpentAmount = itemsTotal,
+                RemainingAmount = dto.AdvanceAmount - itemsTotal,
                 Notes = dto.Notes,
-                StatusId = s.New,  // Draft/Created → New
+                StatusId = s.New,
                 RequestedById = engineer?.Id
             };
+
+            foreach (var item in dto.Items)
+            {
+                clearance.Items.Add(new FinancialClearanceItem
+                {
+                    ItemName = item.ItemName,
+                    Value = item.Value
+                });
+            }
 
             if (dto.Attachments != null && dto.Attachments.Any())
             {
@@ -87,6 +98,7 @@ namespace Contracting.Infrustructure.Features.business
         {
             var s = await StatusResolver.LoadRequestStatusIdsAsync(_db);
             var clearance = await _db.FinancialClearances
+                .Include(c => c.Items)
                 .Include(c => c.Attachments)
                 .FirstOrDefaultAsync(c => c.Id == dto.Id && !c.IsDeleted);
 
@@ -102,8 +114,22 @@ namespace Contracting.Infrustructure.Features.business
             if (dto.Notes is not null) clearance.Notes = dto.Notes;
 
             var advanceAmount = dto.AdvanceAmount ?? clearance.AdvanceAmount;
-            var spentAmount = dto.SpentAmount ?? clearance.SpentAmount;
 
+            if (dto.Items != null)
+            {
+                _db.FinancialClearanceItems.RemoveRange(clearance.Items);
+                clearance.Items.Clear();
+                foreach (var item in dto.Items)
+                {
+                    clearance.Items.Add(new FinancialClearanceItem
+                    {
+                        ItemName = item.ItemName,
+                        Value = item.Value
+                    });
+                }
+            }
+
+            var spentAmount = clearance.Items.Sum(i => i.Value);
             clearance.AdvanceAmount = advanceAmount;
             clearance.SpentAmount = spentAmount;
             clearance.RemainingAmount = advanceAmount - spentAmount;
@@ -146,6 +172,7 @@ namespace Contracting.Infrustructure.Features.business
         public async Task<ErrorOr<GetFinancialClearanceDto>> GetByIdAsync(Guid id)
         {
             var clearance = await _db.FinancialClearances
+                .Include(c => c.Items)
                 .Include(c => c.Department)
                 .Include(c => c.Project)
                 .Include(c => c.RequestedBy)
@@ -165,6 +192,7 @@ namespace Contracting.Infrustructure.Features.business
         public async Task<PaginatedList<GetFinancialClearanceDto>> GetAllAsync(FinancialClearanceFilterDto filter)
         {
             var query = _db.FinancialClearances
+                .Include(c => c.Items)
                 .Include(c => c.Department)
                 .Include(c => c.Project)
                 .Include(c => c.RequestedBy)
@@ -423,9 +451,15 @@ namespace Contracting.Infrustructure.Features.business
             Project = c.Project is null ? null : new GetProjectDto { Id = c.Project.Id, nameEn = c.Project.nameEn, nameAr = c.Project.nameAr },
             RequestDate = c.RequestDate,
             AdvanceAmount = c.AdvanceAmount,
-            SpentAmount = c.SpentAmount,
+            Total = c.SpentAmount,
             RemainingAmount = c.RemainingAmount,
             Notes = c.Notes,
+            Items = c.Items.Select(i => new GetFinancialClearanceItemDto
+            {
+                Id = i.Id,
+                ItemName = i.ItemName,
+                Value = i.Value
+            }).ToList(),
             StatusId = c.StatusId,
             Status = MapStatus(c.Status),
             RequestedById = c.RequestedById,

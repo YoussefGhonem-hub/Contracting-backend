@@ -944,39 +944,55 @@ namespace Contracting.Infrustructure.Features.business
             var firstDay = new DateTimeOffset(new DateTime(targetYear, targetMonth, 1));
             var lastDay = firstDay.AddMonths(1);
 
-            var submittedDates = await _db.EngineerSiteReports
+            // Count active projects assigned to this engineer
+            var projectCount = await _db.EngineerProjects
+                .AsNoTracking()
+                .CountAsync(ep => ep.EngineerId == engineer.Id && !ep.IsDeleted, cancellationToken);
+            if (projectCount == 0) projectCount = 1; // floor at 1 so division is safe
+
+            // Total submitted reports in the month (one per project per day, no Distinct)
+            var submittedReports = await _db.EngineerSiteReports
                 .AsNoTracking()
                 .Where(r => r.EngineerId == engineer.Id
                          && r.ReportDate >= firstDay
-                         && r.ReportDate < lastDay)
+                         && r.ReportDate < lastDay
+                         && !r.IsDeleted)
                 .Select(r => r.ReportDate.Date)
-                .Distinct()
                 .ToListAsync(cancellationToken);
 
-            // Expected = calendar working days (Mon-Fri) up to today within the month
+            // Expected = working days (Mon–Thu) up to today, multiplied by project count
             var today = Contracting.Shared.Common.DateTimeHelper.DateTimeNow.Date;
             var endBound = today < lastDay.Date ? today : lastDay.AddDays(-1).Date;
 
-            var expectedDays = new List<DateTime>();
+            var workingDays = new List<DateTime>();
             for (var d = firstDay.Date; d <= endBound; d = d.AddDays(1))
             {
                 if (d.DayOfWeek != DayOfWeek.Friday && d.DayOfWeek != DayOfWeek.Saturday)
-                    expectedDays.Add(d);
+                    workingDays.Add(d);
             }
 
-            var submittedSet = submittedDates.Select(d => d).ToHashSet();
-            var missingDays = expectedDays.Where(d => !submittedSet.Contains(d)).ToList();
+            int expectedReports = workingDays.Count * projectCount;
 
-            var completionRate = expectedDays.Count == 0
+            // Missing days = working days where the engineer submitted fewer than projectCount reports
+            var reportsPerDay = submittedReports
+                .GroupBy(d => d)
+                .ToDictionary(g => g.Key, g => g.Count());
+            var missingDays = workingDays
+                .Where(d => !reportsPerDay.TryGetValue(d, out var cnt) || cnt < projectCount)
+                .ToList();
+
+            var completionRate = expectedReports == 0
                 ? 0m
-                : Math.Round((decimal)submittedDates.Count / expectedDays.Count * 100m, 2, MidpointRounding.AwayFromZero);
+                : Math.Round((decimal)submittedReports.Count / expectedReports * 100m, 2, MidpointRounding.AwayFromZero);
 
             return new DailyReportCompletionDto
             {
                 Year = targetYear,
                 Month = targetMonth,
-                ExpectedWorkingDays = expectedDays.Count,
-                SubmittedDays = submittedDates.Count,
+                ProjectCount = projectCount,
+                WorkingDaysInMonth = workingDays.Count,
+                ExpectedWorkingDays = expectedReports,
+                SubmittedDays = submittedReports.Count,
                 CompletionRate = completionRate,
                 MissingDays = missingDays
             };

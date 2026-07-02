@@ -20,9 +20,11 @@ public class SiteEngineerPerformanceDto
     public bool    IsTopPerformer   { get; set; }
 
     // Report Completion
-    public double ReportCompletionRate { get; set; }   // 0–100
-    public int    ReportsSubmitted     { get; set; }
-    public int    WorkingDaysInPeriod  { get; set; }
+    public double ReportCompletionRate  { get; set; }   // 0–100
+    public int    ReportsSubmitted      { get; set; }
+    public int    WorkingDaysInPeriod   { get; set; }   // pure calendar working days (no weekends)
+    public int    ProjectCount          { get; set; }   // number of projects assigned
+    public int    ExpectedReportsCount  { get; set; }   // WorkingDaysInPeriod × ProjectCount
 
     // Urgent Requests Ratio
     public double UrgentRequestsRatio { get; set; }    // 0–100

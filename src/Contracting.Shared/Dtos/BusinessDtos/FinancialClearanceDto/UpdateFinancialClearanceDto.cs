@@ -10,7 +10,7 @@ namespace Contracting.Shared.BusinessDtos.FinancialClearanceDto
         public Guid? ProjectId { get; set; }
         public DateTime? RequestDate { get; set; }
         public decimal? AdvanceAmount { get; set; }
-        public decimal? SpentAmount { get; set; }
+        public List<CreateFinancialClearanceItemDto>? Items { get; set; }
         public string? Notes { get; set; }
         public ICollection<IFormFile>? Attachments { get; set; }
         public List<string>? AttachmentTypes { get; set; }

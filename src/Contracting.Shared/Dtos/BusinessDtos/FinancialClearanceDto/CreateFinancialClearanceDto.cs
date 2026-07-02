@@ -9,7 +9,7 @@ namespace Contracting.Shared.BusinessDtos.FinancialClearanceDto
         public Guid? ProjectId { get; set; }
         public DateTime RequestDate { get; set; } = DateTime.UtcNow;
         public decimal AdvanceAmount { get; set; }
-        public decimal SpentAmount { get; set; }
+        public List<CreateFinancialClearanceItemDto> Items { get; set; } = new();
         public string? Notes { get; set; }
         public ICollection<IFormFile>? Attachments { get; set; }
         /// <summary>Parallel list of attachment types: Invoice, Receipt, Supporting</summary>

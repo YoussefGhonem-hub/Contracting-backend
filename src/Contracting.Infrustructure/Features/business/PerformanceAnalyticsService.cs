@@ -182,6 +182,14 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
             .Where(e => engineerIds.Contains(e.Id) && !e.IsDeleted)
             .ToListAsync(ct);
 
+        // Bulk-load project counts per engineer (one report expected per project per working day)
+        var projectCountsRaw = await _db.EngineerProjects
+            .Where(ep => engineerIds.Contains(ep.EngineerId) && !ep.IsDeleted)
+            .GroupBy(ep => ep.EngineerId)
+            .Select(g => new { EngineerId = g.Key, Count = g.Count() })
+            .ToListAsync(ct);
+        var projectCountDict = projectCountsRaw.ToDictionary(x => x.EngineerId, x => x.Count);
+
         // Bulk-load site reports in period
         var reports = await _db.EngineerSiteReports
             .Where(r => engineerIds.Contains(r.EngineerId)
@@ -209,10 +217,12 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
             var myReports  = reports.Where(r => r.EngineerId == eng.Id).ToList();
             var myRequests = requests.Where(r => r.EngineerId == eng.Id).ToList();
 
-            // Report Completion
-            int submitted = myReports.Count;
-            double completionRate = workingDays > 0
-                ? Math.Round((double)submitted / workingDays * 100, 1)
+            // Report Completion — engineer must submit one report per project per working day
+            int projectCount    = projectCountDict.TryGetValue(eng.Id, out var pc) ? Math.Max(pc, 1) : 1;
+            int expectedReports = workingDays * projectCount;
+            int submitted       = myReports.Count;
+            double completionRate = expectedReports > 0
+                ? Math.Round((double)submitted / expectedReports * 100, 1)
                 : 0;
 
             // High-Priority Requests Ratio (system uses High / Medium / Low)
@@ -240,19 +250,21 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
 
             result.Add(new SiteEngineerPerformanceDto
             {
-                EngineerId            = eng.Id,
-                NameEn                = eng.nameEn,
-                NameAr                = eng.nameAr,
-                Position              = eng.position,
-                DepartmentNameEn      = eng.Department?.nameEn,
-                ReportCompletionRate  = completionRate,
-                ReportsSubmitted      = submitted,
-                WorkingDaysInPeriod   = workingDays,
-                UrgentRequestsRatio   = urgentRatio,
-                UrgentRequests        = urgent,
-                TotalRequests         = total,
-                RequestQualityScore   = qualityScore,
-                AcceptedOnFirstTry    = acceptedFirstTry,
+                EngineerId             = eng.Id,
+                NameEn                 = eng.nameEn,
+                NameAr                 = eng.nameAr,
+                Position               = eng.position,
+                DepartmentNameEn       = eng.Department?.nameEn,
+                ReportCompletionRate   = completionRate,
+                ReportsSubmitted       = submitted,
+                WorkingDaysInPeriod    = workingDays,
+                ProjectCount           = projectCount,
+                ExpectedReportsCount   = expectedReports,
+                UrgentRequestsRatio    = urgentRatio,
+                UrgentRequests         = urgent,
+                TotalRequests          = total,
+                RequestQualityScore    = qualityScore,
+                AcceptedOnFirstTry     = acceptedFirstTry,
                 TotalCompletedRequests = completed.Count
             });
         }

@@ -161,9 +161,11 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestAnalysisDtos
     {
         public int Year { get; set; }
         public int Month { get; set; }
-        public int ExpectedWorkingDays { get; set; }
-        public int SubmittedDays { get; set; }
+        public int ProjectCount { get; set; }           // number of projects assigned to the engineer
+        public int WorkingDaysInMonth { get; set; }     // pure calendar working days (no weekends)
+        public int ExpectedWorkingDays { get; set; }    // WorkingDaysInMonth × ProjectCount (total expected reports)
+        public int SubmittedDays { get; set; }          // total reports actually submitted
         public decimal CompletionRate { get; set; }
-        public List<DateTime> MissingDays { get; set; } = new();
+        public List<DateTime> MissingDays { get; set; } = new();  // working days where at least one project report is missing
     }
 }

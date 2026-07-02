@@ -24,6 +24,7 @@ namespace Contracting.Domain.Entities.business
         public Guid? AssignedToId { get; set; }
         public Engineer? AssignedTo { get; set; }
 
+        public ICollection<FinancialClearanceItem> Items { get; set; } = new List<FinancialClearanceItem>();
         public ICollection<FinancialClearanceAttachment> Attachments { get; set; } = new List<FinancialClearanceAttachment>();
         public ICollection<FinancialClearanceActivity> Activities { get; set; } = new List<FinancialClearanceActivity>();
     }

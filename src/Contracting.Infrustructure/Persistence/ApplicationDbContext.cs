@@ -80,6 +80,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
 
     // Financial Clearance
     public DbSet<FinancialClearance> FinancialClearances => Set<FinancialClearance>();
+    public DbSet<FinancialClearanceItem> FinancialClearanceItems => Set<FinancialClearanceItem>();
     public DbSet<FinancialClearanceAttachment> FinancialClearanceAttachments => Set<FinancialClearanceAttachment>();
     public DbSet<FinancialClearanceActivity> FinancialClearanceActivities => Set<FinancialClearanceActivity>();
 
