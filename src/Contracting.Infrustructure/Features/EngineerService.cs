@@ -149,6 +149,8 @@ namespace Contracting.Infrustructure.Features
                     .Include(x => x.EngineerProjects)
                         .ThenInclude(ep => ep.Project)
                             .ThenInclude(p => p.Branch)
+                    .Include(x => x.EngineerProjects)
+                        .ThenInclude(ep => ep.Features)
                     .Where(e => e.DepartmentId == departmentId)
                     .AsNoTracking();
 
@@ -231,6 +233,8 @@ namespace Contracting.Infrustructure.Features
                     .Include(x => x.EngineerProjects)
                         .ThenInclude(ep => ep.Project)
                             .ThenInclude(p => p.Branch)
+                    .Include(x => x.EngineerProjects)
+                        .ThenInclude(ep => ep.Features)
                     .AsNoTracking();
 
                 if (string.IsNullOrWhiteSpace(filter.Sort))
@@ -310,6 +314,8 @@ namespace Contracting.Infrustructure.Features
                 .Include(e => e.EngineerProjects)
                     .ThenInclude(ep => ep.Project)
                         .ThenInclude(p => p.Branch)
+                .Include(e => e.EngineerProjects)
+                    .ThenInclude(ep => ep.Features)
                 .Include(e => e.EngineerDepartments)
                     .ThenInclude(ed => ed.Department)
                         .ThenInclude(d => d.Branch)
