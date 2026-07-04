@@ -10,5 +10,6 @@ namespace Contracting.Shared.BusinessDtos.EngineerRequestDto
         public string? value { get; set; }
         public int Order { get; set; }
         public string? ListGroupKey { get; set; }
+        public int? ReceivedQuantity { get; set; }
     }
 }

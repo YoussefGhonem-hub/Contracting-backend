@@ -15,5 +15,13 @@ namespace Contracting.Domain.Entities.business
         public int RowIndex { get; set; }
 
         public string? value { get; set; }
+
+        /// <summary>
+        /// Goods-receipt tracking for list-group fields that represent a quantity (e.g. "Qty
+        /// Required" in a Procurement materials list). Only meaningful for the numeric
+        /// "quantity" cell within a row; other cells in the same row (S/N, description, unit,
+        /// item code, etc.) leave this null.
+        /// </summary>
+        public int? ReceivedQuantity { get; set; }
     }
 }

@@ -2920,6 +2920,39 @@ public class EngineerRequestService : IEngineerRequestService
         return unresolved;
     }
 
+    /// <summary>
+    /// Same purpose as <see cref="ApplySpecialFieldItemReceivedQuantities"/>, but for generic
+    /// list-group special fields (e.g. a "Qty Required" cell in a Procurement materials row
+    /// configured via ListGroupKey instead of the ConstructionItem catalog). These rows have no
+    /// ConstructionItemId, so ItemId must match the row's own Id - no fallback matching.
+    /// The row's own <c>value</c> (parsed as an int, when possible) is treated as "ordered quantity"
+    /// and clamps the received amount, mirroring how ConstructionItem rows clamp against Quantity.
+    /// Returns the submitted ItemIds that could not be resolved (empty when everything matched).
+    /// </summary>
+    private static List<Guid> ApplySpecialFieldListItemReceivedQuantities(
+        IEnumerable<EngineerRequestSpecialFieldListItem> requestItems,
+        IEnumerable<EngineerRequestSpecialFieldItemReceiptDto> submittedItems)
+    {
+        var itemsById = requestItems.ToDictionary(i => i.Id);
+        var unresolved = new List<Guid>();
+
+        foreach (var submitted in submittedItems)
+        {
+            if (!itemsById.TryGetValue(submitted.ItemId, out var match))
+            {
+                unresolved.Add(submitted.ItemId);
+                continue;
+            }
+
+            var receivedQty = Math.Max(0, submitted.ReceivedQuantity);
+            match.ReceivedQuantity = int.TryParse(match.value, out var orderedQty)
+                ? Math.Min(receivedQty, orderedQty)
+                : receivedQty;
+        }
+
+        return unresolved;
+    }
+
     public async Task<ErrorOr<GetAllEngineerRequestDto>> CreateGoodsReceiptAsync(
         Guid requestId,
         CreateGoodsReceiptDto dto)
@@ -2929,6 +2962,7 @@ public class EngineerRequestService : IEngineerRequestService
             .Include(r => r.Department)
             .Include(r => r.assignTo)
             .Include(r => r.SpecialFieldItems)
+            .Include(r => r.SpecialFieldListItems)
             .FirstOrDefaultAsync(r => r.Id == requestId);
 
         if (request is null)
@@ -3026,6 +3060,32 @@ public class EngineerRequestService : IEngineerRequestService
                 // Full receipt: mark all items as fully received
                 foreach (var item in request.SpecialFieldItems)
                     item.ReceivedQuantity = item.Quantity;
+            }
+        }
+
+        // Update received quantities on generic list-group items (e.g. Procurement's
+        // "Qty Required" rows configured via ListGroupKey instead of ConstructionItem).
+        if (request.SpecialFieldListItems != null && request.SpecialFieldListItems.Any())
+        {
+            if (dto.IsPartialReceipt && dto.SpecialFieldListItems != null && dto.SpecialFieldListItems.Any())
+            {
+                var unresolvedListItems = ApplySpecialFieldListItemReceivedQuantities(request.SpecialFieldListItems, dto.SpecialFieldListItems);
+                if (unresolvedListItems.Count > 0)
+                {
+                    return Error.Validation(
+                        "SpecialFieldListItem.NotFound",
+                        $"Item(s) {string.Join(", ", unresolvedListItems)} were not found on this request.");
+                }
+            }
+            else if (!dto.IsPartialReceipt)
+            {
+                // Full receipt: for any list-item cell whose value parses as a quantity, mark
+                // it fully received. Non-numeric cells (S/N, description, unit, etc.) are untouched.
+                foreach (var item in request.SpecialFieldListItems)
+                {
+                    if (int.TryParse(item.value, out var qty))
+                        item.ReceivedQuantity = qty;
+                }
             }
         }
 
