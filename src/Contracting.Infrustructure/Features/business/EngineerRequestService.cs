@@ -505,7 +505,15 @@ public class EngineerRequestService : IEngineerRequestService
         }
 
         // Update fields
-        request.ProjectId = dto.ProjectId == Guid.Empty ? request.ProjectId : dto.ProjectId;
+        // ProjectId is nullable and, when the multipart form omits it entirely, ASP.NET Core
+        // model binding leaves it at its default (null) rather than leaving it "untouched".
+        // That made "omitted" indistinguishable from "explicitly clear the project", so any
+        // update that didn't resend ProjectId wiped it. Only overwrite when a real, non-empty
+        // value was actually supplied; otherwise leave the existing value as-is.
+        if (dto.ProjectId.HasValue && dto.ProjectId.Value != Guid.Empty)
+        {
+            request.ProjectId = dto.ProjectId;
+        }
         request.DepartmentId = dto.DepartmentId == Guid.Empty ? request.DepartmentId : dto.DepartmentId;
         request.PriorityId = dto.PriorityId == Guid.Empty ? request.PriorityId : dto.PriorityId;
         request.RequestTitle = dto.RequestTitle ?? request.RequestTitle;
@@ -1367,16 +1375,18 @@ public class EngineerRequestService : IEngineerRequestService
         // Save received quantities — only when the request is awaiting site engineer receipt confirmation
         if (request.NeedsReceiptConfirmation && actionDto.SpecialFieldItems != null && actionDto.SpecialFieldItems.Any())
         {
-            var itemIds = actionDto.SpecialFieldItems.Select(i => i.ItemId).ToList();
+            // Load all of the request's special field item rows (not just the ones filtered by submitted
+            // ids) so we can match by row Id or, when unambiguous, by ConstructionItemId — see
+            // ApplySpecialFieldItemReceivedQuantities for the matching rules.
             var dbItems = await _db.EngineerRequestSpecialFieldItems
-                .Where(i => i.EngineerRequestId == requestId && itemIds.Contains(i.Id))
+                .Where(i => i.EngineerRequestId == requestId)
                 .ToListAsync();
 
-            foreach (var item in dbItems)
+            var unresolved = ApplySpecialFieldItemReceivedQuantities(dbItems, actionDto.SpecialFieldItems);
+            if (unresolved.Count > 0)
             {
-                var dto = actionDto.SpecialFieldItems.FirstOrDefault(i => i.ItemId == item.Id);
-                if (dto != null)
-                    item.ReceivedQuantity = Math.Max(0, Math.Min(dto.ReceivedQuantity, item.Quantity));
+                return GenericResponse.FailureResult(
+                    $"Item(s) {string.Join(", ", unresolved)} were not found on this request.");
             }
         }
 
@@ -2859,6 +2869,57 @@ public class EngineerRequestService : IEngineerRequestService
     private static readonly string[] PurchaseClosedKeywords =
         { "closed", "completed", "complete", "done", "finished", "finish" };
 
+    /// <summary>
+    /// Matches submitted goods-receipt line items against a request's <see cref="EngineerRequestSpecialFieldItem"/> rows
+    /// and applies the received quantity on each matched row.
+    /// Each submitted <c>ItemId</c> may refer to either:
+    ///   1) the row's own <c>Id</c> (preferred — always unambiguous), or
+    ///   2) that row's <c>ConstructionItemId</c> (fallback — only accepted when exactly one row on the
+    ///      request carries that ConstructionItemId, otherwise it is ambiguous and treated as unresolved).
+    /// This tolerates clients that naturally send the material/ConstructionItem id instead of the
+    /// EngineerRequestSpecialFieldItem row id, without ever silently dropping an update.
+    /// Returns the submitted ItemIds that could not be resolved to exactly one row (empty when everything matched).
+    /// </summary>
+    private static List<Guid> ApplySpecialFieldItemReceivedQuantities(
+        IEnumerable<EngineerRequestSpecialFieldItem> requestItems,
+        IEnumerable<EngineerRequestSpecialFieldItemReceiptDto> submittedItems)
+    {
+        var itemsById = requestItems.ToDictionary(i => i.Id);
+        var itemsByConstructionItemId = requestItems
+            .GroupBy(i => i.ConstructionItemId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var unresolved = new List<Guid>();
+
+        foreach (var submitted in submittedItems)
+        {
+            EngineerRequestSpecialFieldItem? match = null;
+
+            if (itemsById.TryGetValue(submitted.ItemId, out var byIdMatch))
+            {
+                // Unambiguous: matched by the row's own primary key.
+                match = byIdMatch;
+            }
+            else if (itemsByConstructionItemId.TryGetValue(submitted.ItemId, out var candidates)
+                     && candidates.Count == 1)
+            {
+                // Fallback: matched by ConstructionItemId, only accepted when there's a single
+                // candidate row on this request — otherwise which row to update is ambiguous.
+                match = candidates[0];
+            }
+
+            if (match is null)
+            {
+                unresolved.Add(submitted.ItemId);
+                continue;
+            }
+
+            match.ReceivedQuantity = Math.Max(0, Math.Min(submitted.ReceivedQuantity, match.Quantity));
+        }
+
+        return unresolved;
+    }
+
     public async Task<ErrorOr<GetAllEngineerRequestDto>> CreateGoodsReceiptAsync(
         Guid requestId,
         CreateGoodsReceiptDto dto)
@@ -2940,6 +3001,7 @@ public class EngineerRequestService : IEngineerRequestService
             EngineerId = engineer?.Id,
             StatusId = newStatusId,
             ActionType = actionType,
+            Comments = dto.Notes,
         });
 
         // Update received quantities on items
@@ -2947,12 +3009,16 @@ public class EngineerRequestService : IEngineerRequestService
         {
             if (dto.IsPartialReceipt && dto.SpecialFieldItems != null && dto.SpecialFieldItems.Any())
             {
-                // Partial receipt: apply the quantities provided by the engineer
-                var receiptLookup = dto.SpecialFieldItems.ToDictionary(i => i.ItemId, i => i.ReceivedQuantity);
-                foreach (var item in request.SpecialFieldItems)
+                // Partial receipt: apply the quantities provided by the engineer.
+                // Every submitted ItemId must resolve to a real row on this request (by row Id or,
+                // when unambiguous, by ConstructionItemId) — otherwise we'd silently persist nothing
+                // for that line while still returning 200 OK.
+                var unresolved = ApplySpecialFieldItemReceivedQuantities(request.SpecialFieldItems, dto.SpecialFieldItems);
+                if (unresolved.Count > 0)
                 {
-                    if (receiptLookup.TryGetValue(item.Id, out var receivedQty))
-                        item.ReceivedQuantity = Math.Max(0, Math.Min(receivedQty, item.Quantity));
+                    return Error.Validation(
+                        "SpecialFieldItem.NotFound",
+                        $"Item(s) {string.Join(", ", unresolved)} were not found on this request.");
                 }
             }
             else if (!dto.IsPartialReceipt)

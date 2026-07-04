@@ -245,17 +245,25 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
                 ? Math.Round((double)missingInfo / total * 100, 1)
                 : 0;
 
-            // Request Quality Score — completed without ever having a Rejected activity
+            // Request Quality Score — of requests that reached a final outcome
+            // (Completed or Rejected), what percentage were Completed?
+            //
+            // Previous logic checked "completed AND never had a Rejected activity",
+            // but a request can never move from Rejected back to any other status
+            // (hard-blocked in TakeActionOnRequestAsync/UpdateEngineerRequestAsync -
+            // confirmed against production data: 0 of 18 Completed requests have
+            // ever had a Rejected activity). That made the old check always true by
+            // construction, so the score was structurally stuck at 100% for every
+            // engineer with any completed work - it never actually measured quality.
             var completed = myRequests
                 .Where(r => r.Status?.Code == MasterStatusCodes.Completed)
                 .ToList();
 
-            int acceptedFirstTry = completed.Count(r =>
-                !r.EngineerRequestActivites.Any(a =>
-                    a.Status?.Code == MasterStatusCodes.Rejected));
+            int rejectedCount = myRequests.Count(r => r.Status?.Code == MasterStatusCodes.Rejected);
+            int finalizedCount = completed.Count + rejectedCount;
 
-            double qualityScore = completed.Count > 0
-                ? Math.Round((double)acceptedFirstTry / completed.Count * 100, 1)
+            double qualityScore = finalizedCount > 0
+                ? Math.Round((double)completed.Count / finalizedCount * 100, 1)
                 : 100;
 
             result.Add(new SiteEngineerPerformanceDto
@@ -276,8 +284,10 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
                 MissingInfoRequests    = missingInfo,
                 MissingInfoRatio       = missingInfoRatio,
                 RequestQualityScore    = qualityScore,
-                AcceptedOnFirstTry     = acceptedFirstTry,
-                TotalCompletedRequests = completed.Count
+                AcceptedOnFirstTry     = completed.Count,
+                TotalCompletedRequests = completed.Count,
+                RejectedRequests       = rejectedCount,
+                TotalFinalizedRequests = finalizedCount
             });
         }
 
@@ -390,6 +400,7 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
                 Position               = eng.position,
                 DepartmentNameEn       = eng.Department?.nameEn,
                 AvgResponseTimeHours   = avgResponse,
+                TotalRequests          = myRequests.Count,
                 OnTimeDeliveryRate     = onTimeRate,
                 OnTimeDeliveries       = onTime,
                 TotalDeliveries        = completed.Count,
@@ -409,21 +420,32 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
     {
         var scores = new List<double>();
 
-        if (site.Count > 0)
+        // ReportCompletionRate/RequestQualityScore/UrgentRequestsRatio (and their office-side
+        // equivalents below) default to their best possible value for an engineer with zero
+        // activity in the period - averaging those in would let idle staff inflate the index as
+        // if they performed flawlessly. Prefer the activity-only subset; fall back to everyone
+        // only if nobody had any activity at all (so the index still returns a value).
+        var activeSite = site.Where(e => e.ReportsSubmitted > 0 || e.TotalRequests > 0).ToList();
+        var siteForScoring = activeSite.Count > 0 ? activeSite : site;
+
+        if (siteForScoring.Count > 0)
         {
-            scores.Add(site.Average(e => e.ReportCompletionRate));
-            scores.Add(site.Average(e => e.RequestQualityScore));
+            scores.Add(siteForScoring.Average(e => e.ReportCompletionRate));
+            scores.Add(siteForScoring.Average(e => e.RequestQualityScore));
             // Lower urgent ratio is better — invert it
-            scores.Add(100 - site.Average(e => e.UrgentRequestsRatio));
+            scores.Add(100 - siteForScoring.Average(e => e.UrgentRequestsRatio));
         }
 
-        if (office.Count > 0)
+        var activeOffice = office.Where(e => e.TotalRequests > 0).ToList();
+        var officeForScoring = activeOffice.Count > 0 ? activeOffice : office;
+
+        if (officeForScoring.Count > 0)
         {
-            scores.Add(office.Average(e => e.OnTimeDeliveryRate));
+            scores.Add(officeForScoring.Average(e => e.OnTimeDeliveryRate));
             // Response time: 0 hrs = 100%, 8 hrs = 0%, capped
-            scores.Add(office.Average(e => Math.Max(0, 100 - (e.AvgResponseTimeHours / 8.0 * 100))));
+            scores.Add(officeForScoring.Average(e => Math.Max(0, 100 - (e.AvgResponseTimeHours / 8.0 * 100))));
             // Violations: 0 = 100%, each violation costs 10 points, floor 0
-            scores.Add(office.Average(e => Math.Max(0, 100 - e.DeliveryDateViolations * 10)));
+            scores.Add(officeForScoring.Average(e => Math.Max(0, 100 - e.DeliveryDateViolations * 10)));
         }
 
         if (scores.Count == 0) return null;
@@ -457,7 +479,15 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
     private static void MarkTopPerformer(List<SiteEngineerPerformanceDto> list)
     {
         if (list.Count == 0) return;
-        var best = list.MaxBy(e =>
+
+        // RequestQualityScore defaults to 100 and UrgentRequestsRatio defaults to 0 when an
+        // engineer has zero completed/total requests in the period - i.e. an engineer who did
+        // nothing scores as if they were flawless. Only rank engineers who actually submitted a
+        // report or had at least one request, so idle staff can't outrank real (if imperfect) work.
+        var candidates = list.Where(e => e.ReportsSubmitted > 0 || e.TotalRequests > 0).ToList();
+        if (candidates.Count == 0) return;
+
+        var best = candidates.MaxBy(e =>
             e.ReportCompletionRate * 0.4 +
             e.RequestQualityScore  * 0.4 +
             (100 - e.UrgentRequestsRatio) * 0.2);
@@ -511,7 +541,6 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
             int high   = mine.Count(r => r.Priority?.nameEn?.Contains("high",   StringComparison.OrdinalIgnoreCase) == true || r.Priority?.code?.Contains("high", StringComparison.OrdinalIgnoreCase) == true);
             int medium = mine.Count(r => r.Priority?.nameEn?.Contains("medium", StringComparison.OrdinalIgnoreCase) == true || r.Priority?.code?.Contains("medium", StringComparison.OrdinalIgnoreCase) == true);
             int low    = mine.Count(r => r.Priority?.nameEn?.Contains("low",    StringComparison.OrdinalIgnoreCase) == true || r.Priority?.code?.Contains("low", StringComparison.OrdinalIgnoreCase) == true);
-            int rejected = mine.Count(r => r.EngineerRequestActivites.Any(a => a.Status?.Code == MasterStatusCodes.Rejected));
             double composite = Math.Round(dto.ReportCompletionRate * 0.4 + dto.RequestQualityScore * 0.4 + (100 - dto.UrgentRequestsRatio) * 0.2, 1);
 
             return new SiteEngineerFullDto
@@ -531,10 +560,11 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
                 RequestQualityScore    = dto.RequestQualityScore,
                 AcceptedOnFirstTry     = dto.AcceptedOnFirstTry,
                 TotalCompletedRequests = dto.TotalCompletedRequests,
+                RejectedRequests       = dto.RejectedRequests,
+                TotalFinalizedRequests = dto.TotalFinalizedRequests,
                 HighPriorityRequests   = high,
                 MediumPriorityRequests = medium,
                 LowPriorityRequests    = low,
-                RejectedRequests       = rejected,
                 CompositeScore         = composite
             };
         }).OrderByDescending(e => e.CompositeScore).ToList();

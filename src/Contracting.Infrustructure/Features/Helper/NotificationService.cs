@@ -156,6 +156,27 @@ namespace Contracting.Infrustructure.Features.Helper
         {
             try
             {
+                // A single logical notification can fan out to several FCM tokens when the recipient
+                // has more than one registered device. All of those per-token delivery attempts are
+                // folded into the ONE NotificationLog row created up-front in
+                // SendNotificationToUserAsync (identified by NotificationLogId) — otherwise every
+                // device/token the user owns (including stale, no-longer-valid tokens) would produce
+                // its own row and the same message would appear duplicated in the "my notifications" list.
+                if (notification.NotificationLogId.HasValue)
+                {
+                    var existing = await _db.NotificationLogs.FindAsync(notification.NotificationLogId.Value);
+                    if (existing is not null)
+                    {
+                        existing.Token = notification.Token;
+                        // Consider the logical notification "sent" as soon as any one device receives it;
+                        // don't let a later failing token flip a prior success back to failed.
+                        existing.IsSent = existing.IsSent || isSent;
+                        existing.ErrorMessage = isSent ? null : errorMessage;
+                        await _db.SaveChangesAsync();
+                        return;
+                    }
+                }
+
                 var engineerId = string.IsNullOrEmpty(notification.EngineerId) ? (Guid?)null : Guid.Parse(notification.EngineerId);
                 var departmentId = string.IsNullOrEmpty(notification.DepartmentId) ? (Guid?)null : Guid.Parse(notification.DepartmentId);
                 var requestId = string.IsNullOrEmpty(notification.RequestId) ? (Guid?)null : Guid.Parse(notification.RequestId);
@@ -226,6 +247,31 @@ namespace Contracting.Infrustructure.Features.Helper
                     tokens = tokens.Where(t => !actingUserTokens.Contains(t)).ToList();
             }
 
+            if (tokens.Count == 0)
+                return;
+
+            // Create exactly ONE NotificationLog row for this logical notification, regardless of how
+            // many device tokens the recipient has registered. A recipient with two (or more) devices —
+            // or a stale/rotated token that was never cleaned up alongside a current one — must still
+            // see the message ONCE in "my notifications", not once per token. Each per-token push
+            // attempt below folds its result (sent/failed) into this same row instead of inserting its
+            // own (see LogNotificationAsync).
+            var notificationLog = new NotificationLog
+            {
+                UserId = userId,
+                Title = title,
+                Body = body,
+                IsSent = false,
+                EngineerId = engineerId,
+                DepartmentId = departmentId,
+                RequestId = requestId,
+                ChatGroupId = chatGroupId,
+                Type = type,
+                SentAt = Contracting.Shared.Common.DateTimeHelper.Now
+            };
+            _db.NotificationLogs.Add(notificationLog);
+            await _db.SaveChangesAsync();
+
             // enqueue a background job per token
             foreach (var token in tokens)
             {
@@ -239,13 +285,15 @@ namespace Contracting.Infrustructure.Features.Helper
                     RequestId = requestId?.ToString(),
                     DepartmentId = departmentId?.ToString(),
                     ChatGroupId = chatGroupId?.ToString(),
-                    Type = type
+                    Type = type,
+                    NotificationLogId = notificationLog.Id
                 };
                 try
                 {
-                    // SendAsync (the background job) is the single source of truth for logging — it
-                    // records the real send result. Do NOT log here too, or every notification would
-                    // be written to NotificationLogs twice and show up duplicated in the list.
+                    // SendAsync (the background job) is the single source of truth for recording the
+                    // real send result. It updates the shared NotificationLog row created above rather
+                    // than inserting a new one — do NOT log here too, or every device/token would be
+                    // written to NotificationLogs as its own row and show up duplicated in the list.
                     _backgroundJobClient.Enqueue<NotificationService>(svc => svc.SendAsync(notification));
                 }
                 catch (Exception ex)

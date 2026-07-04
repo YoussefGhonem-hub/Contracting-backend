@@ -12,5 +12,6 @@ namespace Contracting.Domain.Entities.business
         public Guid? StatusId { get; set; }
         public Status? Status { get; set; }
         public string? ActionType { get; set; } // Created, StatusChanged, Assigned
+        public string? Comments { get; set; }
     }
 }

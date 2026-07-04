@@ -35,10 +35,16 @@ public class SiteEngineerPerformanceDto
     public int    MissingInfoRequests { get; set; }    // requests currently in "Missing Information" status
     public double MissingInfoRatio    { get; set; }    // MissingInfoRequests / TotalRequests × 100
 
-    // Request Quality
-    public double RequestQualityScore    { get; set; } // 0–100
-    public int    AcceptedOnFirstTry     { get; set; }
-    public int    TotalCompletedRequests { get; set; }
+    // Request Quality — of requests that reached a final outcome (Completed or
+    // Rejected - a request can never move from Rejected to any other status, so
+    // these two are mutually exclusive and exhaustive "closed" outcomes), what
+    // percentage were Completed. RequestQualityScore = AcceptedOnFirstTry /
+    // TotalFinalizedRequests * 100.
+    public double RequestQualityScore     { get; set; } // 0–100
+    public int    AcceptedOnFirstTry      { get; set; } // = TotalCompletedRequests (kept as a separate field for API stability)
+    public int    TotalCompletedRequests  { get; set; }
+    public int    RejectedRequests        { get; set; }
+    public int    TotalFinalizedRequests  { get; set; } // TotalCompletedRequests + RejectedRequests - the real denominator
 }
 
 // ── Office Engineer ───────────────────────────────────────────────────────────
@@ -53,6 +59,12 @@ public class OfficeEngineerPerformanceDto
 
     // Response Time
     public double AvgResponseTimeHours { get; set; }   // hours, target < 8
+
+    // Total requests assigned to this engineer in the period (regardless of status).
+    // Used to distinguish "no requests assigned" from "assigned but not yet completed" -
+    // the metrics below default to their best possible value when there's no data, so
+    // this flags engineers who shouldn't be averaged in as if they were flawless.
+    public int TotalRequests { get; set; }
 
     // On-Time Delivery
     public double OnTimeDeliveryRate { get; set; }     // 0–100
@@ -129,7 +141,7 @@ public class SiteEngineerFullDto : SiteEngineerPerformanceDto
     public int    LowPriorityRequests    { get; set; }
     public int    MediumPriorityRequests { get; set; }
     public int    HighPriorityRequests   { get; set; }
-    public int    RejectedRequests       { get; set; }
+    // RejectedRequests/TotalFinalizedRequests are inherited from SiteEngineerPerformanceDto.
     public double CompositeScore         { get; set; }
 }
 

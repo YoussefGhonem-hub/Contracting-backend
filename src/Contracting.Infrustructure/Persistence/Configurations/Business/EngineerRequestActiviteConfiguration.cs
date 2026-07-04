@@ -10,6 +10,7 @@ namespace Contracting.Infrustructure.Persistence.Configurations.Business
         {
             builder.ToTable("EngineerRequestActivites", "business");
             builder.Property(a => a.ActionType).HasMaxLength(2000);
+            builder.Property(a => a.Comments).HasMaxLength(1000);
         }
     }
 }

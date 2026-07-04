@@ -351,17 +351,21 @@ namespace Contracting.Infrustructure.Features.business
             // Determine NeedsAcknowledgment flag changes
             bool needsAcknowledgment = request.NeedsAcknowledgment;
             bool isCompletionAction = actionLower == "confirmreceipt" || actionLower == "confirmpartialreceipt";
+            Guid? notifyDepartmentId = null;
 
             if (isCompletionAction)
             {
-                // Check if the department has NotifyOnTransferComplete
+                // Check if the requester's department has NotifyOnTransferComplete enabled
                 var deptId = request.RequestedBy?.DepartmentId;
                 if (deptId.HasValue)
                 {
                     var dept = await _db.Departmentes.AsNoTracking()
                         .FirstOrDefaultAsync(d => d.Id == deptId.Value);
                     if (dept?.NotifyOnTransferComplete == true)
+                    {
                         needsAcknowledgment = true;
+                        notifyDepartmentId = deptId.Value;
+                    }
                 }
             }
             else if (actionLower == "acknowledge")
@@ -389,15 +393,36 @@ namespace Contracting.Infrustructure.Features.business
 
             await _db.SaveChangesAsync();
 
-            // Notify the requesting engineer when the transfer request is completed
-            if (isCompletionAction && needsAcknowledgment && request.RequestedBy?.ApplicationUserId is not null
-                && request.RequestedBy.ApplicationUserId != Guid.Empty)
+            // Notify every engineer in the department when the transfer request is completed
+            // and the department has opted in via NotifyOnTransferComplete.
+            if (isCompletionAction && notifyDepartmentId.HasValue)
             {
-                await _notificationService.SendNotificationToUserAsync(
-                    request.RequestedBy.ApplicationUserId,
-                    _localizer[SharedResourcesKeys.NotificationTransferCompletedTitle],
-                    _localizer[SharedResourcesKeys.NotificationTransferCompletedBody],
-                    id);
+                var departmentEngineerIds = await _db.EngineerDepartments
+                    .Where(ed => ed.DepartmentId == notifyDepartmentId.Value)
+                    .Select(ed => ed.Engineer!.ApplicationUserId)
+                    .ToListAsync();
+
+                var legacyEngineerIds = await _db.Engineers
+                    .Where(e => e.DepartmentId == notifyDepartmentId.Value)
+                    .Select(e => e.ApplicationUserId)
+                    .ToListAsync();
+
+                var allEngineerUserIds = departmentEngineerIds
+                    .Union(legacyEngineerIds)
+                    .Where(uid => uid != Guid.Empty)
+                    .Distinct();
+
+                foreach (var engineerUserId in allEngineerUserIds)
+                {
+                    await _notificationService.SendNotificationToUserAsync(
+                        engineerUserId,
+                        _localizer[SharedResourcesKeys.NotificationTransferCompletedTitle],
+                        _localizer[SharedResourcesKeys.NotificationTransferCompletedBody],
+                        id,
+                        notifyDepartmentId,
+                        null,
+                        "Transfer");
+                }
             }
 
             return await GetByIdAsync(request.Id);

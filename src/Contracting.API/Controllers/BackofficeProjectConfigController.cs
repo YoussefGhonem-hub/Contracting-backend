@@ -117,6 +117,7 @@ public class BackofficeProjectConfigController : APIBaseController
 
         var query = _db.ProjectInvoices
             .Include(i => i.Payments)
+            .Include(i => i.Attachments)
             .Where(i => i.ProjectId == projectId && !i.IsDeleted);
 
         if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<PaymentStatus>(status, true, out var ps))
@@ -138,6 +139,9 @@ public class BackofficeProjectConfigController : APIBaseController
                 Payments = i.Payments
                     .Where(p => !p.IsDeleted)
                     .Select(p => new { p.Id, p.Amount, p.PaymentDate, p.Reference, p.Notes })
+                    .ToList(),
+                Attachments = i.Attachments
+                    .Select(a => new { a.Id, a.FileName, a.Url })
                     .ToList()
             })
             .ToListAsync(ct);
