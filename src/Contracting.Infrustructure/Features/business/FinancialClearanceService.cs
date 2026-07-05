@@ -103,9 +103,12 @@ namespace Contracting.Infrustructure.Features.business
                 .FirstOrDefaultAsync(c => c.Id == dto.Id && !c.IsDeleted);
 
             if (clearance is null) return Error.NotFound("FinancialClearance.NotFound", "Financial clearance not found.");
-            // Only allow editing when in New state (Draft)
-            if (clearance.StatusId != s.New)
-                return Error.Validation("FinancialClearance.CannotEdit", "Only new (draft) clearances can be edited.");
+            // Allow editing in New (Draft) state, and in MissingInformation state so the
+            // requester can fix/add the missing details before resubmitting (the "submit"
+            // action transitions MissingInformation -> InProgress but never lets the
+            // underlying fields be corrected on its own).
+            if (clearance.StatusId != s.New && clearance.StatusId != s.MissingInformation)
+                return Error.Validation("FinancialClearance.CannotEdit", "Only new (draft) or missing-information clearances can be edited.");
 
             if (dto.EmployeeName is not null) clearance.EmployeeName = dto.EmployeeName;
             if (dto.DepartmentId.HasValue) clearance.DepartmentId = dto.DepartmentId == Guid.Empty ? null : dto.DepartmentId;
