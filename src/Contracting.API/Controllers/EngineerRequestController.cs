@@ -226,7 +226,7 @@ namespace Contracting.API.Controllers
         // Office Engineers only. Assigns directly to a peer in the same branch.
         // =========================================================================
         [HttpPost("internal")]
-        [Authorize(Roles = RoleNames.Officeengineer)]
+        [Authorize(Roles = RoleNames.Officeengineer + "," + RoleNames.SuperAdmin)]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> CreateInternal([FromForm] CreateInternalRequestDto dto)
         {
@@ -248,21 +248,25 @@ namespace Contracting.API.Controllers
         // Internal Request — dropdown: departments in the logged-in engineer's branch
         // =========================================================================
         [HttpGet("internal/my-branch/departments")]
-        [Authorize(Roles = RoleNames.Officeengineer)]
+        [Authorize(Roles = RoleNames.Officeengineer + "," + RoleNames.SuperAdmin)]
         public async Task<IActionResult> GetMyBranchDepartments()
         {
             var userId = CurrentUser.Id ?? Guid.Empty;
+            var isSuperAdmin = User.IsInRole(RoleNames.SuperAdmin);
 
             var branchId = await _db.Engineers
                 .Where(e => e.ApplicationUserId == userId && !e.IsDeleted)
                 .Select(e => e.Department != null ? (Guid?)e.Department.BranchId : null)
                 .FirstOrDefaultAsync();
 
-            if (branchId is null)
+            if (branchId is null && !isSuperAdmin)
                 return BadRequest(new { message = "Your account is not assigned to a branch." });
 
-            var departments = await _db.Departmentes
-                .Where(d => d.BranchId == branchId && !d.IsDeleted)
+            var query = _db.Departmentes.Where(d => !d.IsDeleted);
+            if (branchId.HasValue)
+                query = query.Where(d => d.BranchId == branchId.Value);
+
+            var departments = await query
                 .OrderBy(d => d.nameEn)
                 .Select(d => new { d.Id, d.nameEn, d.nameAr })
                 .ToListAsync();

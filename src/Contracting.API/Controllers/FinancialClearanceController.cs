@@ -57,7 +57,8 @@ namespace Contracting.API.Controllers
         }
 
         [HttpPost("{id:guid}/action")]
-        public async Task<IActionResult> TakeAction(Guid id, [FromBody] FinancialClearanceActionDto dto)
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> TakeAction(Guid id, [FromForm] FinancialClearanceActionDto dto)
         {
             var result = await _mediator.Send(new TakeActionFinancialClearanceCommand(id, dto));
             return result.Match(r => Ok(r), errors => Problem(errors));

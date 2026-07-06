@@ -339,7 +339,8 @@ public class EngineerRequestService : IEngineerRequestService
     {
         var roles = CurrentUser.Roles;
         var isOfficeEngineer = roles.Any(r => r.Equals(RoleNames.Officeengineer, StringComparison.OrdinalIgnoreCase));
-        if (!isOfficeEngineer)
+        var isSuperAdmin = roles.Any(r => r.Equals(RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase));
+        if (!isOfficeEngineer && !isSuperAdmin)
             return Error.Forbidden("Auth.Forbidden", "Only Office Engineers can create Internal Requests.");
 
         var engineer = await _db.Engineers
@@ -1739,12 +1740,7 @@ public class EngineerRequestService : IEngineerRequestService
 
         if (isAdmin)
         {
-            // Admin: apply optional admin-only filters
-            if (filter.AssignToId.HasValue && filter.AssignToId.Value != Guid.Empty)
-                query = query.Where(r => r.assignToId == filter.AssignToId.Value);
-
-            if (filter.DepartmentId.HasValue && filter.DepartmentId.Value != Guid.Empty)
-                query = query.Where(r => r.DepartmentId == filter.DepartmentId.Value);
+            // Admin sees all — role-based visibility is unrestricted
         }
         else if (engineer != null)
         {
@@ -1801,6 +1797,13 @@ public class EngineerRequestService : IEngineerRequestService
             }
         }
         // Admin/SuperAdmin: no role filter � sees all requests
+
+        // Apply optional narrowing filters regardless of role (applied after visibility scope is set above)
+        if (filter.AssignToId.HasValue && filter.AssignToId.Value != Guid.Empty)
+            query = query.Where(r => r.assignToId == filter.AssignToId.Value);
+
+        if (filter.DepartmentId.HasValue && filter.DepartmentId.Value != Guid.Empty)
+            query = query.Where(r => r.DepartmentId == filter.DepartmentId.Value);
 
         // Return all without pagination at this stage - pagination happens after combining with other request types
         var requests = await query.ToListAsync(cancellationToken);
@@ -1927,6 +1930,7 @@ public class EngineerRequestService : IEngineerRequestService
                 StatusId = a.StatusId,
                 StatusName = a.Status != null ? $"{a.Status.nameEn} / {a.Status.nameAr}" : null,
                 ActionType = a.ActionType,
+                Comments = a.Comments,
                 CreatedDate = a.CreatedDate
             }).OrderByDescending(a => a.CreatedDate).ToList()
         }).ToList();
@@ -2531,6 +2535,7 @@ public class EngineerRequestService : IEngineerRequestService
             StatusId = a.StatusId,
             StatusName = a.Status != null ? $"{a.Status.nameEn} / {a.Status.nameAr}" : null,
             ActionType = a.ActionType,
+            Comments = a.Comments,
             CreatedDate = a.CreatedDate
         }).ToList();
 

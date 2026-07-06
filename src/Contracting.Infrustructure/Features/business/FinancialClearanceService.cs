@@ -308,8 +308,8 @@ namespace Contracting.Infrustructure.Features.business
                     if (lastActionType?.Equals("close", StringComparison.OrdinalIgnoreCase) == true)
                         return Error.Validation("FinancialClearance.AlreadyClosed", "This clearance has already been closed.");
 
-                    if (!clearance.Attachments.Any())
-                        return Error.Validation("FinancialClearance.MissingAttachments", "Attachments are required before closing.");
+                    if (!clearance.Attachments.Any() && dto.Attachment == null)
+                        return Error.Validation("FinancialClearance.MissingAttachments", "At least one attachment is required before closing. Upload a file with this action or attach one beforehand.");
 
                     toStatusId = s.Completed;
                     break;
@@ -357,6 +357,23 @@ namespace Contracting.Infrustructure.Features.business
             };
             activity.MarkAsCreated(userId ?? Guid.Empty);
             _db.FinancialClearanceActivities.Add(activity);
+
+            if (dto.Attachment != null)
+            {
+                var uploaded = await _storageService.UploadFiles(new List<Microsoft.AspNetCore.Http.IFormFile> { dto.Attachment });
+                if (uploaded != null && uploaded.Count > 0)
+                {
+                    var f = uploaded[0];
+                    _db.FinancialClearanceAttachments.Add(new FinancialClearanceAttachment
+                    {
+                        FinancialClearanceId = clearance.Id,
+                        Key = f.Key, FileName = f.FileName, Extension = f.Extension,
+                        FileSize = f.FileSize, Url = f.Url,
+                        AttachmentType = dto.AttachmentType
+                    });
+                }
+            }
+
             await _db.SaveChangesAsync();
 
             return await GetByIdAsync(clearance.Id);

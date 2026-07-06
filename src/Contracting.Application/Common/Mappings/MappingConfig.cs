@@ -155,7 +155,8 @@ public static class MappingConfig
         
         config.NewConfig<EngineerRequestActivite, GetEngineerRequestActiviteDto>()
             .Map(dest => dest.EngineerName, src => src.Engineer != null ? $"{src.Engineer.nameEn} / {src.Engineer.nameAr}" : null)
-            .Map(dest => dest.StatusName, src => src.Status != null ? $"{src.Status.nameEn} / {src.Status.nameAr}" : null);
+            .Map(dest => dest.StatusName, src => src.Status != null ? $"{src.Status.nameEn} / {src.Status.nameAr}" : null)
+            .Map(dest => dest.Comments, src => src.Comments);
         
         config.NewConfig<EngineerRequest, GetAllEngineerRequestDto>()
                     .Map(dest => dest.RequestType, src => string.IsNullOrEmpty(src.RequestType) ? "EngineerRequest" : src.RequestType)
