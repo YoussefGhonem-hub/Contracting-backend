@@ -1906,7 +1906,8 @@ public class EngineerRequestService : IEngineerRequestService
                     RowIndex = i.RowIndex,
                     value = i.value,
                     Order = i.DepartmentSpecialField != null ? i.DepartmentSpecialField.Order : 0,
-                    ListGroupKey = i.DepartmentSpecialField != null ? i.DepartmentSpecialField.ListGroupKey : null
+                    ListGroupKey = i.DepartmentSpecialField != null ? i.DepartmentSpecialField.ListGroupKey : null,
+                    ReceivedQuantity = i.ReceivedQuantity
                 }).ToList(),
             EngineerRequestNotes = r.EngineerRequestNotes == null ? new() : r.EngineerRequestNotes.Select(n => new GetEngineerRequestNotesDto
             {
