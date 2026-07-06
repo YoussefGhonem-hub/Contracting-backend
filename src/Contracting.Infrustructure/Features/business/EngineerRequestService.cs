@@ -2142,6 +2142,9 @@ public class EngineerRequestService : IEngineerRequestService
         var isAdmin = roles.Any(r => r.Equals(RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase)
                                   || r.Equals(RoleNames.Admin, StringComparison.OrdinalIgnoreCase));
 
+        // Resolved once for NotifyAfterLaborApprove visibility
+        var s = await StatusResolver.LoadRequestStatusIdsAsync(_db);
+
         var query = _db.LaborAttendanceRequests
             .Include(r => r.Project)
             .Include(r => r.Department)
@@ -2188,19 +2191,27 @@ public class EngineerRequestService : IEngineerRequestService
 
             bool isTeamLead = teamLeadDeptIds.Any();
 
+            // Is this engineer in any department with NotifyAfterLaborApprove = true?
+            var isInNotifyLaborDept = await _db.EngineerDepartments
+                .AnyAsync(ed => ed.EngineerId == engineer.Id && ed.Department!.NotifyAfterLaborApprove && !ed.Department.IsDeleted, cancellationToken);
+            if (!isInNotifyLaborDept && engineer.DepartmentId.HasValue)
+                isInNotifyLaborDept = await _db.Departmentes
+                    .AnyAsync(d => d.Id == engineer.DepartmentId.Value && d.NotifyAfterLaborApprove && !d.IsDeleted, cancellationToken);
+
             if (isTeamLead)
             {
-                // Team lead: see all requests in departments where they are TeamLead,
-                // plus requests assigned to them, plus requests they created
                 query = query.Where(r =>
                     (r.DepartmentId.HasValue && teamLeadDeptIds.Contains(r.DepartmentId.Value))
                     || r.AssignedToId == engineer.Id
-                    || r.SupervisorId == engineer.Id);
+                    || r.SupervisorId == engineer.Id
+                    || (isInNotifyLaborDept && r.StatusId == s.Completed));
             }
             else
             {
-                // Regular engineer: only see requests created by them OR assigned to them
-                query = query.Where(r => r.SupervisorId == engineer.Id || r.AssignedToId == engineer.Id);
+                query = query.Where(r =>
+                    r.SupervisorId == engineer.Id
+                    || r.AssignedToId == engineer.Id
+                    || (isInNotifyLaborDept && r.StatusId == s.Completed));
             }
         }
         // Admin/SuperAdmin: sees all requests (only filtered by data params above)

@@ -419,6 +419,46 @@ namespace Contracting.Infrustructure.Features.business
                             "Labor Attendance Request Validated",
                             $"Your request {request.RequestNumber} has been validated.",
                             id);
+
+                    // Fan-out: notify all engineers in departments with NotifyAfterLaborApprove in this branch
+                    Guid? branchId = null;
+                    if (request.ProjectId.HasValue)
+                        branchId = await _db.Projects
+                            .Where(p => p.Id == request.ProjectId.Value)
+                            .Select(p => (Guid?)p.BranchId)
+                            .FirstOrDefaultAsync();
+                    if (!branchId.HasValue && request.DepartmentId.HasValue)
+                        branchId = await _db.Departmentes
+                            .Where(d => d.Id == request.DepartmentId.Value)
+                            .Select(d => (Guid?)d.BranchId)
+                            .FirstOrDefaultAsync();
+
+                    if (branchId.HasValue)
+                    {
+                        var notifyDeptIds = await _db.Departmentes
+                            .Where(d => d.BranchId == branchId.Value && d.NotifyAfterLaborApprove && !d.IsDeleted)
+                            .Select(d => d.Id)
+                            .ToListAsync();
+
+                        foreach (var deptId in notifyDeptIds)
+                        {
+                            var fromJoin = await _db.EngineerDepartments
+                                .Where(ed => ed.DepartmentId == deptId && !ed.Engineer!.IsDeleted)
+                                .Select(ed => ed.Engineer!.ApplicationUserId).ToListAsync();
+                            var fromLegacy = await _db.Engineers
+                                .Where(e => e.DepartmentId == deptId && !e.IsDeleted)
+                                .Select(e => e.ApplicationUserId).ToListAsync();
+                            var recipients = fromJoin.Union(fromLegacy)
+                                .Where(uid => uid != Guid.Empty).Distinct();
+
+                            foreach (var recipientUserId in recipients)
+                                await _notificationService.SendNotificationToUserAsync(
+                                    recipientUserId,
+                                    "Labor Attendance Request Ready for Processing",
+                                    $"Labor request {request.RequestNumber} has been validated and is ready for processing.",
+                                    id, deptId, null, "LaborAttendance");
+                        }
+                    }
                     break;
                 case "reject":
                     if (supervisorUserId.HasValue)

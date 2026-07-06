@@ -27,6 +27,7 @@ namespace Contracting.Infrustructure.Persistence.Configurations.Business
                    .WithMany()
                    .HasForeignKey(r => r.SupervisorId)
                    .OnDelete(DeleteBehavior.Restrict);
+
         }
     }
 }

@@ -13,6 +13,7 @@ namespace Contracting.Infrustructure.Persistence.Configurations.Master
             builder.Property(d => d.nameAr).HasMaxLength(200);
             builder.HasOne(d => d.Branch).WithMany(b => b.Departments).HasForeignKey(d => d.BranchId).OnDelete(DeleteBehavior.Cascade);
             builder.Property(d => d.NotifyOnTransferComplete).HasDefaultValue(false);
+            builder.Property(d => d.NotifyAfterLaborApprove).HasDefaultValue(false);
         }
     }
 }
