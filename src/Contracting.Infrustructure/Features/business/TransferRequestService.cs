@@ -272,7 +272,7 @@ namespace Contracting.Infrustructure.Features.business
         {
             var s = await StatusResolver.LoadRequestStatusIdsAsync(_db);
             var request = await _db.TransferRequests
-                .Include(r => r.RequestedBy)
+                .Include(r => r.RequestedBy).ThenInclude(e => e!.Department)
                 .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
 
             if (request is null) return Error.NotFound("TransferRequest.NotFound", "Transfer request not found.");
@@ -351,21 +351,35 @@ namespace Contracting.Infrustructure.Features.business
             // Determine NeedsAcknowledgment flag changes
             bool needsAcknowledgment = request.NeedsAcknowledgment;
             bool isCompletionAction = actionLower == "confirmreceipt" || actionLower == "confirmpartialreceipt";
-            Guid? notifyDepartmentId = null;
+            List<Guid> notifyDepartmentIds = new();
 
             if (isCompletionAction)
             {
-                // Check if the requester's department has NotifyOnTransferComplete enabled
-                var deptId = request.RequestedBy?.DepartmentId;
-                if (deptId.HasValue)
+                // Resolve the branch — prefer requester's department, fall back to source/destination project
+                Guid? branchId = request.RequestedBy?.Department?.BranchId;
+
+                if (!branchId.HasValue && request.SourceProjectId.HasValue)
+                    branchId = await _db.Projects
+                        .Where(p => p.Id == request.SourceProjectId.Value)
+                        .Select(p => (Guid?)p.BranchId)
+                        .FirstOrDefaultAsync();
+
+                if (!branchId.HasValue && request.DestinationProjectId.HasValue)
+                    branchId = await _db.Projects
+                        .Where(p => p.Id == request.DestinationProjectId.Value)
+                        .Select(p => (Guid?)p.BranchId)
+                        .FirstOrDefaultAsync();
+
+                if (branchId.HasValue)
                 {
-                    var dept = await _db.Departmentes.AsNoTracking()
-                        .FirstOrDefaultAsync(d => d.Id == deptId.Value);
-                    if (dept?.NotifyOnTransferComplete == true)
-                    {
+                    // All departments in this branch that opted in to transfer notifications
+                    notifyDepartmentIds = await _db.Departmentes
+                        .Where(d => d.BranchId == branchId.Value && d.NotifyOnTransferComplete && !d.IsDeleted)
+                        .Select(d => d.Id)
+                        .ToListAsync();
+
+                    if (notifyDepartmentIds.Any())
                         needsAcknowledgment = true;
-                        notifyDepartmentId = deptId.Value;
-                    }
                 }
             }
             else if (actionLower == "acknowledge")
@@ -393,35 +407,41 @@ namespace Contracting.Infrustructure.Features.business
 
             await _db.SaveChangesAsync();
 
-            // Notify every engineer in the department when the transfer request is completed
-            // and the department has opted in via NotifyOnTransferComplete.
-            if (isCompletionAction && notifyDepartmentId.HasValue)
+            // Notify every engineer in every opted-in department (same branch) when the transfer
+            // request is completed. Both membership paths (join-table and legacy FK) are covered.
+            if (isCompletionAction && notifyDepartmentIds.Any())
             {
-                var departmentEngineerIds = await _db.EngineerDepartments
-                    .Where(ed => ed.DepartmentId == notifyDepartmentId.Value)
-                    .Select(ed => ed.Engineer!.ApplicationUserId)
-                    .ToListAsync();
+                var title = _localizer[SharedResourcesKeys.NotificationTransferCompletedTitle].Value;
+                var body  = _localizer[SharedResourcesKeys.NotificationTransferCompletedBody].Value;
 
-                var legacyEngineerIds = await _db.Engineers
-                    .Where(e => e.DepartmentId == notifyDepartmentId.Value)
-                    .Select(e => e.ApplicationUserId)
-                    .ToListAsync();
-
-                var allEngineerUserIds = departmentEngineerIds
-                    .Union(legacyEngineerIds)
-                    .Where(uid => uid != Guid.Empty)
-                    .Distinct();
-
-                foreach (var engineerUserId in allEngineerUserIds)
+                foreach (var deptId in notifyDepartmentIds)
                 {
-                    await _notificationService.SendNotificationToUserAsync(
-                        engineerUserId,
-                        _localizer[SharedResourcesKeys.NotificationTransferCompletedTitle],
-                        _localizer[SharedResourcesKeys.NotificationTransferCompletedBody],
-                        id,
-                        notifyDepartmentId,
-                        null,
-                        "Transfer");
+                    var fromJoinTable = await _db.EngineerDepartments
+                        .Where(ed => ed.DepartmentId == deptId && !ed.Engineer!.IsDeleted)
+                        .Select(ed => ed.Engineer!.ApplicationUserId)
+                        .ToListAsync();
+
+                    var fromLegacy = await _db.Engineers
+                        .Where(e => e.DepartmentId == deptId && !e.IsDeleted)
+                        .Select(e => e.ApplicationUserId)
+                        .ToListAsync();
+
+                    var recipients = fromJoinTable
+                        .Union(fromLegacy)
+                        .Where(uid => uid != Guid.Empty)
+                        .Distinct();
+
+                    foreach (var engineerUserId in recipients)
+                    {
+                        await _notificationService.SendNotificationToUserAsync(
+                            engineerUserId,
+                            title,
+                            body,
+                            id,
+                            deptId,
+                            null,
+                            "Transfer");
+                    }
                 }
             }
 

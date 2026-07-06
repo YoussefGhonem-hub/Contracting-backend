@@ -1971,19 +1971,25 @@ public class EngineerRequestService : IEngineerRequestService
         if (engineer.DepartmentId.HasValue && !engineerDeptIds.Contains(engineer.DepartmentId.Value))
             engineerDeptIds.Add(engineer.DepartmentId.Value);
 
-        // Which of those departments have NotifyOnTransferComplete enabled
-        var notifyDeptIds = await _db.Departmentes
-            .Where(d => engineerDeptIds.Contains(d.Id) && d.NotifyOnTransferComplete)
-            .Select(d => d.Id)
-            .ToListAsync(cancellationToken);
+        // Does the engineer belong to any department with NotifyOnTransferComplete enabled?
+        var hasNotifyDepts = engineerDeptIds.Any() && await _db.Departmentes
+            .AnyAsync(d => engineerDeptIds.Contains(d.Id) && d.NotifyOnTransferComplete, cancellationToken);
 
-        var hasNotifyDepts = notifyDeptIds.Any();
+        // Resolve the engineer's branch IDs so we can gate cross-department visibility
+        // to the same branch only (prevents seeing completed requests from other branches).
+        var engineerBranchIds = hasNotifyDepts && engineerDeptIds.Any()
+            ? await _db.Departmentes
+                .Where(d => engineerDeptIds.Contains(d.Id) && !d.IsDeleted)
+                .Select(d => d.BranchId)
+                .Distinct()
+                .ToListAsync(cancellationToken)
+            : new List<Guid>();
 
         var query = _db.TransferRequests
             .Include(r => r.SourceProject)
             .Include(r => r.DestinationProject)
             .Include(r => r.RequestedBy)
-                .ThenInclude(e => e.Department)
+                .ThenInclude(e => e!.Department)
             .Include(r => r.Status)
             .Include(r => r.Items)
             .Include(r => r.Attachments)
@@ -1999,11 +2005,12 @@ public class EngineerRequestService : IEngineerRequestService
                 query = query.Where(r =>
                     r.RequestedById == engineer.Id
                     || (r.DestinationProjectId.HasValue && engineerProjectIds.Contains(r.DestinationProjectId.Value))
-                    // Department members see NeedsAcknowledgment requests from their notify-enabled departments
-                    || (r.NeedsAcknowledgment
-                        && r.RequestedBy != null
-                        && r.RequestedBy.DepartmentId.HasValue
-                        && notifyDeptIds.Contains(r.RequestedBy.DepartmentId.Value)));
+                    // Any engineer in a notify-enabled department sees completed requests from their branch
+                    || (r.NeedsAcknowledgment && (
+                        (r.SourceProject != null && r.SourceProject.BranchId.HasValue && engineerBranchIds.Contains(r.SourceProject.BranchId.Value))
+                        || (r.DestinationProject != null && r.DestinationProject.BranchId.HasValue && engineerBranchIds.Contains(r.DestinationProject.BranchId.Value))
+                        || (r.RequestedBy != null && r.RequestedBy.Department != null
+                            && engineerBranchIds.Contains(r.RequestedBy.Department.BranchId)))));
             else
                 query = query.Where(r =>
                     r.RequestedById == engineer.Id
@@ -2014,16 +2021,18 @@ public class EngineerRequestService : IEngineerRequestService
         if (filter.ProjectId.HasValue && filter.ProjectId.Value != Guid.Empty)
             query = query.Where(r => r.SourceProjectId == filter.ProjectId.Value || r.DestinationProjectId == filter.ProjectId.Value);
 
-        // Status filter: bypass for NeedsAcknowledgment requests visible to this engineer
+        // Status filter: NeedsAcknowledgment requests visible to this engineer bypass the status filter
+        // so they always appear regardless of which status tab the user is viewing.
         if (filter.StatusId.HasValue && filter.StatusId.Value != Guid.Empty)
         {
             if (hasNotifyDepts)
                 query = query.Where(r =>
                     r.StatusId == filter.StatusId.Value
-                    || (r.NeedsAcknowledgment
-                        && r.RequestedBy != null
-                        && r.RequestedBy.DepartmentId.HasValue
-                        && notifyDeptIds.Contains(r.RequestedBy.DepartmentId.Value)));
+                    || (r.NeedsAcknowledgment && (
+                        (r.SourceProject != null && r.SourceProject.BranchId.HasValue && engineerBranchIds.Contains(r.SourceProject.BranchId.Value))
+                        || (r.DestinationProject != null && r.DestinationProject.BranchId.HasValue && engineerBranchIds.Contains(r.DestinationProject.BranchId.Value))
+                        || (r.RequestedBy != null && r.RequestedBy.Department != null
+                            && engineerBranchIds.Contains(r.RequestedBy.Department.BranchId)))));
             else
                 query = query.Where(r => r.StatusId == filter.StatusId.Value);
         }

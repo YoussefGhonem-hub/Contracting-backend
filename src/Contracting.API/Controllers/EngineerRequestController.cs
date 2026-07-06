@@ -274,21 +274,22 @@ namespace Contracting.API.Controllers
         // Internal Request — dropdown: engineers in a department (same branch only)
         // =========================================================================
         [HttpGet("internal/departments/{departmentId:guid}/engineers")]
-        [Authorize(Roles = RoleNames.Officeengineer)]
+        [Authorize(Roles = RoleNames.Officeengineer + "," + RoleNames.SuperAdmin)]
         public async Task<IActionResult> GetDepartmentEngineers(Guid departmentId)
         {
             var userId = CurrentUser.Id ?? Guid.Empty;
+            var isSuperAdmin = User.IsInRole(RoleNames.SuperAdmin);
 
-            // Resolve requester's branch
+            // Resolve requester's branch — superadmin has no Engineer record, so skip branch check
             var requesterBranchId = await _db.Engineers
                 .Where(e => e.ApplicationUserId == userId && !e.IsDeleted)
                 .Select(e => e.Department != null ? (Guid?)e.Department.BranchId : null)
                 .FirstOrDefaultAsync();
 
-            if (requesterBranchId is null)
+            if (requesterBranchId is null && !isSuperAdmin)
                 return BadRequest(new { message = "Your account is not assigned to a branch." });
 
-            // Ensure the department is in the same branch
+            // Ensure the department exists (and is in the same branch for non-superadmin)
             var deptBranchId = await _db.Departmentes
                 .Where(d => d.Id == departmentId && !d.IsDeleted)
                 .Select(d => (Guid?)d.BranchId)
@@ -297,7 +298,7 @@ namespace Contracting.API.Controllers
             if (deptBranchId is null)
                 return NotFound(new { message = "Department not found." });
 
-            if (deptBranchId != requesterBranchId)
+            if (!isSuperAdmin && deptBranchId != requesterBranchId)
                 return BadRequest(new { message = "Department does not belong to your branch." });
 
             // Engineers via EngineerDepartments join table
