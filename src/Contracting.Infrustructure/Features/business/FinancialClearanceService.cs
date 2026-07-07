@@ -34,6 +34,12 @@ namespace Contracting.Infrustructure.Features.business
 
         public async Task<ErrorOr<GetFinancialClearanceDto>> CreateAsync(CreateFinancialClearanceDto dto)
         {
+            // Date range is required on new clearances, and ToDate must not precede FromDate.
+            if (!dto.FromDate.HasValue || !dto.ToDate.HasValue)
+                return Error.Validation("FinancialClearance.DateRangeRequired", "Both From Date and To Date are required.");
+            if (dto.ToDate.Value.Date < dto.FromDate.Value.Date)
+                return Error.Validation("FinancialClearance.InvalidDateRange", "To Date must be on or after From Date.");
+
             var s = await StatusResolver.LoadRequestStatusIdsAsync(_db);
             var engineer = await _db.Engineers.AsNoTracking()
                 .FirstOrDefaultAsync(e => e.ApplicationUserId == Guid.Parse(CurrentUser.UserId!));
@@ -47,6 +53,8 @@ namespace Contracting.Infrustructure.Features.business
                 DepartmentId = dto.DepartmentId == Guid.Empty ? null : dto.DepartmentId,
                 ProjectId = dto.ProjectId == Guid.Empty ? null : dto.ProjectId,
                 RequestDate = dto.RequestDate,
+                FromDate = dto.FromDate,
+                ToDate = dto.ToDate,
                 AdvanceAmount = dto.AdvanceAmount,
                 SpentAmount = itemsTotal,
                 RemainingAmount = dto.AdvanceAmount - itemsTotal,
@@ -114,6 +122,15 @@ namespace Contracting.Infrustructure.Features.business
             if (dto.DepartmentId.HasValue) clearance.DepartmentId = dto.DepartmentId == Guid.Empty ? null : dto.DepartmentId;
             if (dto.ProjectId.HasValue) clearance.ProjectId = dto.ProjectId == Guid.Empty ? null : dto.ProjectId;
             if (dto.RequestDate.HasValue) clearance.RequestDate = dto.RequestDate.Value;
+
+            // Validate the resulting date range against whichever value ends up effective.
+            var effectiveFrom = dto.FromDate ?? clearance.FromDate;
+            var effectiveTo = dto.ToDate ?? clearance.ToDate;
+            if (effectiveFrom.HasValue && effectiveTo.HasValue && effectiveTo.Value.Date < effectiveFrom.Value.Date)
+                return Error.Validation("FinancialClearance.InvalidDateRange", "To Date must be on or after From Date.");
+            if (dto.FromDate.HasValue) clearance.FromDate = dto.FromDate.Value;
+            if (dto.ToDate.HasValue) clearance.ToDate = dto.ToDate.Value;
+
             if (dto.Notes is not null) clearance.Notes = dto.Notes;
 
             var advanceAmount = dto.AdvanceAmount ?? clearance.AdvanceAmount;
@@ -479,6 +496,8 @@ namespace Contracting.Infrustructure.Features.business
             ProjectId = c.ProjectId,
             Project = c.Project is null ? null : new GetProjectDto { Id = c.Project.Id, nameEn = c.Project.nameEn, nameAr = c.Project.nameAr },
             RequestDate = c.RequestDate,
+            FromDate = c.FromDate,
+            ToDate = c.ToDate,
             AdvanceAmount = c.AdvanceAmount,
             Total = c.SpentAmount,
             RemainingAmount = c.RemainingAmount,

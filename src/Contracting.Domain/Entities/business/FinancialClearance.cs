@@ -12,6 +12,10 @@ namespace Contracting.Domain.Entities.business
         public Guid? ProjectId { get; set; }
         public Project? Project { get; set; }
         public DateTime RequestDate { get; set; }
+        // Clearance period the advance covers. Both are required on new requests
+        // (validated at the service layer); nullable here so pre-existing rows remain valid.
+        public DateTime? FromDate { get; set; }
+        public DateTime? ToDate { get; set; }
         public decimal AdvanceAmount { get; set; }
         public decimal SpentAmount { get; set; }
         public decimal RemainingAmount { get; set; }

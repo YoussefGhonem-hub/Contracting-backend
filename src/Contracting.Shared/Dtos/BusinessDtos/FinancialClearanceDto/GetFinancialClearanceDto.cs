@@ -16,6 +16,8 @@ namespace Contracting.Shared.BusinessDtos.FinancialClearanceDto
         public Guid? ProjectId { get; set; }
         public GetProjectDto? Project { get; set; }
         public DateTime RequestDate { get; set; }
+        public DateTime? FromDate { get; set; }
+        public DateTime? ToDate { get; set; }
         public decimal AdvanceAmount { get; set; }
         public decimal Total { get; set; }
         public decimal RemainingAmount { get; set; }
