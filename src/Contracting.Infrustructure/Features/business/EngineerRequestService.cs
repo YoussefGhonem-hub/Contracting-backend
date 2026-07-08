@@ -1949,16 +1949,17 @@ public class EngineerRequestService : IEngineerRequestService
         EngineerRequestParticipationFilterDto filter,
         CancellationToken cancellationToken)
     {
-        // Only Site Engineers and Admins can see Transfer Requests.
+        // Site Engineers and Admins can always see Transfer Requests. Any OTHER role (Office
+        // Engineer, Team Lead, ...) can still see them if they belong to a department that opted
+        // in via NotifyOnTransferComplete - that flag exists specifically so non-site-engineer
+        // staff (e.g. Procurement/Purchase office engineers) get visibility into completed
+        // transfers, so the role gate below must not shut that off before it's even evaluated.
         var transferRoles = CurrentUser.Roles;
         var isTransferAdmin = transferRoles.Any(r =>
             r.Equals(RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase) ||
             r.Equals(RoleNames.Admin, StringComparison.OrdinalIgnoreCase));
         var isSiteEngineer = transferRoles.Any(r =>
             r.Equals(RoleNames.Siteengineer, StringComparison.OrdinalIgnoreCase));
-
-        if (!isTransferAdmin && !isSiteEngineer)
-            return new List<GetUnifiedRequestDto>();
 
         // Get all project IDs this engineer is assigned to (destination project visibility)
         var engineerProjectIds = await _db.EngineerProjects
@@ -1978,6 +1979,9 @@ public class EngineerRequestService : IEngineerRequestService
         // Does the engineer belong to any department with NotifyOnTransferComplete enabled?
         var hasNotifyDepts = engineerDeptIds.Any() && await _db.Departmentes
             .AnyAsync(d => engineerDeptIds.Contains(d.Id) && d.NotifyOnTransferComplete, cancellationToken);
+
+        if (!isTransferAdmin && !isSiteEngineer && !hasNotifyDepts)
+            return new List<GetUnifiedRequestDto>();
 
         // Resolve the engineer's branch IDs so we can gate cross-department visibility
         // to the same branch only (prevents seeing completed requests from other branches).

@@ -17,6 +17,7 @@ using Contracting.Shared.Resources;
 using ErrorOr;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Logging;
 
 namespace Contracting.Infrustructure.Features.business
 {
@@ -26,17 +27,20 @@ namespace Contracting.Infrustructure.Features.business
         private readonly Storage.AWS3.Services.IStorageService _storageService;
         private readonly INotificationService _notificationService;
         private readonly IStringLocalizer<SharedResources> _localizer;
+        private readonly ILogger<TransferRequestService> _logger;
 
         public TransferRequestService(
             ApplicationDbContext db,
             Storage.AWS3.Services.IStorageService storageService,
             INotificationService notificationService,
-            IStringLocalizer<SharedResources> localizer)
+            IStringLocalizer<SharedResources> localizer,
+            ILogger<TransferRequestService> logger)
         {
             _db = db;
             _storageService = storageService;
             _notificationService = notificationService;
             _localizer = localizer;
+            _logger = logger;
         }
 
         public async Task<ErrorOr<GetTransferRequestDto>> CreateAsync(CreateTransferRequestDto dto)
@@ -409,6 +413,9 @@ namespace Contracting.Infrustructure.Features.business
 
             // Notify every engineer in every opted-in department (same branch) when the transfer
             // request is completed. Both membership paths (join-table and legacy FK) are covered.
+            // This whole block runs AFTER the status/activity SaveChangesAsync above, so a failure
+            // here must never look like it silently "did nothing" - every branch is logged so a
+            // missing notification can actually be diagnosed instead of leaving zero trace.
             if (isCompletionAction && notifyDepartmentIds.Any())
             {
                 var title = _localizer[SharedResourcesKeys.NotificationTransferCompletedTitle].Value;
@@ -416,31 +423,60 @@ namespace Contracting.Infrustructure.Features.business
 
                 foreach (var deptId in notifyDepartmentIds)
                 {
-                    var fromJoinTable = await _db.EngineerDepartments
-                        .Where(ed => ed.DepartmentId == deptId && !ed.Engineer!.IsDeleted)
-                        .Select(ed => ed.Engineer!.ApplicationUserId)
-                        .ToListAsync();
-
-                    var fromLegacy = await _db.Engineers
-                        .Where(e => e.DepartmentId == deptId && !e.IsDeleted)
-                        .Select(e => e.ApplicationUserId)
-                        .ToListAsync();
-
-                    var recipients = fromJoinTable
-                        .Union(fromLegacy)
-                        .Where(uid => uid != Guid.Empty)
-                        .Distinct();
-
-                    foreach (var engineerUserId in recipients)
+                    try
                     {
-                        await _notificationService.SendNotificationToUserAsync(
-                            engineerUserId,
-                            title,
-                            body,
-                            id,
-                            deptId,
-                            null,
-                            "Transfer");
+                        var fromJoinTable = await _db.EngineerDepartments
+                            .Where(ed => ed.DepartmentId == deptId && !ed.Engineer!.IsDeleted)
+                            .Select(ed => ed.Engineer!.ApplicationUserId)
+                            .ToListAsync();
+
+                        var fromLegacy = await _db.Engineers
+                            .Where(e => e.DepartmentId == deptId && !e.IsDeleted)
+                            .Select(e => e.ApplicationUserId)
+                            .ToListAsync();
+
+                        var recipients = fromJoinTable
+                            .Union(fromLegacy)
+                            .Where(uid => uid != Guid.Empty)
+                            .Distinct()
+                            .ToList();
+
+                        if (recipients.Count == 0)
+                        {
+                            _logger.LogWarning(
+                                "TransferRequest {RequestId} completion: department {DepartmentId} is opted in to NotifyOnTransferComplete but has no engineers with a linked ApplicationUserId - nobody to notify.",
+                                id, deptId);
+                            continue;
+                        }
+
+                        foreach (var engineerUserId in recipients)
+                        {
+                            try
+                            {
+                                await _notificationService.SendNotificationToUserAsync(
+                                    engineerUserId,
+                                    title,
+                                    body,
+                                    id,
+                                    deptId,
+                                    null,
+                                    "Transfer");
+                            }
+                            catch (Exception ex)
+                            {
+                                // A failure notifying one recipient must not stop the rest of the
+                                // department (or the other opted-in departments) from being notified.
+                                _logger.LogError(ex,
+                                    "TransferRequest {RequestId} completion: failed to notify user {UserId} in department {DepartmentId}.",
+                                    id, engineerUserId, deptId);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex,
+                            "TransferRequest {RequestId} completion: failed to resolve/notify recipients for department {DepartmentId}.",
+                            id, deptId);
                     }
                 }
             }

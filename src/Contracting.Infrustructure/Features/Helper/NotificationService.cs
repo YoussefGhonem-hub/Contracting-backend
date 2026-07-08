@@ -247,15 +247,17 @@ namespace Contracting.Infrustructure.Features.Helper
                     tokens = tokens.Where(t => !actingUserTokens.Contains(t)).ToList();
             }
 
-            if (tokens.Count == 0)
-                return;
-
             // Create exactly ONE NotificationLog row for this logical notification, regardless of how
             // many device tokens the recipient has registered. A recipient with two (or more) devices —
             // or a stale/rotated token that was never cleaned up alongside a current one — must still
             // see the message ONCE in "my notifications", not once per token. Each per-token push
             // attempt below folds its result (sent/failed) into this same row instead of inserting its
             // own (see LogNotificationAsync).
+            //
+            // This row must exist even when the recipient has NO registered device (tokens.Count == 0):
+            // the "my notifications" list is this row's reader, and a user who simply hasn't opened the
+            // mobile app yet (or is web-only) still needs to see they were notified - a push failure is
+            // not a reason to make the notification invisible everywhere.
             var notificationLog = new NotificationLog
             {
                 UserId = userId,
@@ -271,6 +273,9 @@ namespace Contracting.Infrustructure.Features.Helper
             };
             _db.NotificationLogs.Add(notificationLog);
             await _db.SaveChangesAsync();
+
+            if (tokens.Count == 0)
+                return;
 
             // enqueue a background job per token
             foreach (var token in tokens)
