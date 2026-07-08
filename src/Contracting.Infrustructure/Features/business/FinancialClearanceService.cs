@@ -13,6 +13,7 @@ using Contracting.Shared.Dtos.MasterDtos.ProjectDtos;
 using Contracting.Shared.Dtos.MasterDtos.StatusDtos;
 using ErrorOr;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Contracting.Infrustructure.Features.business
 {
@@ -21,15 +22,18 @@ namespace Contracting.Infrustructure.Features.business
         private readonly ApplicationDbContext _db;
         private readonly Storage.AWS3.Services.IStorageService _storageService;
         private readonly Contracting.Infrustructure.Inteface.Helper.INotificationService _notificationService;
+        private readonly ILogger<FinancialClearanceService> _logger;
 
         public FinancialClearanceService(
             ApplicationDbContext db,
             Storage.AWS3.Services.IStorageService storageService,
-            Contracting.Infrustructure.Inteface.Helper.INotificationService notificationService)
+            Contracting.Infrustructure.Inteface.Helper.INotificationService notificationService,
+            ILogger<FinancialClearanceService> logger)
         {
             _db = db;
             _storageService = storageService;
             _notificationService = notificationService;
+            _logger = logger;
         }
 
         public async Task<ErrorOr<GetFinancialClearanceDto>> CreateAsync(CreateFinancialClearanceDto dto)
@@ -268,6 +272,8 @@ namespace Contracting.Infrustructure.Features.business
             var clearance = await _db.FinancialClearances
                 .Include(c => c.Attachments)
                 .Include(c => c.Activities)
+                .Include(c => c.RequestedBy)
+                .Include(c => c.AssignedTo)
                 .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
 
             if (clearance is null) return Error.NotFound("FinancialClearance.NotFound", "Financial clearance not found.");
@@ -277,8 +283,10 @@ namespace Contracting.Infrustructure.Features.business
 
             var fromStatusId = clearance.StatusId;
             Guid toStatusId;
+            Engineer? newlyAssignedEngineer = null;
+            var actionLower = dto.ActionType.Trim().ToLower();
 
-            switch (dto.ActionType.Trim().ToLower())
+            switch (actionLower)
             {
                 case "assign":
                     if (clearance.StatusId != s.New)
@@ -290,6 +298,7 @@ namespace Contracting.Infrustructure.Features.business
                     if (assignedEngineer is null)
                         return Error.NotFound("FinancialClearance.EngineerNotFound", "Assigned engineer not found.");
                     clearance.AssignedToId = dto.AssignedToId;
+                    newlyAssignedEngineer = assignedEngineer;
                     toStatusId = s.InProgress;
                     break;
 
@@ -393,7 +402,129 @@ namespace Contracting.Infrustructure.Features.business
 
             await _db.SaveChangesAsync();
 
+            await NotifyOnTakeActionAsync(clearance, actionLower, newlyAssignedEngineer);
+
             return await GetByIdAsync(clearance.Id);
+        }
+
+        // Every action here changes something a specific person is waiting on - the assignee,
+        // or the original requester - so each must notify that person. Wrapped defensively so a
+        // notification failure never rolls back or blocks the action itself, and never disappears
+        // without a trace the way the Transfer Request notify path once did.
+        private async Task NotifyOnTakeActionAsync(FinancialClearance clearance, string actionLower, Engineer? newlyAssignedEngineer)
+        {
+            try
+            {
+                switch (actionLower)
+                {
+                    case "assign":
+                        if (newlyAssignedEngineer is not null)
+                            await _notificationService.SendNotificationToUserAsync(
+                                newlyAssignedEngineer.ApplicationUserId,
+                                "Financial Clearance Assigned",
+                                $"Financial Clearance {clearance.ClearanceNumber} has been assigned to you.",
+                                clearance.Id);
+                        break;
+
+                    case "submit":
+                        // Resubmission after Missing Information goes back to whoever is already
+                        // assigned; the very first submit (New -> InProgress) has no assignee yet.
+                        if (clearance.AssignedTo is not null)
+                            await _notificationService.SendNotificationToUserAsync(
+                                clearance.AssignedTo.ApplicationUserId,
+                                "Financial Clearance Resubmitted",
+                                $"Financial Clearance {clearance.ClearanceNumber} has been resubmitted for your review.",
+                                clearance.Id);
+                        break;
+
+                    case "approve":
+                        if (clearance.RequestedBy is not null)
+                            await _notificationService.SendNotificationToUserAsync(
+                                clearance.RequestedBy.ApplicationUserId,
+                                "Financial Clearance Approved",
+                                $"Your Financial Clearance {clearance.ClearanceNumber} has been approved.",
+                                clearance.Id);
+
+                        // Fan-out: notify all engineers in departments with NotifyAfterFinancialClearanceApprove in this branch
+                        Guid? fcBranchId = null;
+                        if (clearance.ProjectId.HasValue)
+                            fcBranchId = await _db.Projects
+                                .Where(p => p.Id == clearance.ProjectId.Value)
+                                .Select(p => (Guid?)p.BranchId)
+                                .FirstOrDefaultAsync();
+                        if (!fcBranchId.HasValue && clearance.DepartmentId.HasValue)
+                            fcBranchId = await _db.Departmentes
+                                .Where(d => d.Id == clearance.DepartmentId.Value)
+                                .Select(d => (Guid?)d.BranchId)
+                                .FirstOrDefaultAsync();
+
+                        if (fcBranchId.HasValue)
+                        {
+                            var fcNotifyDeptIds = await _db.Departmentes
+                                .Where(d => d.BranchId == fcBranchId.Value && d.NotifyAfterFinancialClearanceApprove && !d.IsDeleted)
+                                .Select(d => d.Id)
+                                .ToListAsync();
+
+                            foreach (var deptId in fcNotifyDeptIds)
+                            {
+                                var fromJoin = await _db.EngineerDepartments
+                                    .Where(ed => ed.DepartmentId == deptId && !ed.Engineer!.IsDeleted)
+                                    .Select(ed => ed.Engineer!.ApplicationUserId).ToListAsync();
+                                var fromLegacy = await _db.Engineers
+                                    .Where(e => e.DepartmentId == deptId && !e.IsDeleted)
+                                    .Select(e => e.ApplicationUserId).ToListAsync();
+                                var recipients = fromJoin.Union(fromLegacy)
+                                    .Where(uid => uid != Guid.Empty).Distinct();
+
+                                foreach (var recipientUserId in recipients)
+                                    await _notificationService.SendFanOutNotificationAsync(
+                                        recipientUserId,
+                                        "Financial Clearance Ready for Processing",
+                                        $"Financial Clearance {clearance.ClearanceNumber} has been approved and is ready for processing.",
+                                        clearance.Id, deptId, null, "FinancialClearance");
+                            }
+                        }
+                        break;
+
+                    case "close":
+                        if (clearance.RequestedBy is not null)
+                            await _notificationService.SendNotificationToUserAsync(
+                                clearance.RequestedBy.ApplicationUserId,
+                                "Financial Clearance Closed",
+                                $"Your Financial Clearance {clearance.ClearanceNumber} has been closed.",
+                                clearance.Id);
+                        break;
+
+                    case "reject":
+                        if (clearance.RequestedBy is not null)
+                            await _notificationService.SendNotificationToUserAsync(
+                                clearance.RequestedBy.ApplicationUserId,
+                                "Financial Clearance Rejected",
+                                $"Your Financial Clearance {clearance.ClearanceNumber} has been rejected.",
+                                clearance.Id);
+                        break;
+
+                    case "missing_info":
+                    case "missinginfo":
+                    case "needs_update":
+                        if (clearance.RequestedBy is not null)
+                            await _notificationService.SendNotificationToUserAsync(
+                                clearance.RequestedBy.ApplicationUserId,
+                                "Financial Clearance Needs More Information",
+                                $"Financial Clearance {clearance.ClearanceNumber} needs more information before it can proceed.",
+                                clearance.Id);
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                // Never let a notification failure surface as an error on the action itself -
+                // the status change already succeeded and was saved above. But it must be
+                // logged, not silently swallowed, or a broken notification path is undiagnosable.
+                _logger.LogError(ex,
+                    "FinancialClearance {ClearanceId} action {Action}: failed to send notification.",
+                    clearance.Id, actionLower);
+            }
         }
 
         public async Task<ErrorOr<GetFinancialClearanceDto>> ReassignAsync(Guid id, ReassignFinancialClearanceDto dto)
@@ -460,11 +591,20 @@ namespace Contracting.Infrustructure.Features.business
             _db.FinancialClearanceActivities.Add(activity);
             await _db.SaveChangesAsync();
 
-            await _notificationService.SendNotificationToUserAsync(
-                newAssignee.ApplicationUserId,
-                "Financial Clearance Request Reassigned",
-                $"Request {clearance.ClearanceNumber} has been reassigned to you.",
-                id);
+            try
+            {
+                await _notificationService.SendNotificationToUserAsync(
+                    newAssignee.ApplicationUserId,
+                    "Financial Clearance Request Reassigned",
+                    $"Request {clearance.ClearanceNumber} has been reassigned to you.",
+                    id);
+            }
+            catch (Exception ex)
+            {
+                // The reassignment itself already succeeded and was saved above - a notification
+                // failure must not turn a successful reassign into an API error response.
+                _logger.LogError(ex, "FinancialClearance {ClearanceId} reassign: failed to send notification.", id);
+            }
 
             return await GetByIdAsync(clearance.Id);
         }

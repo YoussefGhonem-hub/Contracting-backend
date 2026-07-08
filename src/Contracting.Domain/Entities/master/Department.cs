@@ -15,6 +15,8 @@ namespace Contracting.Domain.Entities.master
         public bool NotifyOnTransferComplete { get; set; }
         // When true: department members are notified when a labor attendance request is cost-approved
         public bool NotifyAfterLaborApprove { get; set; }
+        // When true: department members are notified when a financial clearance is approved
+        public bool NotifyAfterFinancialClearanceApprove { get; set; }
         public ICollection<DepartmentSpecialField> DepartmentSpecialFields { get; set; } = new List<DepartmentSpecialField>();
         public ICollection<Engineer> Engineers { get; set; }
         public ICollection<EngineerDepartment> EngineerDepartments { get; set; } = new List<EngineerDepartment>();

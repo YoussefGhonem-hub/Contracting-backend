@@ -453,7 +453,7 @@ namespace Contracting.Infrustructure.Features.business
                         {
                             try
                             {
-                                await _notificationService.SendNotificationToUserAsync(
+                                await _notificationService.SendFanOutNotificationAsync(
                                     engineerUserId,
                                     title,
                                     body,
@@ -478,6 +478,35 @@ namespace Contracting.Infrustructure.Features.business
                             "TransferRequest {RequestId} completion: failed to resolve/notify recipients for department {DepartmentId}.",
                             id, deptId);
                     }
+                }
+            }
+
+            // Notify the original requester directly whenever their request reaches a terminal
+            // state - this is independent of the opt-in department fan-out above (which is a
+            // separate "let other departments know too" feature) and must fire regardless of
+            // whether any department has NotifyOnTransferComplete enabled.
+            if ((isCompletionAction || actionLower == "cancel") && request.RequestedBy is not null)
+            {
+                try
+                {
+                    var (titleKey, bodyKey) = isCompletionAction
+                        ? (SharedResourcesKeys.NotificationTransferCompletedTitle, SharedResourcesKeys.NotificationTransferCompletedBody)
+                        : (SharedResourcesKeys.NotificationTransferCancelledTitle, SharedResourcesKeys.NotificationTransferCancelledBody);
+
+                    await _notificationService.SendNotificationToUserAsync(
+                        request.RequestedBy.ApplicationUserId,
+                        _localizer[titleKey].Value,
+                        _localizer[bodyKey].Value,
+                        id,
+                        null,
+                        null,
+                        "Transfer");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "TransferRequest {RequestId} action {Action}: failed to notify requester {RequesterId}.",
+                        id, actionLower, request.RequestedBy.Id);
                 }
             }
 

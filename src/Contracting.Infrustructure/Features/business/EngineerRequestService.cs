@@ -364,7 +364,7 @@ public class EngineerRequestService : IEngineerRequestService
         if (targetDept is null)
             return Error.NotFound("Department.NotFound", _localizer[SharedResourcesKeys.NotFound]);
 
-        if (targetDept.BranchId != requesterBranchId)
+        if (!isSuperAdmin && targetDept.BranchId != requesterBranchId)
             return Error.Validation("Department.WrongBranch", "The selected department does not belong to your branch.");
 
         // Validate the target engineer belongs to that department (via EngineerDepartments or legacy DepartmentId)
@@ -2223,6 +2223,9 @@ public class EngineerRequestService : IEngineerRequestService
         if (filter.StatusId.HasValue && filter.StatusId.Value != Guid.Empty)
             query = query.Where(r => r.StatusId == filter.StatusId.Value);
 
+        if (filter.AssignToId.HasValue && filter.AssignToId.Value != Guid.Empty)
+            query = query.Where(r => r.AssignedToId == filter.AssignToId.Value);
+
         var requests = await query.ToListAsync(cancellationToken);
 
         return requests.Select(r => new GetUnifiedRequestDto
@@ -2343,6 +2346,8 @@ public class EngineerRequestService : IEngineerRequestService
 
         if (!isFinancialAdmin)
         {
+            var fcStatus = await StatusResolver.LoadRequestStatusIdsAsync(_db);
+
             var teamLeadDeptIds = await _db.EngineerDepartments
                 .Where(ed => ed.EngineerId == engineer.Id && ed.Role != null && ed.Role.Name == RoleNames.Teamleadengineer)
                 .Select(ed => ed.DepartmentId)
@@ -2359,13 +2364,24 @@ public class EngineerRequestService : IEngineerRequestService
                     teamLeadDeptIds.Add(engineer.DepartmentId.Value);
             }
 
+            // Is this engineer in any department with NotifyAfterFinancialClearanceApprove = true?
+            var isInNotifyFCDept = await _db.EngineerDepartments
+                .AnyAsync(ed => ed.EngineerId == engineer.Id && ed.Department!.NotifyAfterFinancialClearanceApprove && !ed.Department.IsDeleted, cancellationToken);
+            if (!isInNotifyFCDept && engineer.DepartmentId.HasValue)
+                isInNotifyFCDept = await _db.Departmentes
+                    .AnyAsync(d => d.Id == engineer.DepartmentId.Value && d.NotifyAfterFinancialClearanceApprove && !d.IsDeleted, cancellationToken);
+
             if (teamLeadDeptIds.Any())
                 query = query.Where(r =>
                     (r.DepartmentId.HasValue && teamLeadDeptIds.Contains(r.DepartmentId.Value))
                     || r.AssignedToId == engineer.Id
-                    || r.RequestedById == engineer.Id);
+                    || r.RequestedById == engineer.Id
+                    || (isInNotifyFCDept && r.StatusId == fcStatus.Completed));
             else
-                query = query.Where(r => r.RequestedById == engineer.Id || r.AssignedToId == engineer.Id);
+                query = query.Where(r =>
+                    r.RequestedById == engineer.Id
+                    || r.AssignedToId == engineer.Id
+                    || (isInNotifyFCDept && r.StatusId == fcStatus.Completed));
         }
 
         if (filter.ProjectId.HasValue && filter.ProjectId.Value != Guid.Empty)
@@ -2373,6 +2389,9 @@ public class EngineerRequestService : IEngineerRequestService
 
         if (filter.StatusId.HasValue && filter.StatusId.Value != Guid.Empty)
             query = query.Where(r => r.StatusId == filter.StatusId.Value);
+
+        if (filter.AssignToId.HasValue && filter.AssignToId.Value != Guid.Empty)
+            query = query.Where(r => r.AssignedToId == filter.AssignToId.Value);
 
         var requests = await query.ToListAsync(cancellationToken);
 

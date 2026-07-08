@@ -452,7 +452,7 @@ namespace Contracting.Infrustructure.Features.business
                                 .Where(uid => uid != Guid.Empty).Distinct();
 
                             foreach (var recipientUserId in recipients)
-                                await _notificationService.SendNotificationToUserAsync(
+                                await _notificationService.SendFanOutNotificationAsync(
                                     recipientUserId,
                                     "Labor Attendance Request Ready for Processing",
                                     $"Labor request {request.RequestNumber} has been validated and is ready for processing.",

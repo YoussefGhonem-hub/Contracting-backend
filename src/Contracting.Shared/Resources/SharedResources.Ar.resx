@@ -424,6 +424,12 @@
   <data name="NotificationTransferCompletedBody" xml:space="preserve">
     <value>تم اكتمال طلب النقل الخاص بك واستلام المواد.</value>
   </data>
+  <data name="NotificationTransferCancelledTitle" xml:space="preserve">
+    <value>تم إلغاء طلب النقل</value>
+  </data>
+  <data name="NotificationTransferCancelledBody" xml:space="preserve">
+    <value>تم إلغاء طلب النقل الخاص بك.</value>
+  </data>
   <data name="ClientNotificationInvoiceCreatedTitle" xml:space="preserve">
     <value>تمت إضافة فاتورة جديدة</value>
   </data>

@@ -140,6 +140,21 @@ namespace Contracting.Infrustructure.Features.Helper
                 await FirebaseMessaging.DefaultInstance.SendAsync(message);
                 isSent = true;
             }
+            catch (FirebaseMessagingException fcmEx)
+            {
+                errorMessage = fcmEx.Message;
+                _logger.LogError(fcmEx, "Failed to send Firebase notification");
+
+                // A token Firebase reports as unregistered/invalid will never succeed again
+                // (app uninstalled, token rotated without re-registering, etc.) - every future
+                // notification to it would otherwise fail silently forever. Prune it now so the
+                // recipient's remaining valid tokens (if any) aren't drowned out by dead ones.
+                if (fcmEx.MessagingErrorCode == MessagingErrorCode.Unregistered
+                    || fcmEx.MessagingErrorCode == MessagingErrorCode.InvalidArgument)
+                {
+                    await PruneStaleTokenAsync(notification.Token);
+                }
+            }
             catch (Exception ex)
             {
                 errorMessage = ex.Message;
@@ -149,6 +164,30 @@ namespace Contracting.Infrustructure.Features.Helper
             {
                 // Log the notification attempt
                 await LogNotificationAsync(notification, isSent, errorMessage);
+            }
+        }
+
+        private async Task PruneStaleTokenAsync(string token)
+        {
+            try
+            {
+                var staleTokens = await _db.userDeviceTokens
+                    .Where(t => t.FcmToken == token)
+                    .ToListAsync();
+
+                if (staleTokens.Count == 0)
+                    return;
+
+                _db.userDeviceTokens.RemoveRange(staleTokens);
+                await _db.SaveChangesAsync();
+
+                _logger.LogWarning(
+                    "Removed {Count} stale FCM token registration(s) after Firebase reported the token as unregistered/invalid.",
+                    staleTokens.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to prune stale FCM token");
             }
         }
 
@@ -305,6 +344,71 @@ namespace Contracting.Infrustructure.Features.Helper
                 {
                     // Enqueue itself failed, so SendAsync will never run — log the failure here.
                     _logger.LogError(ex, "Failed to enqueue notification job");
+                    await LogNotificationAsync(notification, false, ex.Message);
+                }
+            }
+        }
+
+        public async Task SendFanOutNotificationAsync(Guid userId, string title, string body, Guid? requestId = null, Guid? departmentId = null, Guid? chatGroupId = null, string? type = null)
+        {
+            if (userId == Guid.Empty)
+                return;
+
+            // NOTE: intentionally no self-notification guard here — department fan-out notifications
+            // must reach every member including the team lead who triggered the status change.
+
+            var engineerId = await _db.Engineers
+                .Where(e => e.ApplicationUserId == userId)
+                .Select(e => (Guid?)e.Id)
+                .FirstOrDefaultAsync();
+
+            var tokens = await _db.userDeviceTokens
+                .Where(t => t.UserId == userId)
+                .Select(t => t.FcmToken)
+                .Distinct()
+                .ToListAsync();
+
+            var notificationLog = new NotificationLog
+            {
+                UserId = userId,
+                Title = title,
+                Body = body,
+                IsSent = false,
+                EngineerId = engineerId,
+                DepartmentId = departmentId,
+                RequestId = requestId,
+                ChatGroupId = chatGroupId,
+                Type = type,
+                SentAt = Contracting.Shared.Common.DateTimeHelper.Now
+            };
+            _db.NotificationLogs.Add(notificationLog);
+            await _db.SaveChangesAsync();
+
+            if (tokens.Count == 0)
+                return;
+
+            foreach (var token in tokens)
+            {
+                var notification = new PushNotificationDto
+                {
+                    Token = token,
+                    UserId = userId,
+                    Title = title,
+                    Body = body,
+                    EngineerId = engineerId?.ToString(),
+                    RequestId = requestId?.ToString(),
+                    DepartmentId = departmentId?.ToString(),
+                    ChatGroupId = chatGroupId?.ToString(),
+                    Type = type,
+                    NotificationLogId = notificationLog.Id
+                };
+                try
+                {
+                    _backgroundJobClient.Enqueue<NotificationService>(svc => svc.SendAsync(notification));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to enqueue fan-out notification job");
                     await LogNotificationAsync(notification, false, ex.Message);
                 }
             }

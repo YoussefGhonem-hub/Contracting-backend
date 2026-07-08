@@ -104,6 +104,8 @@
         public const string NotificationReceiptRequiredBody = "NotificationReceiptRequiredBody";
         public const string NotificationTransferCompletedTitle = "NotificationTransferCompletedTitle";
         public const string NotificationTransferCompletedBody = "NotificationTransferCompletedBody";
+        public const string NotificationTransferCancelledTitle = "NotificationTransferCancelledTitle";
+        public const string NotificationTransferCancelledBody = "NotificationTransferCancelledBody";
         public const string MissingInfoRequiresNoteAndAttachment = "MissingInfoRequiresNoteAndAttachment";
 
         // Client App notifications
