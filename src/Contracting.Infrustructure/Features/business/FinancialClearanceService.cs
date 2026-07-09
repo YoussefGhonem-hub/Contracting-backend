@@ -350,9 +350,6 @@ namespace Contracting.Infrustructure.Features.business
                 case "missing_info":
                 case "missinginfo":
                 case "needs_update":
-                    // InProgress → MissingInformation (office engineer requests more info from submitter)
-                    if (clearance.StatusId != s.InProgress)
-                        return Error.Validation("FinancialClearance.InvalidAction", "Missing info can only be requested on a submitted clearance.");
                     toStatusId = s.MissingInformation;
                     break;
 
