@@ -9,6 +9,7 @@
         public bool RequiresGoodsReceipt { get; set; }
         public bool NotifyOnTransferComplete { get; set; }
         public bool NotifyAfterLaborApprove { get; set; }
+        public bool NotifyAfterFinancialClearanceApprove { get; set; }
         public List<CreateDepartmentSpecialFieldDto> SpecialFields { get; set; } = new();
     }
 }

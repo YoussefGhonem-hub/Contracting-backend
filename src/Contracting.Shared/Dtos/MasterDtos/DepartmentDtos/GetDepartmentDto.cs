@@ -11,6 +11,7 @@
         public bool RequiresGoodsReceipt { get; set; }
         public bool NotifyOnTransferComplete { get; set; }
         public bool NotifyAfterLaborApprove { get; set; }
+        public bool NotifyAfterFinancialClearanceApprove { get; set; }
         public List<DepartmentSpecialFieldDto> SpecialFields { get; set; } = new();
     }
 }
