@@ -60,7 +60,7 @@ public class ClientContentManagementController : APIBaseController
 
         foreach (var userId in clientUserIds)
         {
-            _ = _notificationService.SendNotificationToUserAsync(userId, title, body, entityId, null, null, type);
+            await _notificationService.SendFanOutNotificationAsync(userId, title, body, entityId, null, null, type);
         }
     }
 
@@ -451,6 +451,11 @@ public class ClientContentManagementController : APIBaseController
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        await NotifyProjectClientsAsync(invoice.ProjectId,
+            SharedResourcesKeys.ClientNotificationInvoicePaymentUpdatedTitle,
+            SharedResourcesKeys.ClientNotificationInvoicePaymentUpdatedBody,
+            invoice.Id, "invoice", cancellationToken);
 
         return Ok(new
         {

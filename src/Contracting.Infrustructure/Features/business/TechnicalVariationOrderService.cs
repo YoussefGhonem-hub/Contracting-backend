@@ -1,12 +1,15 @@
 using Contracting.Domain.Common.Enums;
 using Contracting.Domain.Entities.client;
 using Contracting.Infrustructure.Inteface.business;
+using Contracting.Infrustructure.Inteface.Helper;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.CurrentUser;
 using Contracting.Shared.Dtos.BusinessDtos.VariationOrderDtos;
 using Contracting.Shared.Dtos.ClientDtos.VariationOrderDtos;
+using Contracting.Shared.Resources;
 using Contracting.Shared.Storage;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using Storage.AWS3.Services;
 
 namespace Contracting.Infrustructure.Features.business;
@@ -16,12 +19,21 @@ public class TechnicalVariationOrderService : ITechnicalVariationOrderService
     private readonly ApplicationDbContext _db;
     private readonly IFileStorage _fileStorage;
     private readonly IStorageService _storageService;
+    private readonly INotificationService _notificationService;
+    private readonly IStringLocalizer<SharedResources> _localizer;
 
-    public TechnicalVariationOrderService(ApplicationDbContext db, IFileStorage fileStorage, IStorageService storageService)
+    public TechnicalVariationOrderService(
+        ApplicationDbContext db,
+        IFileStorage fileStorage,
+        IStorageService storageService,
+        INotificationService notificationService,
+        IStringLocalizer<SharedResources> localizer)
     {
         _db = db;
         _fileStorage = fileStorage;
         _storageService = storageService;
+        _notificationService = notificationService;
+        _localizer = localizer;
     }
 
     public async Task<GetClientVariationOrderDetailDto?> CreateVariationOrderAsync(CreateVariationOrderDto dto, CancellationToken cancellationToken = default)
@@ -82,6 +94,18 @@ public class TechnicalVariationOrderService : ITechnicalVariationOrderService
 
         await _db.VariationOrders.AddAsync(entity, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
+
+        // Notify all clients linked to this project
+        var clientUserIds = await _db.ClientProjects
+            .Where(cp => cp.ProjectId == dto.ProjectId && !cp.IsDeleted)
+            .Select(cp => cp.Client.ApplicationUserId)
+            .ToListAsync(cancellationToken);
+
+        var title = _localizer[SharedResourcesKeys.ClientNotificationVariationCreatedTitle].Value;
+        var body = _localizer[SharedResourcesKeys.ClientNotificationVariationCreatedBody].Value;
+
+        foreach (var clientUserId in clientUserIds)
+            await _notificationService.SendFanOutNotificationAsync(clientUserId, title, body, entity.Id, null, null, "variation_order");
 
         return new GetClientVariationOrderDetailDto
         {

@@ -1,5 +1,6 @@
 using Contracting.Domain.Common.Enums;
 using Contracting.Infrustructure.Inteface.client;
+using Contracting.Infrustructure.Inteface.Helper;
 using Contracting.Infrustructure.Persistence;
 using Contracting.Shared.CurrentUser;
 using Contracting.Shared.Dtos.ClientDtos.VariationOrderDtos;
@@ -12,11 +13,13 @@ public class ClientVariationOrderService : IClientVariationOrderService
 {
     private readonly ApplicationDbContext _db;
     private readonly IStorageService _storage;
+    private readonly INotificationService _notificationService;
 
-    public ClientVariationOrderService(ApplicationDbContext db, IStorageService storage)
+    public ClientVariationOrderService(ApplicationDbContext db, IStorageService storage, INotificationService notificationService)
     {
         _db = db;
         _storage = storage;
+        _notificationService = notificationService;
     }
 
     public async Task<GetClientVariationOrdersDto?> GetVariationOrdersAsync(
@@ -90,6 +93,21 @@ public class ClientVariationOrderService : IClientVariationOrderService
         vo.ClientRejectionReason = null;
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        // Notify the engineer who created the variation order
+        if (vo.CreatedByEngineerId != Guid.Empty)
+        {
+            var engineerUserId = await _db.Engineers
+                .Where(e => e.Id == vo.CreatedByEngineerId)
+                .Select(e => e.ApplicationUserId)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (engineerUserId != Guid.Empty)
+                await _notificationService.SendFanOutNotificationAsync(engineerUserId,
+                    "Variation Order Approved",
+                    $"Variation Order #{vo.VONumber} \"{vo.Title}\" has been approved by the client.",
+                    vo.Id, null, null, "variation_order");
+        }
+
         return MapToDetail(vo);
     }
 
@@ -110,6 +128,21 @@ public class ClientVariationOrderService : IClientVariationOrderService
         vo.ClientRejectionReason = rejectionReason;
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        // Notify the engineer who created the variation order
+        if (vo.CreatedByEngineerId != Guid.Empty)
+        {
+            var engineerUserId = await _db.Engineers
+                .Where(e => e.Id == vo.CreatedByEngineerId)
+                .Select(e => e.ApplicationUserId)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (engineerUserId != Guid.Empty)
+                await _notificationService.SendFanOutNotificationAsync(engineerUserId,
+                    "Variation Order Rejected",
+                    $"Variation Order #{vo.VONumber} \"{vo.Title}\" has been rejected by the client.",
+                    vo.Id, null, null, "variation_order");
+        }
+
         return MapToDetail(vo);
     }
 
