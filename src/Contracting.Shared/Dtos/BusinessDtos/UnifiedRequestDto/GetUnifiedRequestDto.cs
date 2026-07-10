@@ -69,6 +69,7 @@ namespace Contracting.Shared.BusinessDtos.UnifiedRequestDto
         public decimal? AdvanceAmount { get; set; }
         public decimal? SpentAmount { get; set; }
         public decimal? RemainingAmount { get; set; }
+        public List<GetFinancialClearanceItemDto> FinancialClearanceItems { get; set; } = new();
         
         // Common collections
         public List<GetAttachmentDto> EngineerRequestAttachments { get; set; } = new();

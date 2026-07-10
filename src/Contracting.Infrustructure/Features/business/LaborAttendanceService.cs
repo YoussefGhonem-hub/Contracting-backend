@@ -372,6 +372,10 @@ namespace Contracting.Infrustructure.Features.business
                         return Error.Validation("LaborAttendance.InvalidAction", "Only Assigned requests can be rejected.");
                     toStatusId = s.Rejected;
                     break;
+                case "missing_info":
+                case "missinginfo":
+                    toStatusId = s.MissingInformation;
+                    break;
                 default:
                     return Error.Validation("LaborAttendance.UnknownAction", $"Unknown action: {dto.ActionType}");
             }
@@ -467,6 +471,46 @@ namespace Contracting.Infrustructure.Features.business
                             "Labor Attendance Request Rejected",
                             $"Your request {request.RequestNumber} has been rejected. {dto.Comments}",
                             id);
+                    break;
+                case "missing_info":
+                case "missinginfo":
+                    // Notify all engineers in the request's department (fan-out)
+                    Guid? missingInfoDeptId = request.DepartmentId;
+                    if (!missingInfoDeptId.HasValue && request.ProjectId.HasValue)
+                    {
+                        var proj = await _db.Projects
+                            .Where(p => p.Id == request.ProjectId.Value)
+                            .Select(p => new { p.BranchId })
+                            .FirstOrDefaultAsync();
+                    }
+
+                    if (missingInfoDeptId.HasValue)
+                    {
+                        var fromJoin = await _db.EngineerDepartments
+                            .Where(ed => ed.DepartmentId == missingInfoDeptId.Value && !ed.Engineer!.IsDeleted)
+                            .Select(ed => ed.Engineer!.ApplicationUserId).ToListAsync();
+                        var fromLegacy = await _db.Engineers
+                            .Where(e => e.DepartmentId == missingInfoDeptId.Value && !e.IsDeleted)
+                            .Select(e => e.ApplicationUserId).ToListAsync();
+                        var deptRecipients = fromJoin.Union(fromLegacy)
+                            .Where(uid => uid != Guid.Empty).Distinct();
+
+                        foreach (var recipientUserId in deptRecipients)
+                            await _notificationService.SendFanOutNotificationAsync(
+                                recipientUserId,
+                                "Labor Attendance Request - Missing Information",
+                                $"Request {request.RequestNumber} requires additional information. {dto.Comments}",
+                                id, missingInfoDeptId, null, "LaborAttendance");
+                    }
+                    else if (supervisorUserId.HasValue)
+                    {
+                        // fallback: no department resolved, notify supervisor only
+                        await _notificationService.SendNotificationToUserAsync(
+                            supervisorUserId.Value,
+                            "Labor Attendance Request - Missing Information",
+                            $"Your request {request.RequestNumber} requires additional information. {dto.Comments}",
+                            id);
+                    }
                     break;
             }
 

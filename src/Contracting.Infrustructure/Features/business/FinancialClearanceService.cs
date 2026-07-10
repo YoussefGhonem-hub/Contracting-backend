@@ -289,8 +289,8 @@ namespace Contracting.Infrustructure.Features.business
             switch (actionLower)
             {
                 case "assign":
-                    if (clearance.StatusId != s.New)
-                        return Error.Validation("FinancialClearance.InvalidAction", "Only new clearances can be assigned.");
+                    if (clearance.StatusId != s.New && clearance.StatusId != s.MissingInformation)
+                        return Error.Validation("FinancialClearance.InvalidAction", "Only new or resubmitted clearances can be assigned.");
                     if (!dto.AssignedToId.HasValue || dto.AssignedToId == Guid.Empty)
                         return Error.Validation("FinancialClearance.AssignedToRequired", "AssignedToId is required for assign action.");
                     var assignedEngineer = await _db.Engineers.AsNoTracking()

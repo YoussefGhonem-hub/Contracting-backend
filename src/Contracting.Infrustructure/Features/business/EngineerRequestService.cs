@@ -2329,6 +2329,7 @@ public class EngineerRequestService : IEngineerRequestService
             .Include(r => r.RequestedBy)
             .Include(r => r.AssignedTo)
             .Include(r => r.Status)
+            .Include(r => r.Items)
             .Include(r => r.Attachments)
             .Include(r => r.Activities).ThenInclude(a => a.Engineer)
             .Include(r => r.Activities).ThenInclude(a => a.ToStatus)
@@ -2439,6 +2440,7 @@ public class EngineerRequestService : IEngineerRequestService
             AdvanceAmount = r.AdvanceAmount,
             SpentAmount = r.SpentAmount,
             RemainingAmount = r.RemainingAmount,
+            FinancialClearanceItems = r.Items == null ? new() : r.Items.Select(i => new GetFinancialClearanceItemDto { Id = i.Id, ItemName = i.ItemName, Value = i.Value }).ToList(),
             EngineerRequestAttachments = r.Attachments == null ? new() : r.Attachments.Select(a => new GetAttachmentDto { Id = a.Id, Key = a.Key, FileName = a.FileName, Extension = a.Extension, FileSize = a.FileSize, Url = _storageService.GetPreSignedUrl(a.Key) ?? a.Url }).ToList(),
             EngineerRequestActivites = r.Activities == null ? new() : r.Activities.Select(a => new GetEngineerRequestActiviteDto
             {
@@ -2579,38 +2581,48 @@ public class EngineerRequestService : IEngineerRequestService
     // ---------------- GET ENGINEER REQUEST COUNT BY STATUS ----------------
     public async Task<List<GetEngineerRequestCountByStatusDto>> GetEngineerRequestCountByStatusAsync(Guid engineerId)
     {
-        // Load engineer to determine department and manager status
+        var roles = CurrentUser.Roles;
+        var isAdmin = roles.Any(r => r.Equals(RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase)
+                                  || r.Equals(RoleNames.Admin, StringComparison.OrdinalIgnoreCase));
+
+        // Load engineer — may be null for SuperAdmin with no Engineer record
         var engineer = await _db.Engineers
             .AsNoTracking()
             .FirstOrDefaultAsync(e => e.Id == engineerId);
 
-        // Get all departments where engineer is a TeamLead (via EngineerDepartments)
-        var teamLeadDeptIds = await _db.EngineerDepartments
-            .Where(ed => ed.EngineerId == engineerId && ed.Role != null && ed.Role.Name == RoleNames.Teamleadengineer)
-            .Select(ed => ed.DepartmentId)
-            .ToListAsync();
+        var teamLeadDeptIds = new List<Guid>();
+        var allEngineerDeptIds = new List<Guid>();
 
-        // Fallback: check via legacy DepartmentId + global UserRoles
-        if (!teamLeadDeptIds.Any() && engineer.DepartmentId.HasValue)
+        if (engineer is not null)
         {
-            var isTeamLeadViaRoles = await (from userRole in _db.UserRoles
-                                            join role in _db.Roles on userRole.RoleId equals role.Id
-                                            where userRole.UserId == engineer.ApplicationUserId
-                                                  && role.Name == RoleNames.Teamleadengineer
-                                            select role.Id).AnyAsync();
-            if (isTeamLeadViaRoles)
-                teamLeadDeptIds.Add(engineer.DepartmentId.Value);
+            // Get all departments where engineer is a TeamLead (via EngineerDepartments)
+            teamLeadDeptIds = await _db.EngineerDepartments
+                .Where(ed => ed.EngineerId == engineerId && ed.Role != null && ed.Role.Name == RoleNames.Teamleadengineer)
+                .Select(ed => ed.DepartmentId)
+                .ToListAsync();
+
+            // Fallback: check via legacy DepartmentId + global UserRoles
+            if (!teamLeadDeptIds.Any() && engineer.DepartmentId.HasValue)
+            {
+                var isTeamLeadViaRoles = await (from userRole in _db.UserRoles
+                                                join role in _db.Roles on userRole.RoleId equals role.Id
+                                                where userRole.UserId == engineer.ApplicationUserId
+                                                      && role.Name == RoleNames.Teamleadengineer
+                                                select role.Id).AnyAsync();
+                if (isTeamLeadViaRoles)
+                    teamLeadDeptIds.Add(engineer.DepartmentId.Value);
+            }
+
+            // Get all departments this engineer belongs to
+            allEngineerDeptIds = await _db.EngineerDepartments
+                .Where(ed => ed.EngineerId == engineerId)
+                .Select(ed => ed.DepartmentId)
+                .ToListAsync();
+
+            // Include the active department if set
+            if (engineer.DepartmentId.HasValue && !allEngineerDeptIds.Contains(engineer.DepartmentId.Value))
+                allEngineerDeptIds.Add(engineer.DepartmentId.Value);
         }
-
-        // Get all departments this engineer belongs to
-        var allEngineerDeptIds = await _db.EngineerDepartments
-            .Where(ed => ed.EngineerId == engineerId)
-            .Select(ed => ed.DepartmentId)
-            .ToListAsync();
-
-        // Include the active department if set
-        if (engineer.DepartmentId.HasValue && !allEngineerDeptIds.Contains(engineer.DepartmentId.Value))
-            allEngineerDeptIds.Add(engineer.DepartmentId.Value);
 
         bool isTeamLead = teamLeadDeptIds.Any();
 
@@ -2618,33 +2630,36 @@ public class EngineerRequestService : IEngineerRequestService
         IQueryable<EngineerRequest> baseQuery = _db.EngineerRequests
             .Where(er => !er.IsDeleted);
 
-        if (isTeamLead)
+        if (!isAdmin)
         {
-            baseQuery = baseQuery.Where(er =>
-                (er.DepartmentId.HasValue && teamLeadDeptIds.Contains(er.DepartmentId.Value))
-                || er.assignToId == engineerId
-                || er.EngineerId == engineerId);
-        }
-        else if (allEngineerDeptIds.Any())
-        {
-            var deptsWithoutTeamLead = new List<Guid>();
-            foreach (var deptId in allEngineerDeptIds)
+            if (isTeamLead)
             {
-                if (!await DepartmentHasTeamLeadAsync(deptId))
-                    deptsWithoutTeamLead.Add(deptId);
+                baseQuery = baseQuery.Where(er =>
+                    (er.DepartmentId.HasValue && teamLeadDeptIds.Contains(er.DepartmentId.Value))
+                    || er.assignToId == engineerId
+                    || er.EngineerId == engineerId);
             }
-            var deptsWithTeamLead = allEngineerDeptIds.Where(d => !deptsWithoutTeamLead.Contains(d)).ToList();
+            else if (allEngineerDeptIds.Any())
+            {
+                var deptsWithoutTeamLead = new List<Guid>();
+                foreach (var deptId in allEngineerDeptIds)
+                {
+                    if (!await DepartmentHasTeamLeadAsync(deptId))
+                        deptsWithoutTeamLead.Add(deptId);
+                }
+                var deptsWithTeamLead = allEngineerDeptIds.Where(d => !deptsWithoutTeamLead.Contains(d)).ToList();
 
-            baseQuery = baseQuery.Where(er =>
-                (er.DepartmentId.HasValue && deptsWithoutTeamLead.Contains(er.DepartmentId.Value)
-                    && (er.assignToId == null || er.assignToId == Guid.Empty || er.assignToId == engineerId))
-                || (er.DepartmentId.HasValue && deptsWithTeamLead.Contains(er.DepartmentId.Value) && er.assignToId == engineerId)
-                || er.assignToId == engineerId
-                || er.EngineerId == engineerId);
-        }
-        else
-        {
-            baseQuery = baseQuery.Where(er => er.EngineerId == engineerId || er.assignToId == engineerId);
+                baseQuery = baseQuery.Where(er =>
+                    (er.DepartmentId.HasValue && deptsWithoutTeamLead.Contains(er.DepartmentId.Value)
+                        && (er.assignToId == null || er.assignToId == Guid.Empty || er.assignToId == engineerId))
+                    || (er.DepartmentId.HasValue && deptsWithTeamLead.Contains(er.DepartmentId.Value) && er.assignToId == engineerId)
+                    || er.assignToId == engineerId
+                    || er.EngineerId == engineerId);
+            }
+            else
+            {
+                baseQuery = baseQuery.Where(er => er.EngineerId == engineerId || er.assignToId == engineerId);
+            }
         }
 
         var engineerRequestGroups = await baseQuery
@@ -2670,13 +2685,6 @@ public class EngineerRequestService : IEngineerRequestService
             })
             .OrderBy(x => x.StatusName)
             .ToList();
-
-        // Role-based visibility. These counts must mirror exactly what each request
-        // list endpoint shows the user (see Get*ForUnifiedAsync helpers); otherwise
-        // Team Leads / Office Engineers see 0 even though their list has records.
-        var roles = CurrentUser.Roles;
-        var isAdmin = roles.Any(r => r.Equals(RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase)
-                                  || r.Equals(RoleNames.Admin, StringComparison.OrdinalIgnoreCase));
 
         // --- Transfer Request counts ---
         // Only Site Engineers and Admins can see transfers.
