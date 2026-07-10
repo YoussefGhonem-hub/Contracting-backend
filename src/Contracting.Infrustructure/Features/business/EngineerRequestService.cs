@@ -2693,40 +2693,61 @@ public class EngineerRequestService : IEngineerRequestService
             .ToList();
 
         // --- Transfer Request counts ---
-        // Only Site Engineers and Admins can see transfers.
-        var isSiteEngineerForCount = roles.Any(r => r.Equals(RoleNames.Siteengineer, StringComparison.OrdinalIgnoreCase));
-        if (isAdmin || isSiteEngineerForCount)
+        // Mirrors GetTransferRequestsForUnifiedAsync exactly (that's what appliedOrCreatedReqeust
+        // and byStatus actually return) instead of the old "Admin or Site Engineer only" gate,
+        // which undercounted transfers for team leads/office engineers who are still visible via
+        // RequestedById, destination-project participation, or a NotifyOnTransferComplete department.
+        var transferProjectIds = await _db.EngineerProjects
+            .Where(ep => ep.EngineerId == engineerId)
+            .Select(ep => ep.ProjectId)
+            .ToListAsync();
+
+        var hasNotifyDeptsForCount = allEngineerDeptIds.Any() && await _db.Departmentes
+            .AnyAsync(d => allEngineerDeptIds.Contains(d.Id) && d.NotifyOnTransferComplete);
+
+        var transferBranchIds = hasNotifyDeptsForCount
+            ? await _db.Departmentes
+                .Where(d => allEngineerDeptIds.Contains(d.Id) && !d.IsDeleted)
+                .Select(d => d.BranchId)
+                .Distinct()
+                .ToListAsync()
+            : new List<Guid>();
+
+        IQueryable<TransferRequest> transferQuery = _db.TransferRequests
+            .Where(r => !r.IsDeleted);
+
+        if (!isAdmin)
         {
-            var transferProjectIds = await _db.EngineerProjects
-                .Where(ep => ep.EngineerId == engineerId)
-                .Select(ep => ep.ProjectId)
-                .ToListAsync();
-
-            IQueryable<TransferRequest> transferQuery = _db.TransferRequests
-                .Where(r => !r.IsDeleted);
-
-            if (!isAdmin)
+            if (hasNotifyDeptsForCount)
+                transferQuery = transferQuery.Where(r =>
+                    r.RequestedById == engineerId
+                    || (r.DestinationProjectId.HasValue && transferProjectIds.Contains(r.DestinationProjectId.Value))
+                    || (r.NeedsAcknowledgment && (
+                        (r.SourceProject != null && r.SourceProject.BranchId.HasValue && transferBranchIds.Contains(r.SourceProject.BranchId.Value))
+                        || (r.DestinationProject != null && r.DestinationProject.BranchId.HasValue && transferBranchIds.Contains(r.DestinationProject.BranchId.Value))
+                        || (r.RequestedBy != null && r.RequestedBy.Department != null && transferBranchIds.Contains(r.RequestedBy.Department.BranchId)))));
+            else
                 transferQuery = transferQuery.Where(r =>
                     r.RequestedById == engineerId
                     || (r.DestinationProjectId.HasValue && transferProjectIds.Contains(r.DestinationProjectId.Value)));
+        }
 
-            var transferGroups = await transferQuery
-                .GroupBy(r => r.StatusId)
-                .Select(g => new { StatusId = g.Key, Count = g.Count() })
-                .ToListAsync();
+        var transferGroups = await transferQuery
+            .GroupBy(r => r.StatusId)
+            .Select(g => new { StatusId = g.Key, Count = g.Count() })
+            .ToListAsync();
 
-            foreach (var tg in transferGroups)
-            {
-                var existing = requestCounts.FirstOrDefault(x => x.StatusId == tg.StatusId);
-                if (existing is not null)
-                    existing.TransferCount += tg.Count;
-                else if (tg.StatusId.HasValue)
-                    requestCounts.Add(new GetEngineerRequestCountByStatusDto
-                    {
-                        StatusId = tg.StatusId.Value,
-                        TransferCount = tg.Count
-                    });
-            }
+        foreach (var tg in transferGroups)
+        {
+            var existing = requestCounts.FirstOrDefault(x => x.StatusId == tg.StatusId);
+            if (existing is not null)
+                existing.TransferCount += tg.Count;
+            else if (tg.StatusId.HasValue)
+                requestCounts.Add(new GetEngineerRequestCountByStatusDto
+                {
+                    StatusId = tg.StatusId.Value,
+                    TransferCount = tg.Count
+                });
         }
 
         // --- Labor Attendance counts ---

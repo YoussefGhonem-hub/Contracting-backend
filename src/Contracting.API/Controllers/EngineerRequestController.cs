@@ -248,7 +248,7 @@ namespace Contracting.API.Controllers
         // Internal Request — dropdown: departments in the logged-in engineer's branch
         // =========================================================================
         [HttpGet("internal/my-branch/departments")]
-        [Authorize(Roles = RoleNames.Officeengineer + "," + RoleNames.SuperAdmin)]
+        [Authorize(Roles = RoleNames.Officeengineer + "," + RoleNames.SuperAdmin + "," + RoleNames.Teamleadengineer)]
         public async Task<IActionResult> GetMyBranchDepartments()
         {
             var userId = CurrentUser.Id ?? Guid.Empty;
@@ -278,7 +278,7 @@ namespace Contracting.API.Controllers
         // Internal Request — dropdown: engineers in a department (same branch only)
         // =========================================================================
         [HttpGet("internal/departments/{departmentId:guid}/engineers")]
-        [Authorize(Roles = RoleNames.Officeengineer + "," + RoleNames.SuperAdmin)]
+        [Authorize(Roles = RoleNames.Officeengineer + "," + RoleNames.SuperAdmin + "," + RoleNames.Teamleadengineer)]
         public async Task<IActionResult> GetDepartmentEngineers(Guid departmentId)
         {
             var userId = CurrentUser.Id ?? Guid.Empty;

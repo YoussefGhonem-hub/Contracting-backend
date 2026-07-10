@@ -60,51 +60,53 @@ namespace Contracting.Infrustructure.Features.Helper
         {
             var currentUserId = Guid.Parse(CurrentUser.UserId);
 
-            // A device push token uniquely identifies a single physical device, so it must belong
-            // to exactly one user — the one currently logged in on it. Remove any registrations of
-            // the same token under OTHER users (e.g. a previous account that logged in on this
-            // device and never cleaned up). Otherwise messages meant for that previous account get
-            // pushed to this device, which shows up as "I received a notification for my own message".
-            var staleTokens = await _db.userDeviceTokens
+            // Hard-delete any registrations of this token under OTHER users (stale cross-account
+            // tokens). Use ExecuteDeleteAsync to bypass the soft-delete interceptor — a pruned token
+            // that stays as IsDeleted=true would still block the unique index (UserId, FcmToken)
+            // and prevent re-registration.
+            await _db.userDeviceTokens
+                .IgnoreQueryFilters()
                 .Where(t => t.FcmToken == fcmToken && t.UserId != currentUserId)
-                .ToListAsync();
+                .ExecuteDeleteAsync();
 
-            if (staleTokens.Count > 0)
-                _db.userDeviceTokens.RemoveRange(staleTokens);
+            // Check including soft-deleted rows so we can restore instead of inserting a duplicate.
+            var existing = await _db.userDeviceTokens
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(t => t.UserId == currentUserId && t.FcmToken == fcmToken);
 
-            var exists = await _db.userDeviceTokens
-                        .AnyAsync(t => t.UserId == currentUserId
-                            && t.FcmToken == fcmToken);
-
-            if (!exists)
+            if (existing is null)
             {
                 _db.userDeviceTokens.Add(new UserDeviceToken
                 {
                     UserId = currentUserId,
                     FcmToken = fcmToken
                 });
-            }
-
-            if (staleTokens.Count > 0 || !exists)
-            {
                 await _db.SaveChangesAsync();
                 return true;
             }
+
+            if (existing.IsDeleted)
+            {
+                // Token was previously pruned (Firebase once rejected it). Restore it — the client
+                // has re-registered it, so it is valid again.
+                existing.IsDeleted = false;
+                existing.DeletedDate = null;
+                existing.DeletedBy = null;
+                await _db.SaveChangesAsync();
+                return true;
+            }
+
             return false;
         }
 
         public async Task<bool> RemoveToken(string token)
         {
-            var entity = _db.userDeviceTokens
-                        .FirstOrDefault(t => t.UserId == Guid.Parse(CurrentUser.UserId)
-                            && t.FcmToken == token);
-            if (entity != null)
-            {
-                _db.userDeviceTokens.Remove(entity);
-                await _db.SaveChangesAsync();
-                return true;
-            }
-            return false;
+            // Hard-delete: bypass soft-delete so the unique index is freed for re-registration.
+            var deleted = await _db.userDeviceTokens
+                .IgnoreQueryFilters()
+                .Where(t => t.UserId == Guid.Parse(CurrentUser.UserId) && t.FcmToken == token)
+                .ExecuteDeleteAsync();
+            return deleted > 0;
         }
 
         public async Task SendAsync(PushNotificationDto notification)
@@ -171,19 +173,17 @@ namespace Contracting.Infrustructure.Features.Helper
         {
             try
             {
-                var staleTokens = await _db.userDeviceTokens
+                // Hard-delete: a soft-deleted token still occupies the unique index (UserId, FcmToken)
+                // and silently blocks re-registration when the client gets a new token with the same value.
+                var deleted = await _db.userDeviceTokens
+                    .IgnoreQueryFilters()
                     .Where(t => t.FcmToken == token)
-                    .ToListAsync();
+                    .ExecuteDeleteAsync();
 
-                if (staleTokens.Count == 0)
-                    return;
-
-                _db.userDeviceTokens.RemoveRange(staleTokens);
-                await _db.SaveChangesAsync();
-
-                _logger.LogWarning(
-                    "Removed {Count} stale FCM token registration(s) after Firebase reported the token as unregistered/invalid.",
-                    staleTokens.Count);
+                if (deleted > 0)
+                    _logger.LogWarning(
+                        "Removed {Count} stale FCM token registration(s) after Firebase reported the token as unregistered/invalid.",
+                        deleted);
             }
             catch (Exception ex)
             {
@@ -314,7 +314,10 @@ namespace Contracting.Infrustructure.Features.Helper
             await _db.SaveChangesAsync();
 
             if (tokens.Count == 0)
+            {
+                _logger.LogWarning("No FCM tokens for userId {UserId} — notification logged but not pushed to Firebase.", userId);
                 return;
+            }
 
             // enqueue a background job per token
             foreach (var token in tokens)
@@ -385,7 +388,10 @@ namespace Contracting.Infrustructure.Features.Helper
             await _db.SaveChangesAsync();
 
             if (tokens.Count == 0)
+            {
+                _logger.LogWarning("No FCM tokens for userId {UserId} — notification logged but not pushed to Firebase.", userId);
                 return;
+            }
 
             foreach (var token in tokens)
             {

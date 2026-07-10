@@ -123,9 +123,10 @@ namespace Contracting.Infrustructure.Features.business
                 .FirstOrDefaultAsync(r => r.Id == dto.Id && !r.IsDeleted);
 
             if (request is null) return Error.NotFound("LaborAttendance.NotFound", "Labor attendance request not found.");
-            // Only allow editing when Pending (New)
-            if (request.StatusId != s.New)
-                return Error.Validation("LaborAttendance.CannotEdit", "Only Pending requests can be edited.");
+            // Allow editing in New (Draft) state, and in MissingInformation state so the
+            // requester can fix/add the missing details before resubmitting.
+            if (request.StatusId != s.New && request.StatusId != s.MissingInformation)
+                return Error.Validation("LaborAttendance.CannotEdit", "Only new (draft) or missing-information requests can be edited.");
 
             if (dto.ProjectId.HasValue) request.ProjectId = dto.ProjectId == Guid.Empty ? null : dto.ProjectId;
             if (dto.DepartmentId.HasValue) request.DepartmentId = dto.DepartmentId == Guid.Empty ? null : dto.DepartmentId;
