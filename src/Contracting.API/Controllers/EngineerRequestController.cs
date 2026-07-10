@@ -223,10 +223,10 @@ namespace Contracting.API.Controllers
 
         // =========================================================================
         // Internal Request — create
-        // Office Engineers only. Assigns directly to a peer in the same branch.
+        // Office Engineers and Team Leads. Assigns directly to a peer in the same branch.
         // =========================================================================
         [HttpPost("internal")]
-        [Authorize(Roles = RoleNames.Officeengineer + "," + RoleNames.SuperAdmin)]
+        [Authorize(Roles = RoleNames.Officeengineer + "," + RoleNames.SuperAdmin + "," + RoleNames.Teamleadengineer)]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> CreateInternal([FromForm] CreateInternalRequestDto dto)
         {

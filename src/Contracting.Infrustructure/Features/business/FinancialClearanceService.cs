@@ -71,7 +71,9 @@ namespace Contracting.Infrustructure.Features.business
             {
                 clearance.Items.Add(new FinancialClearanceItem
                 {
+                    Code = item.Code,
                     ItemName = item.ItemName,
+                    Description = item.Description,
                     Value = item.Value
                 });
             }
@@ -147,7 +149,9 @@ namespace Contracting.Infrustructure.Features.business
                 {
                     clearance.Items.Add(new FinancialClearanceItem
                     {
+                        Code = item.Code,
                         ItemName = item.ItemName,
+                        Description = item.Description,
                         Value = item.Value
                     });
                 }
@@ -642,7 +646,9 @@ namespace Contracting.Infrustructure.Features.business
             Items = c.Items.Select(i => new GetFinancialClearanceItemDto
             {
                 Id = i.Id,
+                Code = i.Code,
                 ItemName = i.ItemName,
+                Description = i.Description,
                 Value = i.Value
             }).ToList(),
             StatusId = c.StatusId,

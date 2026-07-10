@@ -9,7 +9,9 @@ namespace Contracting.Infrustructure.Persistence.Configurations.Business
         public void Configure(EntityTypeBuilder<FinancialClearanceItem> builder)
         {
             builder.ToTable("FinancialClearanceItems", "business");
+            builder.Property(i => i.Code).HasMaxLength(100);
             builder.Property(i => i.ItemName).HasMaxLength(500).IsRequired();
+            builder.Property(i => i.Description).HasMaxLength(1000);
             builder.Property(i => i.Value).HasColumnType("decimal(18,2)");
 
             builder.HasOne(i => i.FinancialClearance)

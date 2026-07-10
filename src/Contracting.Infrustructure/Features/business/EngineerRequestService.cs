@@ -339,9 +339,10 @@ public class EngineerRequestService : IEngineerRequestService
     {
         var roles = CurrentUser.Roles;
         var isOfficeEngineer = roles.Any(r => r.Equals(RoleNames.Officeengineer, StringComparison.OrdinalIgnoreCase));
+        var isTeamLead = roles.Any(r => r.Equals(RoleNames.Teamleadengineer, StringComparison.OrdinalIgnoreCase));
         var isSuperAdmin = roles.Any(r => r.Equals(RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase));
-        if (!isOfficeEngineer && !isSuperAdmin)
-            return Error.Forbidden("Auth.Forbidden", "Only Office Engineers can create Internal Requests.");
+        if (!isOfficeEngineer && !isTeamLead && !isSuperAdmin)
+            return Error.Forbidden("Auth.Forbidden", "Only Office Engineers or Team Leads can create Internal Requests.");
 
         var engineer = await _db.Engineers
             .Include(e => e.Department)
@@ -2029,6 +2030,11 @@ public class EngineerRequestService : IEngineerRequestService
         if (filter.ProjectId.HasValue && filter.ProjectId.Value != Guid.Empty)
             query = query.Where(r => r.SourceProjectId == filter.ProjectId.Value || r.DestinationProjectId == filter.ProjectId.Value);
 
+        // AssignToId for transfers: TransferRequest has no AssignedToId, so filter by RequestedById
+        // (the person who submitted the transfer is the closest equivalent to "assigned from").
+        if (filter.AssignToId.HasValue && filter.AssignToId.Value != Guid.Empty)
+            query = query.Where(r => r.RequestedById == filter.AssignToId.Value);
+
         // Status filter: NeedsAcknowledgment requests visible to this engineer bypass the status filter
         // so they always appear regardless of which status tab the user is viewing.
         if (filter.StatusId.HasValue && filter.StatusId.Value != Guid.Empty)
@@ -2440,7 +2446,7 @@ public class EngineerRequestService : IEngineerRequestService
             AdvanceAmount = r.AdvanceAmount,
             SpentAmount = r.SpentAmount,
             RemainingAmount = r.RemainingAmount,
-            FinancialClearanceItems = r.Items == null ? new() : r.Items.Select(i => new GetFinancialClearanceItemDto { Id = i.Id, ItemName = i.ItemName, Value = i.Value }).ToList(),
+            FinancialClearanceItems = r.Items == null ? new() : r.Items.Select(i => new GetFinancialClearanceItemDto { Id = i.Id, Code = i.Code, ItemName = i.ItemName, Description = i.Description, Value = i.Value }).ToList(),
             EngineerRequestAttachments = r.Attachments == null ? new() : r.Attachments.Select(a => new GetAttachmentDto { Id = a.Id, Key = a.Key, FileName = a.FileName, Extension = a.Extension, FileSize = a.FileSize, Url = _storageService.GetPreSignedUrl(a.Key) ?? a.Url }).ToList(),
             EngineerRequestActivites = r.Activities == null ? new() : r.Activities.Select(a => new GetEngineerRequestActiviteDto
             {
