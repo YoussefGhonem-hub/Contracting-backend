@@ -2462,7 +2462,19 @@ public class EngineerRequestService : IEngineerRequestService
                 ActionType = a.ActionType,
                 Comments = a.Comments,
                 CreatedDate = a.CreatedDate
-            }).OrderByDescending(a => a.CreatedDate).ToList()
+            }).OrderByDescending(a => a.CreatedDate).ToList(),
+            EngineerRequestNotes = r.Activities == null ? new() : r.Activities
+                .Where(a => !string.IsNullOrWhiteSpace(a.Comments))
+                .OrderBy(a => a.CreatedDate)
+                .Select(a => new GetEngineerRequestNotesDto
+                {
+                    Id          = a.Id,
+                    note        = a.Comments,
+                    EngineerId  = a.EngineerId,
+                    Engineer    = a.Engineer == null ? null : new GetEngineerDto { Id = a.Engineer.Id, nameEn = a.Engineer.nameEn, nameAr = a.Engineer.nameAr },
+                    CreatedDate = a.CreatedDate,
+                    Attachments = new List<GetAttachmentDto>()
+                }).ToList()
         }).ToList();
     }
 
