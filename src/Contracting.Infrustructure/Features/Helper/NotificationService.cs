@@ -456,12 +456,7 @@ namespace Contracting.Infrustructure.Features.Helper
                 .Distinct()
                 .ToList();
 
-            var requestTitles = requestIds.Any()
-                ? await _db.EngineerRequests
-                    .Where(r => requestIds.Contains(r.Id))
-                    .Select(r => new { r.Id, r.RequestTitle })
-                    .ToDictionaryAsync(r => r.Id, r => r.RequestTitle)
-                : new Dictionary<Guid, string?>();
+            var requestMeta = await ResolveRequestMetaAsync(requestIds);
 
             var dtos = notifications.Select(n =>
             {
@@ -469,9 +464,11 @@ namespace Contracting.Infrustructure.Features.Helper
                 dto.EngineerName = n.Engineer != null
                     ? $"{n.Engineer.nameEn} / {n.Engineer.nameAr}"
                     : null;
-                dto.RequestTitle = n.RequestId.HasValue && requestTitles.TryGetValue(n.RequestId.Value, out var title)
-                    ? title
-                    : null;
+                if (n.RequestId.HasValue && requestMeta.TryGetValue(n.RequestId.Value, out var meta))
+                {
+                    dto.RequestType  = meta.RequestType;
+                    dto.RequestTitle = meta.Title;
+                }
                 return dto;
             }).ToList();
 
@@ -597,12 +594,7 @@ namespace Contracting.Infrustructure.Features.Helper
                 .Distinct()
                 .ToList();
 
-            var requestTitles = requestIds.Any()
-                ? await _db.EngineerRequests
-                    .Where(r => requestIds.Contains(r.Id))
-                    .Select(r => new { r.Id, r.RequestTitle })
-                    .ToDictionaryAsync(r => r.Id, r => r.RequestTitle)
-                : new Dictionary<Guid, string?>();
+            var requestMeta = await ResolveRequestMetaAsync(requestIds);
 
             var dtos = notifications.Select(n =>
             {
@@ -610,14 +602,55 @@ namespace Contracting.Infrustructure.Features.Helper
                 dto.EngineerName = n.Engineer != null
                     ? $"{n.Engineer.nameEn} / {n.Engineer.nameAr}"
                     : null;
-                dto.RequestTitle = n.RequestId.HasValue && requestTitles.TryGetValue(n.RequestId.Value, out var title)
-                    ? title
-                    : null;
+                if (n.RequestId.HasValue && requestMeta.TryGetValue(n.RequestId.Value, out var meta))
+                {
+                    dto.RequestType  = meta.RequestType;
+                    dto.RequestTitle = meta.Title;
+                }
                 return dto;
             }).ToList();
 
             return new PaginatedList<GetNotificationDto>(
                 dtos, totalCount, filter.PageIndex, filter.PageSize);
+        }
+
+        // Resolves (RequestType, RequestTitle) for a batch of request IDs by checking all four
+        // request tables. Each ID appears in at most one table; the dictionary is safe to query
+        // for any notification on the page without N+1 round-trips.
+        private async Task<Dictionary<Guid, (string RequestType, string? Title)>> ResolveRequestMetaAsync(List<Guid> requestIds)
+        {
+            var meta = new Dictionary<Guid, (string, string?)>();
+            if (requestIds.Count == 0) return meta;
+
+            var erRows = await _db.EngineerRequests
+                .Where(r => requestIds.Contains(r.Id))
+                .Select(r => new { r.Id, r.RequestType, r.RequestTitle })
+                .ToListAsync();
+            foreach (var r in erRows)
+                meta[r.Id] = (r.RequestType ?? "EngineerRequest", r.RequestTitle);
+
+            var laRows = await _db.LaborAttendanceRequests
+                .Where(r => requestIds.Contains(r.Id))
+                .Select(r => new { r.Id, r.RequestNumber })
+                .ToListAsync();
+            foreach (var r in laRows)
+                meta[r.Id] = ("LaborAttendance", r.RequestNumber);
+
+            var fcRows = await _db.FinancialClearances
+                .Where(r => requestIds.Contains(r.Id))
+                .Select(r => new { r.Id, r.ClearanceNumber })
+                .ToListAsync();
+            foreach (var r in fcRows)
+                meta[r.Id] = ("FinancialClearance", r.ClearanceNumber);
+
+            var trRows = await _db.TransferRequests
+                .Where(r => requestIds.Contains(r.Id))
+                .Select(r => new { r.Id, r.RequestNumber })
+                .ToListAsync();
+            foreach (var r in trRows)
+                meta[r.Id] = ("TransferRequest", r.RequestNumber);
+
+            return meta;
         }
 
         public async Task<GenericResponse> MarkAllAsReadForCurrentUserAsync()
