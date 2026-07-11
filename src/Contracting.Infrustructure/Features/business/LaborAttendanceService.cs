@@ -16,6 +16,7 @@ using Contracting.Shared.Dtos.MasterDtos.ProjectDtos;
 using Contracting.Shared.Dtos.MasterDtos.StatusDtos;
 using ErrorOr;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Contracting.Infrustructure.Features.business
 {
@@ -24,12 +25,14 @@ namespace Contracting.Infrustructure.Features.business
         private readonly ApplicationDbContext _db;
         private readonly Storage.AWS3.Services.IStorageService _storageService;
         private readonly INotificationService _notificationService;
+        private readonly ILogger<LaborAttendanceService> _logger;
 
-        public LaborAttendanceService(ApplicationDbContext db, Storage.AWS3.Services.IStorageService storageService, INotificationService notificationService)
+        public LaborAttendanceService(ApplicationDbContext db, Storage.AWS3.Services.IStorageService storageService, INotificationService notificationService, ILogger<LaborAttendanceService> logger)
         {
             _db = db;
             _storageService = storageService;
             _notificationService = notificationService;
+            _logger = logger;
         }
 
         public async Task<ErrorOr<GetLaborAttendanceRequestDto>> CreateAsync(CreateLaborAttendanceRequestDto dto)
@@ -118,7 +121,6 @@ namespace Contracting.Infrustructure.Features.business
         {
             var s = await StatusResolver.LoadRequestStatusIdsAsync(_db);
             var request = await _db.LaborAttendanceRequests
-                .Include(r => r.Records)
                 .Include(r => r.Attachments)
                 .FirstOrDefaultAsync(r => r.Id == dto.Id && !r.IsDeleted);
 
@@ -136,19 +138,37 @@ namespace Contracting.Infrustructure.Features.business
 
             if (dto.Records != null)
             {
-                _db.LaborAttendanceRecords.RemoveRange(request.Records);
+                // Validate all incoming records before touching the database.
                 foreach (var rec in dto.Records)
                 {
-                    if (!Enum.TryParse<WorkerAttendanceStatus>(rec.AttendanceStatus, true, out var attendanceStatus))
+                    if (!Enum.TryParse<WorkerAttendanceStatus>(rec.AttendanceStatus, true, out _))
                         return Error.Validation("LaborAttendance.InvalidStatus", $"Invalid attendance status: {rec.AttendanceStatus}");
                     if (rec.DailyRate < 0)
                         return Error.Validation("LaborAttendance.NegativeRate", "Daily rate cannot be negative.");
                     if (rec.OvertimeHours < 0)
                         return Error.Validation("LaborAttendance.NegativeOvertime", "Overtime hours cannot be negative.");
-                    if (attendanceStatus == WorkerAttendanceStatus.Absent && rec.OvertimeHours > 0)
+                    if (Enum.TryParse<WorkerAttendanceStatus>(rec.AttendanceStatus, true, out var ats)
+                        && ats == WorkerAttendanceStatus.Absent && rec.OvertimeHours > 0)
                         return Error.Validation("LaborAttendance.AbsentWithOvertime", $"Worker '{rec.Name}' is absent but has overtime hours.");
+                }
 
-                    request.Records.Add(new LaborAttendanceRecord
+                var names = dto.Records.Where(r => !string.IsNullOrWhiteSpace(r.Name))
+                    .Select(r => r.Name!.Trim().ToLower()).ToList();
+                if (names.Count != names.Distinct().Count())
+                    return Error.Validation("LaborAttendance.DuplicateRecord", "Duplicate labor records are not allowed.");
+
+                // Hard-delete existing records directly — avoids EF soft-delete tracking
+                // conflicts when the same navigation collection is reused.
+                // Safe because the request is still in draft (New / MissingInformation) state.
+                await _db.LaborAttendanceRecords
+                    .IgnoreQueryFilters()
+                    .Where(r => r.LaborAttendanceRequestId == request.Id)
+                    .ExecuteDeleteAsync();
+
+                foreach (var rec in dto.Records)
+                {
+                    Enum.TryParse<WorkerAttendanceStatus>(rec.AttendanceStatus, true, out var attendanceStatus);
+                    _db.LaborAttendanceRecords.Add(new LaborAttendanceRecord
                     {
                         LaborAttendanceRequestId = request.Id,
                         Name = rec.Name,
@@ -425,44 +445,63 @@ namespace Contracting.Infrustructure.Features.business
                             $"Your request {request.RequestNumber} has been validated.",
                             id);
 
-                    // Fan-out: notify all engineers in departments with NotifyAfterLaborApprove in this branch
-                    Guid? branchId = null;
-                    if (request.ProjectId.HasValue)
-                        branchId = await _db.Projects
-                            .Where(p => p.Id == request.ProjectId.Value)
-                            .Select(p => (Guid?)p.BranchId)
-                            .FirstOrDefaultAsync();
-                    if (!branchId.HasValue && request.DepartmentId.HasValue)
-                        branchId = await _db.Departmentes
-                            .Where(d => d.Id == request.DepartmentId.Value)
-                            .Select(d => (Guid?)d.BranchId)
-                            .FirstOrDefaultAsync();
-
-                    if (branchId.HasValue)
+                    try
                     {
-                        var notifyDeptIds = await _db.Departmentes
-                            .Where(d => d.BranchId == branchId.Value && d.NotifyAfterLaborApprove && !d.IsDeleted)
-                            .Select(d => d.Id)
-                            .ToListAsync();
+                        // Fan-out: notify all engineers in departments with NotifyAfterLaborApprove in this branch.
+                        // IgnoreQueryFilters on the branch lookups so a soft-deleted project/department
+                        // doesn't silently block branch resolution.
+                        Guid? branchId = null;
+                        if (request.ProjectId.HasValue)
+                            branchId = await _db.Projects
+                                .IgnoreQueryFilters()
+                                .Where(p => p.Id == request.ProjectId.Value)
+                                .Select(p => (Guid?)p.BranchId)
+                                .FirstOrDefaultAsync();
+                        if (!branchId.HasValue && request.DepartmentId.HasValue)
+                            branchId = await _db.Departmentes
+                                .IgnoreQueryFilters()
+                                .Where(d => d.Id == request.DepartmentId.Value)
+                                .Select(d => (Guid?)d.BranchId)
+                                .FirstOrDefaultAsync();
 
-                        foreach (var deptId in notifyDeptIds)
+                        if (!branchId.HasValue)
                         {
-                            var fromJoin = await _db.EngineerDepartments
-                                .Where(ed => ed.DepartmentId == deptId && !ed.Engineer!.IsDeleted)
-                                .Select(ed => ed.Engineer!.ApplicationUserId).ToListAsync();
-                            var fromLegacy = await _db.Engineers
-                                .Where(e => e.DepartmentId == deptId && !e.IsDeleted)
-                                .Select(e => e.ApplicationUserId).ToListAsync();
-                            var recipients = fromJoin.Union(fromLegacy)
-                                .Where(uid => uid != Guid.Empty).Distinct();
-
-                            foreach (var recipientUserId in recipients)
-                                await _notificationService.SendFanOutNotificationAsync(
-                                    recipientUserId,
-                                    "Labor Attendance Request Ready for Processing",
-                                    $"Labor request {request.RequestNumber} has been validated and is ready for processing.",
-                                    id, deptId, null, "LaborAttendance");
+                            _logger.LogWarning(
+                                "LaborAttendance {RequestId}: cannot resolve branch for fan-out (ProjectId={ProjectId}, DepartmentId={DeptId}). No department notifications will be sent.",
+                                id, request.ProjectId, request.DepartmentId);
                         }
+                        else
+                        {
+                            var notifyDeptIds = await _db.Departmentes
+                                .Where(d => d.BranchId == branchId.Value && d.NotifyAfterLaborApprove && !d.IsDeleted)
+                                .Select(d => d.Id)
+                                .ToListAsync();
+
+                            foreach (var deptId in notifyDeptIds)
+                            {
+                                var fromJoin = await _db.EngineerDepartments
+                                    .Where(ed => ed.DepartmentId == deptId && !ed.Engineer!.IsDeleted)
+                                    .Select(ed => ed.Engineer!.ApplicationUserId).ToListAsync();
+                                var fromLegacy = await _db.Engineers
+                                    .Where(e => e.DepartmentId == deptId && !e.IsDeleted)
+                                    .Select(e => e.ApplicationUserId).ToListAsync();
+                                var recipients = fromJoin.Union(fromLegacy)
+                                    .Where(uid => uid != Guid.Empty).Distinct();
+
+                                foreach (var recipientUserId in recipients)
+                                    await _notificationService.SendFanOutNotificationAsync(
+                                        recipientUserId,
+                                        "Labor Attendance Request Ready for Processing",
+                                        $"Labor request {request.RequestNumber} has been validated and is ready for processing.",
+                                        id, deptId, null, "LaborAttendance");
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex,
+                            "LaborAttendance {RequestId}: fan-out notification failed after validate action.",
+                            id);
                     }
                     break;
                 case "reject":

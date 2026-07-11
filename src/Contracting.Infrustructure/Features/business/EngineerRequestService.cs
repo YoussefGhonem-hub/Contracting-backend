@@ -1126,6 +1126,8 @@ public class EngineerRequestService : IEngineerRequestService
             .Include(r => r.Status)
             .Include(r => r.Engineer)
                 .ThenInclude(e => e.Department)
+            .Include(r => r.assignTo)
+                .ThenInclude(e => e.Department)
             .Include(r => r.EngineerRequestNotes)
                 .ThenInclude(n => n.EngineerRequestAttachments)
             .Include(r => r.EngineerRequestNotes)
@@ -1950,17 +1952,16 @@ public class EngineerRequestService : IEngineerRequestService
         EngineerRequestParticipationFilterDto filter,
         CancellationToken cancellationToken)
     {
-        // Site Engineers and Admins can always see Transfer Requests. Any OTHER role (Office
-        // Engineer, Team Lead, ...) can still see them if they belong to a department that opted
-        // in via NotifyOnTransferComplete - that flag exists specifically so non-site-engineer
-        // staff (e.g. Procurement/Purchase office engineers) get visibility into completed
-        // transfers, so the role gate below must not shut that off before it's even evaluated.
+        // Site Engineers and Admins can always see Transfer Requests in any status. Office
+        // Engineers and Team Leads only see them once the request is Completed — they have no
+        // role in the approval flow, so showing New/InProgress requests is noise to them.
         var transferRoles = CurrentUser.Roles;
         var isTransferAdmin = transferRoles.Any(r =>
             r.Equals(RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase) ||
             r.Equals(RoleNames.Admin, StringComparison.OrdinalIgnoreCase));
         var isSiteEngineer = transferRoles.Any(r =>
             r.Equals(RoleNames.Siteengineer, StringComparison.OrdinalIgnoreCase));
+        var isOfficeOrTeamLead = !isTransferAdmin && !isSiteEngineer;
 
         // Get all project IDs this engineer is assigned to (destination project visibility)
         var engineerProjectIds = await _db.EngineerProjects
@@ -2025,6 +2026,14 @@ public class EngineerRequestService : IEngineerRequestService
                     r.RequestedById == engineer.Id
                     || (r.DestinationProjectId.HasValue
                         && engineerProjectIds.Contains(r.DestinationProjectId.Value)));
+        }
+
+        // Office Engineers and Team Leads must only see Completed transfers — they are not
+        // part of the approval workflow, so New / InProgress requests are irrelevant to them.
+        if (isOfficeOrTeamLead)
+        {
+            var ts = await StatusResolver.LoadRequestStatusIdsAsync(_db);
+            query = query.Where(r => r.StatusId == ts.Completed);
         }
 
         if (filter.ProjectId.HasValue && filter.ProjectId.Value != Guid.Empty)
@@ -2631,6 +2640,7 @@ public class EngineerRequestService : IEngineerRequestService
         }
 
         bool isTeamLead = teamLeadDeptIds.Any();
+        bool isSiteEngineerForTransfer = roles.Any(r => r.Equals(RoleNames.Siteengineer, StringComparison.OrdinalIgnoreCase));
 
         // ── EngineerRequest count (all types — same visibility as GetRequestsByStatusForEngineerAsync) ──
         IQueryable<EngineerRequest> baseQuery = _db.EngineerRequests
@@ -2730,6 +2740,13 @@ public class EngineerRequestService : IEngineerRequestService
                 transferQuery = transferQuery.Where(r =>
                     r.RequestedById == engineerId
                     || (r.DestinationProjectId.HasValue && transferProjectIds.Contains(r.DestinationProjectId.Value)));
+
+            // Office Engineers and Team Leads only count Completed transfers
+            if (!isSiteEngineerForTransfer)
+            {
+                var ts = await StatusResolver.LoadRequestStatusIdsAsync(_db);
+                transferQuery = transferQuery.Where(r => r.StatusId == ts.Completed);
+            }
         }
 
         var transferGroups = await transferQuery

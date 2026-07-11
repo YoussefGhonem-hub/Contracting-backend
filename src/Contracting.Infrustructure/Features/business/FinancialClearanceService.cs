@@ -293,8 +293,8 @@ namespace Contracting.Infrustructure.Features.business
             switch (actionLower)
             {
                 case "assign":
-                    if (clearance.StatusId != s.New && clearance.StatusId != s.MissingInformation)
-                        return Error.Validation("FinancialClearance.InvalidAction", "Only new or resubmitted clearances can be assigned.");
+                    if (clearance.StatusId == s.Completed || clearance.StatusId == s.Rejected)
+                        return Error.Validation("FinancialClearance.InvalidAction", "Cannot assign a completed or rejected clearance.");
                     if (!dto.AssignedToId.HasValue || dto.AssignedToId == Guid.Empty)
                         return Error.Validation("FinancialClearance.AssignedToRequired", "AssignedToId is required for assign action.");
                     var assignedEngineer = await _db.Engineers.AsNoTracking()
@@ -446,20 +446,30 @@ namespace Contracting.Infrustructure.Features.business
                                 $"Your Financial Clearance {clearance.ClearanceNumber} has been approved.",
                                 clearance.Id);
 
-                        // Fan-out: notify all engineers in departments with NotifyAfterFinancialClearanceApprove in this branch
+                        // Fan-out: notify all engineers in departments with NotifyAfterFinancialClearanceApprove in this branch.
+                        // IgnoreQueryFilters on the branch lookups so a soft-deleted project/department
+                        // doesn't silently block branch resolution.
                         Guid? fcBranchId = null;
                         if (clearance.ProjectId.HasValue)
                             fcBranchId = await _db.Projects
+                                .IgnoreQueryFilters()
                                 .Where(p => p.Id == clearance.ProjectId.Value)
                                 .Select(p => (Guid?)p.BranchId)
                                 .FirstOrDefaultAsync();
                         if (!fcBranchId.HasValue && clearance.DepartmentId.HasValue)
                             fcBranchId = await _db.Departmentes
+                                .IgnoreQueryFilters()
                                 .Where(d => d.Id == clearance.DepartmentId.Value)
                                 .Select(d => (Guid?)d.BranchId)
                                 .FirstOrDefaultAsync();
 
-                        if (fcBranchId.HasValue)
+                        if (!fcBranchId.HasValue)
+                        {
+                            _logger.LogWarning(
+                                "FinancialClearance {ClearanceId}: cannot resolve branch for fan-out (ProjectId={ProjectId}, DepartmentId={DeptId}). No department notifications will be sent.",
+                                clearance.Id, clearance.ProjectId, clearance.DepartmentId);
+                        }
+                        else
                         {
                             var fcNotifyDeptIds = await _db.Departmentes
                                 .Where(d => d.BranchId == fcBranchId.Value && d.NotifyAfterFinancialClearanceApprove && !d.IsDeleted)
