@@ -1336,9 +1336,10 @@ public class EngineerRequestService : IEngineerRequestService
         //    return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.TimeDurationMismatch]);
         //}
 
-        if (actionDto.timeDuration.HasValue && actionDto.timeDuration != 0)
+        bool timelineSet = actionDto.timeDuration.HasValue && actionDto.timeDuration != 0;
+        if (timelineSet)
         {
-            request.timeDuration = actionDto.timeDuration.Value;
+            request.timeDuration = actionDto.timeDuration!.Value;
 
             if (actionDto.startDate.HasValue)
                 request.startDate = actionDto.startDate.Value;
@@ -1348,7 +1349,26 @@ public class EngineerRequestService : IEngineerRequestService
                 return GenericResponse.FailureResult(_localizer[SharedResourcesKeys.DeliveryDateAlreadyConfirmed]);
 
             request.endDate = actionDto.endDate;
-        }                        
+        }
+
+        // Auto-advance to InProgress when engineer is assigned OR timeline is set,
+        // but only if the request is still in New status (don't downgrade from a later state).
+        if (assignmentChanged || timelineSet)
+        {
+            var s = await StatusResolver.LoadRequestStatusIdsAsync(_db);
+            if (request.StatusId == s.New)
+            {
+                request.StatusId = s.InProgress;
+                var autoActivity = new EngineerRequestActivite
+                {
+                    EngineerRequestId = request.Id,
+                    EngineerId        = currentEngineerId,
+                    StatusId          = s.InProgress,
+                    ActionType        = EngineerRequestActionType.StatusChangedAuto.ToString()
+                };
+                await _db.EngineerRequestActivites.AddAsync(autoActivity);
+            }
+        }
 
         if (actionDto.EngineerRequestNotes != null && actionDto.EngineerRequestNotes.Any())
         {
