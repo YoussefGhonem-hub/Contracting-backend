@@ -203,6 +203,8 @@ namespace Contracting.Infrustructure.Features.business
             if (request.StatusId != s.New && request.StatusId != s.MissingInformation)
                 return Error.Validation("LaborAttendance.CannotEdit", "Only new (draft) or missing-information requests can be edited.");
 
+            bool wasInMissingInfo = request.StatusId == s.MissingInformation;
+
             // Compute final scalar values from the loaded (no-tracking) snapshot + DTO overrides.
             var finalProjectId    = dto.ProjectId.HasValue    ? (dto.ProjectId == Guid.Empty ? null : dto.ProjectId)       : request.ProjectId;
             var finalDepartmentId = dto.DepartmentId.HasValue ? (dto.DepartmentId == Guid.Empty ? null : dto.DepartmentId) : request.DepartmentId;
@@ -215,16 +217,19 @@ namespace Contracting.Infrustructure.Features.business
                 finalSiteName != request.SiteName   || finalDate != request.AttendanceDate ||
                 finalNotes != request.Notes;
 
-            if (hasScalarChanges)
+            // When resubmitting from MissingInformation always run ExecuteUpdate (status must change
+            // even if no other scalar field changed); otherwise only run if something actually changed.
+            if (hasScalarChanges || wasInMissingInfo)
             {
                 await _db.LaborAttendanceRequests
                     .Where(r => r.Id == dto.Id)
                     .ExecuteUpdateAsync(u => u
-                        .SetProperty(r => r.ProjectId,    finalProjectId)
-                        .SetProperty(r => r.DepartmentId, finalDepartmentId)
-                        .SetProperty(r => r.SiteName,     finalSiteName)
+                        .SetProperty(r => r.ProjectId,      finalProjectId)
+                        .SetProperty(r => r.DepartmentId,   finalDepartmentId)
+                        .SetProperty(r => r.SiteName,       finalSiteName)
                         .SetProperty(r => r.AttendanceDate, finalDate)
-                        .SetProperty(r => r.Notes,        finalNotes));
+                        .SetProperty(r => r.Notes,          finalNotes)
+                        .SetProperty(r => r.StatusId,       wasInMissingInfo ? s.New : request.StatusId));
             }
 
             if (dto.Records != null)
@@ -284,9 +289,25 @@ namespace Contracting.Infrustructure.Features.business
                         });
             }
 
-            // SaveChangesAsync now only persists Added entities (new records / attachments).
+            // When resubmitting from MissingInformation, add an activity record so the
+            // audit trail shows the status transition back to New (Pending).
+            if (wasInMissingInfo)
+            {
+                var engineer = await _db.Engineers.AsNoTracking()
+                    .FirstOrDefaultAsync(e => e.ApplicationUserId == (CurrentUser.Id ?? Guid.Empty));
+                _db.LaborAttendanceActivities.Add(new LaborAttendanceActivity
+                {
+                    LaborAttendanceRequestId = dto.Id,
+                    EngineerId               = engineer?.Id,
+                    FromStatusId             = s.MissingInformation,
+                    ToStatusId               = s.New,
+                    ActionType               = "Resubmit"
+                });
+            }
+
+            // SaveChangesAsync persists: new records / attachments (Added) + resubmit activity (Added).
             // No tracked Modified request entity → no UPDATE row-count check → no concurrency exception.
-            if (dto.Records != null || (dto.Attachments != null && dto.Attachments.Any()))
+            if (dto.Records != null || (dto.Attachments != null && dto.Attachments.Any()) || wasInMissingInfo)
                 await _db.SaveChangesAsync();
 
             return await GetByIdAsync(dto.Id);
@@ -607,43 +628,13 @@ namespace Contracting.Infrustructure.Features.business
                     break;
                 case "missing_info":
                 case "missinginfo":
-                    // Notify all engineers in the request's department (fan-out)
-                    Guid? missingInfoDeptId = request.DepartmentId;
-                    if (!missingInfoDeptId.HasValue && request.ProjectId.HasValue)
-                    {
-                        var proj = await _db.Projects
-                            .Where(p => p.Id == request.ProjectId.Value)
-                            .Select(p => new { p.BranchId })
-                            .FirstOrDefaultAsync();
-                    }
-
-                    if (missingInfoDeptId.HasValue)
-                    {
-                        var fromJoin = await _db.EngineerDepartments
-                            .Where(ed => ed.DepartmentId == missingInfoDeptId.Value && !ed.Engineer!.IsDeleted)
-                            .Select(ed => ed.Engineer!.ApplicationUserId).ToListAsync();
-                        var fromLegacy = await _db.Engineers
-                            .Where(e => e.DepartmentId == missingInfoDeptId.Value && !e.IsDeleted)
-                            .Select(e => e.ApplicationUserId).ToListAsync();
-                        var deptRecipients = fromJoin.Union(fromLegacy)
-                            .Where(uid => uid != Guid.Empty).Distinct();
-
-                        foreach (var recipientUserId in deptRecipients)
-                            await _notificationService.SendFanOutNotificationAsync(
-                                recipientUserId,
-                                "Labor Attendance Request - Missing Information",
-                                $"Request {request.RequestNumber} requires additional information. {dto.Comments}",
-                                id, missingInfoDeptId, null, "LaborAttendance");
-                    }
-                    else if (supervisorUserId.HasValue)
-                    {
-                        // fallback: no department resolved, notify supervisor only
+                    // Notify the site engineer who submitted the request (the supervisor).
+                    if (supervisorUserId.HasValue)
                         await _notificationService.SendNotificationToUserAsync(
                             supervisorUserId.Value,
                             "Labor Attendance Request - Missing Information",
                             $"Your request {request.RequestNumber} requires additional information. {dto.Comments}",
                             id);
-                    }
                     break;
             }
 
