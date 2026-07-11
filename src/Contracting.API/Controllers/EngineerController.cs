@@ -135,11 +135,11 @@ namespace Contracting.API.Controllers
             );
         }
 
-        // Get projects assigned to engineer
+        // Get projects assigned to engineer (SuperAdmin gets all projects)
         [HttpGet("{engineerId:guid}/projects")]
-        public async Task<IActionResult> GetEngineerProjects(Guid engineerId)
+        public async Task<IActionResult> GetEngineerProjects(Guid engineerId, [FromQuery] Guid? branchId = null)
         {
-            var query = new GetEngineerProjectsQuery(engineerId);
+            var query = new GetEngineerProjectsQuery(engineerId, branchId);
             var result = await _mediator.Send(query);
 
             return result.Match(

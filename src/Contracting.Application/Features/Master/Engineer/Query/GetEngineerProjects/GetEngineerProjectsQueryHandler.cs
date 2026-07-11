@@ -16,7 +16,7 @@ namespace Contracting.Application.Features.Master.Engineer.Query.GetEngineerProj
 
         public async Task<ErrorOr<List<GetEngineerProjectDto>>> Handle(GetEngineerProjectsQuery request, CancellationToken cancellationToken)
         {
-            var result = await _service.GetEngineerProjectsAsync(request.EngineerId);
+            var result = await _service.GetEngineerProjectsAsync(request.EngineerId, request.BranchId);
 
             return result is null
                 ? Error.NotFound("Engineer not found.")

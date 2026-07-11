@@ -4,5 +4,5 @@ using MediatR;
 
 namespace Contracting.Application.Features.Master.Engineer.Query.GetEngineerProjects
 {
-    public record GetEngineerProjectsQuery(Guid EngineerId) : IRequest<ErrorOr<List<GetEngineerProjectDto>>>;
+    public record GetEngineerProjectsQuery(Guid EngineerId, Guid? BranchId = null) : IRequest<ErrorOr<List<GetEngineerProjectDto>>>;
 }

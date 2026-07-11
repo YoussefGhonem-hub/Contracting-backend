@@ -1,6 +1,7 @@
 using Contracting.Shared.Resources;
 using Contracting.Domain.Entities;
 using Contracting.Domain.Entities.master;
+using Contracting.Shared.CurrentUser;
 using ErrorOr;
 using Contracting.Infrustructure.Extensions;
 using Contracting.Infrustructure.Extensions.Helpers;
@@ -367,22 +368,67 @@ namespace Contracting.Infrustructure.Features
             return _mapper.Map<List<GetEngineerDropDownDto>>(engineers);
         }
 
-        public async Task<List<GetEngineerProjectDto>> GetEngineerProjectsAsync(Guid engineerId)
+        public async Task<List<GetEngineerProjectDto>> GetEngineerProjectsAsync(Guid engineerId, Guid? branchId = null)
         {
+            var isSuperAdmin = CurrentUser.Roles.Any(r =>
+                r.Equals(RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase));
+
+            if (isSuperAdmin)
+            {
+                var projectsQuery = _db.Projects
+                    .Include(p => p.Branch)
+                    .AsNoTracking()
+                    .AsQueryable();
+
+                if (branchId.HasValue)
+                    projectsQuery = projectsQuery.Where(p => p.BranchId == branchId.Value);
+
+                var projects = await projectsQuery.ToListAsync();
+
+                return projects.Select(p => new GetEngineerProjectDto
+                {
+                    ProjectId = p.Id,
+                    nameEn = p.nameEn,
+                    nameAr = p.nameAr,
+                    location = p.location,
+                    Code = p.Code,
+                    imageUrl = p.imageUrl,
+                    BranchId = p.BranchId,
+                    Branch = p.Branch == null ? null : new GetBranchDto
+                    {
+                        Id = p.Branch.Id,
+                        nameEn = p.Branch.nameEn,
+                        nameAr = p.Branch.nameAr,
+                        address = p.Branch.address,
+                        location = p.Branch.location,
+                        currency = p.Branch.currency
+                    },
+                    IsProjectManager = false,
+                    ProjectStatus = p.ProjectStatus,
+                    Features = new List<string>()
+                }).ToList();
+            }
+
             var engineerExists = await _db.Engineers
+                .IgnoreQueryFilters()
                 .AsNoTracking()
                 .AnyAsync(e => e.Id == engineerId);
 
             if (!engineerExists)
-                return null!;
+                return new List<GetEngineerProjectDto>();
 
-            var engineerProjects = await _db.EngineerProjects
+            var engineerProjectsQuery = _db.EngineerProjects
                 .Where(ep => ep.EngineerId == engineerId)
                 .Include(ep => ep.Project)
                     .ThenInclude(p => p.Branch)
                 .Include(ep => ep.Features)
                 .AsNoTracking()
-                .ToListAsync();
+                .AsQueryable();
+
+            if (branchId.HasValue)
+                engineerProjectsQuery = engineerProjectsQuery.Where(ep => ep.Project!.BranchId == branchId.Value);
+
+            var engineerProjects = await engineerProjectsQuery.ToListAsync();
 
             return MapEngineerProjects(engineerProjects);
         }
