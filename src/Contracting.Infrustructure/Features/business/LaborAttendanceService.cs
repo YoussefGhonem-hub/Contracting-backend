@@ -114,14 +114,87 @@ namespace Contracting.Infrustructure.Features.business
             await _db.LaborAttendanceRequests.AddAsync(request);
             await _db.SaveChangesAsync();
 
+            // Notify the team lead of the selected department (or all department members if none).
+            try
+            {
+                var deptId = request.DepartmentId;
+                if (deptId.HasValue)
+                {
+                    var teamLeadUserId = await _db.EngineerDepartments
+                        .Where(ed => ed.DepartmentId == deptId.Value
+                                  && ed.Role != null
+                                  && ed.Role.Name == Contracting.Shared.Constants.RoleNames.Teamleadengineer)
+                        .Select(ed => ed.Engineer!.ApplicationUserId)
+                        .FirstOrDefaultAsync();
+
+                    if (teamLeadUserId == Guid.Empty)
+                    {
+                        teamLeadUserId = await (from eng in _db.Engineers
+                                                join userRole in _db.UserRoles on eng.ApplicationUserId equals userRole.UserId
+                                                join role in _db.Roles on userRole.RoleId equals role.Id
+                                                where eng.DepartmentId == deptId.Value
+                                                      && role.Name == Contracting.Shared.Constants.RoleNames.Teamleadengineer
+                                                select eng.ApplicationUserId)
+                                           .FirstOrDefaultAsync();
+                    }
+
+                    if (teamLeadUserId != Guid.Empty)
+                    {
+                        await _notificationService.SendNotificationToUserAsync(
+                            teamLeadUserId,
+                            "New Labor Attendance Request",
+                            $"A new labor attendance request {request.RequestNumber} has been submitted.",
+                            request.Id,
+                            deptId);
+                    }
+                    else
+                    {
+                        var joinIds = await _db.EngineerDepartments
+                            .Where(ed => ed.DepartmentId == deptId.Value && !ed.Engineer!.IsDeleted)
+                            .Select(ed => ed.Engineer!.ApplicationUserId).ToListAsync();
+                        var legacyIds = await _db.Engineers
+                            .Where(e => e.DepartmentId == deptId.Value && !e.IsDeleted)
+                            .Select(e => e.ApplicationUserId).ToListAsync();
+                        foreach (var uid in joinIds.Union(legacyIds).Where(u => u != Guid.Empty).Distinct())
+                            await _notificationService.SendNotificationToUserAsync(
+                                uid,
+                                "New Labor Attendance Request",
+                                $"A new labor attendance request {request.RequestNumber} has been submitted.",
+                                request.Id,
+                                deptId);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "LaborAttendance {RequestId}: failed to send creation notification.", request.Id);
+            }
+
             return await GetByIdAsync(request.Id);
         }
 
         public async Task<ErrorOr<GetLaborAttendanceRequestDto>> UpdateAsync(UpdateLaborAttendanceRequestDto dto)
         {
+            try
+            {
+                return await UpdateInternalAsync(dto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "LaborAttendance {RequestId}: unhandled exception in UpdateAsync.", dto.Id);
+                return Error.Failure("LaborAttendance.Error", ex.InnerException?.Message ?? ex.Message);
+            }
+        }
+
+        private async Task<ErrorOr<GetLaborAttendanceRequestDto>> UpdateInternalAsync(UpdateLaborAttendanceRequestDto dto)
+        {
             var s = await StatusResolver.LoadRequestStatusIdsAsync(_db);
+
+            // Load without tracking — used only for validation; all writes go through
+            // ExecuteUpdateAsync / direct DbSet.Add so SaveChangesAsync never needs to
+            // UPDATE the request row (eliminates DbUpdateConcurrencyException on hosted SQL).
             var request = await _db.LaborAttendanceRequests
-                .Include(r => r.Attachments)
+                .AsNoTracking()
                 .FirstOrDefaultAsync(r => r.Id == dto.Id && !r.IsDeleted);
 
             if (request is null) return Error.NotFound("LaborAttendance.NotFound", "Labor attendance request not found.");
@@ -130,11 +203,29 @@ namespace Contracting.Infrustructure.Features.business
             if (request.StatusId != s.New && request.StatusId != s.MissingInformation)
                 return Error.Validation("LaborAttendance.CannotEdit", "Only new (draft) or missing-information requests can be edited.");
 
-            if (dto.ProjectId.HasValue) request.ProjectId = dto.ProjectId == Guid.Empty ? null : dto.ProjectId;
-            if (dto.DepartmentId.HasValue) request.DepartmentId = dto.DepartmentId == Guid.Empty ? null : dto.DepartmentId;
-            if (dto.SiteName is not null) request.SiteName = dto.SiteName;
-            if (dto.AttendanceDate.HasValue) request.AttendanceDate = dto.AttendanceDate.Value;
-            if (dto.Notes is not null) request.Notes = dto.Notes;
+            // Compute final scalar values from the loaded (no-tracking) snapshot + DTO overrides.
+            var finalProjectId    = dto.ProjectId.HasValue    ? (dto.ProjectId == Guid.Empty ? null : dto.ProjectId)       : request.ProjectId;
+            var finalDepartmentId = dto.DepartmentId.HasValue ? (dto.DepartmentId == Guid.Empty ? null : dto.DepartmentId) : request.DepartmentId;
+            var finalSiteName     = dto.SiteName     ?? request.SiteName;
+            var finalDate         = dto.AttendanceDate ?? request.AttendanceDate;
+            var finalNotes        = dto.Notes         ?? request.Notes;
+
+            bool hasScalarChanges =
+                finalProjectId != request.ProjectId || finalDepartmentId != request.DepartmentId ||
+                finalSiteName != request.SiteName   || finalDate != request.AttendanceDate ||
+                finalNotes != request.Notes;
+
+            if (hasScalarChanges)
+            {
+                await _db.LaborAttendanceRequests
+                    .Where(r => r.Id == dto.Id)
+                    .ExecuteUpdateAsync(u => u
+                        .SetProperty(r => r.ProjectId,    finalProjectId)
+                        .SetProperty(r => r.DepartmentId, finalDepartmentId)
+                        .SetProperty(r => r.SiteName,     finalSiteName)
+                        .SetProperty(r => r.AttendanceDate, finalDate)
+                        .SetProperty(r => r.Notes,        finalNotes));
+            }
 
             if (dto.Records != null)
             {
@@ -157,12 +248,10 @@ namespace Contracting.Infrustructure.Features.business
                 if (names.Count != names.Distinct().Count())
                     return Error.Validation("LaborAttendance.DuplicateRecord", "Duplicate labor records are not allowed.");
 
-                // Hard-delete existing records directly — avoids EF soft-delete tracking
-                // conflicts when the same navigation collection is reused.
-                // Safe because the request is still in draft (New / MissingInformation) state.
+                // Hard-delete existing records directly — bypasses soft-delete tracking.
                 await _db.LaborAttendanceRecords
                     .IgnoreQueryFilters()
-                    .Where(r => r.LaborAttendanceRequestId == request.Id)
+                    .Where(r => r.LaborAttendanceRequestId == dto.Id)
                     .ExecuteDeleteAsync();
 
                 foreach (var rec in dto.Records)
@@ -170,7 +259,7 @@ namespace Contracting.Infrustructure.Features.business
                     Enum.TryParse<WorkerAttendanceStatus>(rec.AttendanceStatus, true, out var attendanceStatus);
                     _db.LaborAttendanceRecords.Add(new LaborAttendanceRecord
                     {
-                        LaborAttendanceRequestId = request.Id,
+                        LaborAttendanceRequestId = dto.Id,
                         Name = rec.Name,
                         JobTitle = rec.JobTitle,
                         AttendanceStatus = attendanceStatus,
@@ -187,16 +276,20 @@ namespace Contracting.Infrustructure.Features.business
                 var uploaded = await _storageService.UploadFiles(dto.Attachments.ToList());
                 if (uploaded != null)
                     foreach (var f in uploaded)
-                        request.Attachments.Add(new LaborAttendanceAttachment
+                        _db.LaborAttendanceAttachments.Add(new LaborAttendanceAttachment
                         {
-                            LaborAttendanceRequestId = request.Id,
+                            LaborAttendanceRequestId = dto.Id,
                             Key = f.Key, FileName = f.FileName, Extension = f.Extension,
                             FileSize = f.FileSize, Url = f.Url
                         });
             }
 
-            await _db.SaveChangesAsync();
-            return await GetByIdAsync(request.Id);
+            // SaveChangesAsync now only persists Added entities (new records / attachments).
+            // No tracked Modified request entity → no UPDATE row-count check → no concurrency exception.
+            if (dto.Records != null || (dto.Attachments != null && dto.Attachments.Any()))
+                await _db.SaveChangesAsync();
+
+            return await GetByIdAsync(dto.Id);
         }
 
         public async Task<ErrorOr<GenericResponse>> DeleteAsync(Guid id)

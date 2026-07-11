@@ -105,6 +105,62 @@ namespace Contracting.Infrustructure.Features.business
             await _db.FinancialClearances.AddAsync(clearance);
             await _db.SaveChangesAsync();
 
+            // Notify the team lead of the selected department (or all department members if none).
+            try
+            {
+                var deptId = clearance.DepartmentId;
+                if (deptId.HasValue)
+                {
+                    var teamLeadUserId = await _db.EngineerDepartments
+                        .Where(ed => ed.DepartmentId == deptId.Value
+                                  && ed.Role != null
+                                  && ed.Role.Name == Contracting.Shared.Constants.RoleNames.Teamleadengineer)
+                        .Select(ed => ed.Engineer!.ApplicationUserId)
+                        .FirstOrDefaultAsync();
+
+                    if (teamLeadUserId == Guid.Empty)
+                    {
+                        teamLeadUserId = await (from eng in _db.Engineers
+                                                join userRole in _db.UserRoles on eng.ApplicationUserId equals userRole.UserId
+                                                join role in _db.Roles on userRole.RoleId equals role.Id
+                                                where eng.DepartmentId == deptId.Value
+                                                      && role.Name == Contracting.Shared.Constants.RoleNames.Teamleadengineer
+                                                select eng.ApplicationUserId)
+                                           .FirstOrDefaultAsync();
+                    }
+
+                    if (teamLeadUserId != Guid.Empty)
+                    {
+                        await _notificationService.SendNotificationToUserAsync(
+                            teamLeadUserId,
+                            "New Financial Clearance Request",
+                            $"A new financial clearance {clearance.ClearanceNumber} has been submitted.",
+                            clearance.Id,
+                            deptId);
+                    }
+                    else
+                    {
+                        var joinIds = await _db.EngineerDepartments
+                            .Where(ed => ed.DepartmentId == deptId.Value && !ed.Engineer!.IsDeleted)
+                            .Select(ed => ed.Engineer!.ApplicationUserId).ToListAsync();
+                        var legacyIds = await _db.Engineers
+                            .Where(e => e.DepartmentId == deptId.Value && !e.IsDeleted)
+                            .Select(e => e.ApplicationUserId).ToListAsync();
+                        foreach (var uid in joinIds.Union(legacyIds).Where(u => u != Guid.Empty).Distinct())
+                            await _notificationService.SendNotificationToUserAsync(
+                                uid,
+                                "New Financial Clearance Request",
+                                $"A new financial clearance {clearance.ClearanceNumber} has been submitted.",
+                                clearance.Id,
+                                deptId);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "FinancialClearance {ClearanceId}: failed to send creation notification.", clearance.Id);
+            }
+
             return await GetByIdAsync(clearance.Id);
         }
 

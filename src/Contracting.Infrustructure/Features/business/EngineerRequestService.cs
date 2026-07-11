@@ -2009,14 +2009,19 @@ public class EngineerRequestService : IEngineerRequestService
             .Where(r => !r.IsDeleted)
             .AsNoTracking();
 
+        // Load status IDs once — needed for both visibility and status filtering below.
+        var ts = await StatusResolver.LoadRequestStatusIdsAsync(_db);
+
         if (!isTransferAdmin)
         {
             if (hasNotifyDepts)
+                // Notify-dept members see:
+                //   1. Their own requests (any status — they submitted it)
+                //   2. Completed transfers from their branch (NOT New/InProgress — the dept is
+                //      only meant to learn about a transfer after it reaches its destination)
                 query = query.Where(r =>
                     r.RequestedById == engineer.Id
-                    || (r.DestinationProjectId.HasValue && engineerProjectIds.Contains(r.DestinationProjectId.Value))
-                    // Any engineer in a notify-enabled department sees completed requests from their branch
-                    || (r.NeedsAcknowledgment && (
+                    || (r.StatusId == ts.Completed && (
                         (r.SourceProject != null && r.SourceProject.BranchId.HasValue && engineerBranchIds.Contains(r.SourceProject.BranchId.Value))
                         || (r.DestinationProject != null && r.DestinationProject.BranchId.HasValue && engineerBranchIds.Contains(r.DestinationProject.BranchId.Value))
                         || (r.RequestedBy != null && r.RequestedBy.Department != null
@@ -2028,37 +2033,24 @@ public class EngineerRequestService : IEngineerRequestService
                         && engineerProjectIds.Contains(r.DestinationProjectId.Value)));
         }
 
-        // Office Engineers and Team Leads must only see Completed transfers — they are not
-        // part of the approval workflow, so New / InProgress requests are irrelevant to them.
+        // Office Engineers and Team Leads: explicit safety guard (the visibility condition above
+        // already restricts them to Completed, but this makes the intent unambiguous).
         if (isOfficeOrTeamLead)
-        {
-            var ts = await StatusResolver.LoadRequestStatusIdsAsync(_db);
             query = query.Where(r => r.StatusId == ts.Completed);
-        }
 
         if (filter.ProjectId.HasValue && filter.ProjectId.Value != Guid.Empty)
             query = query.Where(r => r.SourceProjectId == filter.ProjectId.Value || r.DestinationProjectId == filter.ProjectId.Value);
 
-        // AssignToId for transfers: TransferRequest has no AssignedToId, so filter by RequestedById
-        // (the person who submitted the transfer is the closest equivalent to "assigned from").
+        // AssignToId for transfers: TransferRequest has no AssignedToId, so filter by RequestedById.
         if (filter.AssignToId.HasValue && filter.AssignToId.Value != Guid.Empty)
             query = query.Where(r => r.RequestedById == filter.AssignToId.Value);
 
-        // Status filter: NeedsAcknowledgment requests visible to this engineer bypass the status filter
-        // so they always appear regardless of which status tab the user is viewing.
+        // Plain status filter — no NeedsAcknowledgment bypass needed because visibility is now
+        // gated on StatusId==Completed (not on the transient NeedsAcknowledgment flag).
+        // This ensures GetRequestsByStatus correctly shows Completed transfers even after they
+        // have been acknowledged (NeedsAcknowledgment = false).
         if (filter.StatusId.HasValue && filter.StatusId.Value != Guid.Empty)
-        {
-            if (hasNotifyDepts)
-                query = query.Where(r =>
-                    r.StatusId == filter.StatusId.Value
-                    || (r.NeedsAcknowledgment && (
-                        (r.SourceProject != null && r.SourceProject.BranchId.HasValue && engineerBranchIds.Contains(r.SourceProject.BranchId.Value))
-                        || (r.DestinationProject != null && r.DestinationProject.BranchId.HasValue && engineerBranchIds.Contains(r.DestinationProject.BranchId.Value))
-                        || (r.RequestedBy != null && r.RequestedBy.Department != null
-                            && engineerBranchIds.Contains(r.RequestedBy.Department.BranchId)))));
-            else
-                query = query.Where(r => r.StatusId == filter.StatusId.Value);
-        }
+            query = query.Where(r => r.StatusId == filter.StatusId.Value);
 
         var requests = await query.ToListAsync(cancellationToken);
 
@@ -2450,6 +2442,8 @@ public class EngineerRequestService : IEngineerRequestService
                 RequiresGoodsReceipt = r.Department.RequiresGoodsReceipt,
                 hasSpecialFields = r.Department.hasSpecialFields
             },
+            StartDate = r.FromDate,
+            EndDate = r.ToDate,
             ClearanceNumber = r.ClearanceNumber,
             EmployeeName = r.EmployeeName,
             AdvanceAmount = r.AdvanceAmount,
@@ -2500,13 +2494,13 @@ public class EngineerRequestService : IEngineerRequestService
             if (engineer != null)
             {
                 var transfers = await GetTransferRequestsForUnifiedAsync(engineer, participationFilter, cancellationToken);
-                all.AddRange(transfers.Where(r => r.StatusId == filter.StatusId));
+                all.AddRange(transfers);
 
                 var labor = await GetLaborAttendanceRequestsForUnifiedAsync(engineer, participationFilter, cancellationToken);
-                all.AddRange(labor.Where(r => r.StatusId == filter.StatusId));
+                all.AddRange(labor);
 
                 var financial = await GetFinancialClearancesForUnifiedAsync(engineer, participationFilter, cancellationToken);
-                all.AddRange(financial.Where(r => r.StatusId == filter.StatusId));
+                all.AddRange(financial);
             }
 
             all = all.OrderByDescending(r => r.CreatedDate).ToList();
@@ -2703,68 +2697,69 @@ public class EngineerRequestService : IEngineerRequestService
             .ToList();
 
         // --- Transfer Request counts ---
-        // Mirrors GetTransferRequestsForUnifiedAsync exactly (that's what appliedOrCreatedReqeust
-        // and byStatus actually return) instead of the old "Admin or Site Engineer only" gate,
-        // which undercounted transfers for team leads/office engineers who are still visible via
-        // RequestedById, destination-project participation, or a NotifyOnTransferComplete department.
-        var transferProjectIds = await _db.EngineerProjects
-            .Where(ep => ep.EngineerId == engineerId)
-            .Select(ep => ep.ProjectId)
-            .ToListAsync();
-
+        // Mirrors GetTransferRequestsForUnifiedAsync exactly, INCLUDING its early "not visible at
+        // all" gate: Site Engineers and Admins always see transfers; anyone else only sees them if
+        // they belong to a NotifyOnTransferComplete department. A Team Lead/Office Engineer with no
+        // such department gets zero transfers here, same as the appliedOrCreatedReqeust list — that
+        // early gate must run BEFORE the RequestedById/destination-project checks below, otherwise
+        // this count can include transfers the unified list would never actually return.
         var hasNotifyDeptsForCount = allEngineerDeptIds.Any() && await _db.Departmentes
             .AnyAsync(d => allEngineerDeptIds.Contains(d.Id) && d.NotifyOnTransferComplete);
 
-        var transferBranchIds = hasNotifyDeptsForCount
-            ? await _db.Departmentes
-                .Where(d => allEngineerDeptIds.Contains(d.Id) && !d.IsDeleted)
-                .Select(d => d.BranchId)
-                .Distinct()
-                .ToListAsync()
-            : new List<Guid>();
-
-        IQueryable<TransferRequest> transferQuery = _db.TransferRequests
-            .Where(r => !r.IsDeleted);
-
-        if (!isAdmin)
+        if (isAdmin || isSiteEngineerForTransfer || hasNotifyDeptsForCount)
         {
-            if (hasNotifyDeptsForCount)
-                transferQuery = transferQuery.Where(r =>
-                    r.RequestedById == engineerId
-                    || (r.DestinationProjectId.HasValue && transferProjectIds.Contains(r.DestinationProjectId.Value))
-                    || (r.NeedsAcknowledgment && (
-                        (r.SourceProject != null && r.SourceProject.BranchId.HasValue && transferBranchIds.Contains(r.SourceProject.BranchId.Value))
-                        || (r.DestinationProject != null && r.DestinationProject.BranchId.HasValue && transferBranchIds.Contains(r.DestinationProject.BranchId.Value))
-                        || (r.RequestedBy != null && r.RequestedBy.Department != null && transferBranchIds.Contains(r.RequestedBy.Department.BranchId)))));
-            else
-                transferQuery = transferQuery.Where(r =>
-                    r.RequestedById == engineerId
-                    || (r.DestinationProjectId.HasValue && transferProjectIds.Contains(r.DestinationProjectId.Value)));
+            var transferProjectIds = await _db.EngineerProjects
+                .Where(ep => ep.EngineerId == engineerId)
+                .Select(ep => ep.ProjectId)
+                .ToListAsync();
 
-            // Office Engineers and Team Leads only count Completed transfers
-            if (!isSiteEngineerForTransfer)
+            var transferBranchIds = hasNotifyDeptsForCount
+                ? await _db.Departmentes
+                    .Where(d => allEngineerDeptIds.Contains(d.Id) && !d.IsDeleted)
+                    .Select(d => d.BranchId)
+                    .Distinct()
+                    .ToListAsync()
+                : new List<Guid>();
+
+            IQueryable<TransferRequest> transferQuery = _db.TransferRequests
+                .Where(r => !r.IsDeleted);
+
+            var tsForCount = await StatusResolver.LoadRequestStatusIdsAsync(_db);
+
+            if (!isAdmin)
             {
-                var ts = await StatusResolver.LoadRequestStatusIdsAsync(_db);
-                transferQuery = transferQuery.Where(r => r.StatusId == ts.Completed);
+                if (hasNotifyDeptsForCount)
+                    // Mirror the updated GetTransferRequestsForUnifiedAsync: notify-dept members
+                    // count their own requests (any status) + Completed transfers in their branch.
+                    transferQuery = transferQuery.Where(r =>
+                        r.RequestedById == engineerId
+                        || (r.StatusId == tsForCount.Completed && (
+                            (r.SourceProject != null && r.SourceProject.BranchId.HasValue && transferBranchIds.Contains(r.SourceProject.BranchId.Value))
+                            || (r.DestinationProject != null && r.DestinationProject.BranchId.HasValue && transferBranchIds.Contains(r.DestinationProject.BranchId.Value))
+                            || (r.RequestedBy != null && r.RequestedBy.Department != null && transferBranchIds.Contains(r.RequestedBy.Department.BranchId)))));
+                else
+                    transferQuery = transferQuery.Where(r =>
+                        r.RequestedById == engineerId
+                        || (r.DestinationProjectId.HasValue && transferProjectIds.Contains(r.DestinationProjectId.Value)));
             }
-        }
 
-        var transferGroups = await transferQuery
-            .GroupBy(r => r.StatusId)
-            .Select(g => new { StatusId = g.Key, Count = g.Count() })
-            .ToListAsync();
+            var transferGroups = await transferQuery
+                .GroupBy(r => r.StatusId)
+                .Select(g => new { StatusId = g.Key, Count = g.Count() })
+                .ToListAsync();
 
-        foreach (var tg in transferGroups)
-        {
-            var existing = requestCounts.FirstOrDefault(x => x.StatusId == tg.StatusId);
-            if (existing is not null)
-                existing.TransferCount += tg.Count;
-            else if (tg.StatusId.HasValue)
-                requestCounts.Add(new GetEngineerRequestCountByStatusDto
-                {
-                    StatusId = tg.StatusId.Value,
-                    TransferCount = tg.Count
-                });
+            foreach (var tg in transferGroups)
+            {
+                var existing = requestCounts.FirstOrDefault(x => x.StatusId == tg.StatusId);
+                if (existing is not null)
+                    existing.TransferCount += tg.Count;
+                else if (tg.StatusId.HasValue)
+                    requestCounts.Add(new GetEngineerRequestCountByStatusDto
+                    {
+                        StatusId = tg.StatusId.Value,
+                        TransferCount = tg.Count
+                    });
+            }
         }
 
         // --- Labor Attendance counts ---
