@@ -168,76 +168,130 @@ namespace Contracting.Infrustructure.Features.business
         {
             var s = await StatusResolver.LoadRequestStatusIdsAsync(_db);
             var clearance = await _db.FinancialClearances
-                .Include(c => c.Items)
-                .Include(c => c.Attachments)
+                .AsNoTracking()
                 .FirstOrDefaultAsync(c => c.Id == dto.Id && !c.IsDeleted);
 
             if (clearance is null) return Error.NotFound("FinancialClearance.NotFound", "Financial clearance not found.");
-            // Allow editing in New (Draft) state, and in MissingInformation state so the
-            // requester can fix/add the missing details before resubmitting (the "submit"
-            // action transitions MissingInformation -> InProgress but never lets the
-            // underlying fields be corrected on its own).
             if (clearance.StatusId != s.New && clearance.StatusId != s.MissingInformation)
                 return Error.Validation("FinancialClearance.CannotEdit", "Only new (draft) or missing-information clearances can be edited.");
 
-            if (dto.EmployeeName is not null) clearance.EmployeeName = dto.EmployeeName;
-            if (dto.DepartmentId.HasValue) clearance.DepartmentId = dto.DepartmentId == Guid.Empty ? null : dto.DepartmentId;
-            if (dto.ProjectId.HasValue) clearance.ProjectId = dto.ProjectId == Guid.Empty ? null : dto.ProjectId;
-            if (dto.RequestDate.HasValue) clearance.RequestDate = dto.RequestDate.Value;
+            bool wasInMissingInfo = clearance.StatusId == s.MissingInformation;
 
-            // Validate the resulting date range against whichever value ends up effective.
+            var finalEmployeeName = dto.EmployeeName ?? clearance.EmployeeName;
+            var finalDepartmentId = dto.DepartmentId.HasValue ? (dto.DepartmentId == Guid.Empty ? null : dto.DepartmentId) : clearance.DepartmentId;
+            var finalProjectId    = dto.ProjectId.HasValue    ? (dto.ProjectId == Guid.Empty ? null : dto.ProjectId)       : clearance.ProjectId;
+            var finalRequestDate  = dto.RequestDate ?? clearance.RequestDate;
+            var finalNotes        = dto.Notes ?? clearance.Notes;
+
             var effectiveFrom = dto.FromDate ?? clearance.FromDate;
-            var effectiveTo = dto.ToDate ?? clearance.ToDate;
+            var effectiveTo   = dto.ToDate   ?? clearance.ToDate;
             if (effectiveFrom.HasValue && effectiveTo.HasValue && effectiveTo.Value.Date < effectiveFrom.Value.Date)
                 return Error.Validation("FinancialClearance.InvalidDateRange", "To Date must be on or after From Date.");
-            if (dto.FromDate.HasValue) clearance.FromDate = dto.FromDate.Value;
-            if (dto.ToDate.HasValue) clearance.ToDate = dto.ToDate.Value;
 
-            if (dto.Notes is not null) clearance.Notes = dto.Notes;
+            var finalFromDate = dto.FromDate ?? clearance.FromDate;
+            var finalToDate   = dto.ToDate   ?? clearance.ToDate;
+            var finalAdvance  = dto.AdvanceAmount ?? clearance.AdvanceAmount;
 
-            var advanceAmount = dto.AdvanceAmount ?? clearance.AdvanceAmount;
+            // Items — compute spent/remaining from incoming items (or keep existing if not replaced)
+            decimal finalSpent     = clearance.SpentAmount;
+            decimal finalRemaining = clearance.RemainingAmount;
 
             if (dto.Items != null)
             {
-                _db.FinancialClearanceItems.RemoveRange(clearance.Items);
-                clearance.Items.Clear();
+                finalSpent     = dto.Items.Sum(i => i.Value);
+                finalRemaining = finalAdvance - finalSpent;
+            }
+            else
+            {
+                finalRemaining = finalAdvance - finalSpent;
+            }
+
+            bool hasScalarChanges =
+                finalEmployeeName != clearance.EmployeeName ||
+                finalDepartmentId != clearance.DepartmentId ||
+                finalProjectId    != clearance.ProjectId    ||
+                finalRequestDate  != clearance.RequestDate  ||
+                finalNotes        != clearance.Notes        ||
+                finalFromDate     != clearance.FromDate     ||
+                finalToDate       != clearance.ToDate       ||
+                finalAdvance      != clearance.AdvanceAmount||
+                dto.Items         != null;
+
+            if (hasScalarChanges || wasInMissingInfo)
+            {
+                await _db.FinancialClearances
+                    .Where(c => c.Id == dto.Id)
+                    .ExecuteUpdateAsync(u => u
+                        .SetProperty(c => c.EmployeeName,  finalEmployeeName)
+                        .SetProperty(c => c.DepartmentId,  finalDepartmentId)
+                        .SetProperty(c => c.ProjectId,     finalProjectId)
+                        .SetProperty(c => c.RequestDate,   finalRequestDate)
+                        .SetProperty(c => c.Notes,         finalNotes)
+                        .SetProperty(c => c.FromDate,      finalFromDate)
+                        .SetProperty(c => c.ToDate,        finalToDate)
+                        .SetProperty(c => c.AdvanceAmount, finalAdvance)
+                        .SetProperty(c => c.SpentAmount,   finalSpent)
+                        .SetProperty(c => c.RemainingAmount, finalRemaining)
+                        .SetProperty(c => c.StatusId,      wasInMissingInfo ? s.InProgress : clearance.StatusId));
+            }
+
+            if (dto.Items != null)
+            {
+                await _db.FinancialClearanceItems.IgnoreQueryFilters()
+                    .Where(i => i.FinancialClearanceId == dto.Id)
+                    .ExecuteDeleteAsync();
+
                 foreach (var item in dto.Items)
                 {
-                    clearance.Items.Add(new FinancialClearanceItem
+                    _db.FinancialClearanceItems.Add(new FinancialClearanceItem
                     {
-                        Code = item.Code,
-                        ItemName = item.ItemName,
+                        FinancialClearanceId = dto.Id,
+                        Code        = item.Code,
+                        ItemName    = item.ItemName,
                         Description = item.Description,
-                        Value = item.Value
+                        Value       = item.Value
                     });
                 }
             }
 
-            var spentAmount = clearance.Items.Sum(i => i.Value);
-            clearance.AdvanceAmount = advanceAmount;
-            clearance.SpentAmount = spentAmount;
-            clearance.RemainingAmount = advanceAmount - spentAmount;
-
             if (dto.Attachments != null && dto.Attachments.Any())
             {
-                var files = dto.Attachments.ToList();
-                var uploaded = await _storageService.UploadFiles(files);
+                var uploaded = await _storageService.UploadFiles(dto.Attachments.ToList());
                 for (int i = 0; i < (uploaded?.Count ?? 0); i++)
                 {
                     var f = uploaded![i];
-                    clearance.Attachments.Add(new FinancialClearanceAttachment
+                    _db.FinancialClearanceAttachments.Add(new FinancialClearanceAttachment
                     {
-                        FinancialClearanceId = clearance.Id,
-                        Key = f.Key, FileName = f.FileName, Extension = f.Extension,
-                        FileSize = f.FileSize, Url = f.Url,
+                        FinancialClearanceId = dto.Id,
+                        Key            = f.Key,
+                        FileName       = f.FileName,
+                        Extension      = f.Extension,
+                        FileSize       = f.FileSize,
+                        Url            = f.Url,
                         AttachmentType = dto.AttachmentTypes != null && i < dto.AttachmentTypes.Count
                             ? dto.AttachmentTypes[i] : null
                     });
                 }
             }
 
-            await _db.SaveChangesAsync();
-            return await GetByIdAsync(clearance.Id);
+            if (wasInMissingInfo)
+            {
+                var engineer = await _db.Engineers.AsNoTracking()
+                    .FirstOrDefaultAsync(e => e.ApplicationUserId == (CurrentUser.Id ?? Guid.Empty));
+                _db.FinancialClearanceActivities.Add(new FinancialClearanceActivity
+                {
+                    FinancialClearanceId = dto.Id,
+                    EngineerId           = engineer?.Id,
+                    FromStatusId         = s.MissingInformation,
+                    ToStatusId           = s.InProgress,
+                    ActionType           = "Resubmit"
+                });
+            }
+
+            if (dto.Items != null || (dto.Attachments != null && dto.Attachments.Any()) || wasInMissingInfo)
+                await _db.SaveChangesAsync();
+
+            return await GetByIdAsync(dto.Id);
         }
 
         public async Task<ErrorOr<GenericResponse>> DeleteAsync(Guid id)

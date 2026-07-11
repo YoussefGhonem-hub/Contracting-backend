@@ -229,7 +229,7 @@ namespace Contracting.Infrustructure.Features.business
                         .SetProperty(r => r.SiteName,       finalSiteName)
                         .SetProperty(r => r.AttendanceDate, finalDate)
                         .SetProperty(r => r.Notes,          finalNotes)
-                        .SetProperty(r => r.StatusId,       wasInMissingInfo ? s.New : request.StatusId));
+                        .SetProperty(r => r.StatusId,       wasInMissingInfo ? s.InProgress : request.StatusId));
             }
 
             if (dto.Records != null)
@@ -300,7 +300,7 @@ namespace Contracting.Infrustructure.Features.business
                     LaborAttendanceRequestId = dto.Id,
                     EngineerId               = engineer?.Id,
                     FromStatusId             = s.MissingInformation,
-                    ToStatusId               = s.New,
+                    ToStatusId               = s.InProgress,
                     ActionType               = "Resubmit"
                 });
             }
