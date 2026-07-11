@@ -2464,7 +2464,8 @@ public class EngineerRequestService : IEngineerRequestService
                 CreatedDate = a.CreatedDate
             }).OrderByDescending(a => a.CreatedDate).ToList(),
             EngineerRequestNotes = r.Activities == null ? new() : r.Activities
-                .Where(a => !string.IsNullOrWhiteSpace(a.Comments))
+                .Where(a => !string.IsNullOrWhiteSpace(a.Comments)
+                         || r.Attachments.Any(att => Math.Abs((att.CreatedDate - a.CreatedDate).TotalSeconds) <= 30))
                 .OrderBy(a => a.CreatedDate)
                 .Select(a => new GetEngineerRequestNotesDto
                 {
@@ -2473,7 +2474,17 @@ public class EngineerRequestService : IEngineerRequestService
                     EngineerId  = a.EngineerId,
                     Engineer    = a.Engineer == null ? null : new GetEngineerDto { Id = a.Engineer.Id, nameEn = a.Engineer.nameEn, nameAr = a.Engineer.nameAr },
                     CreatedDate = a.CreatedDate,
-                    Attachments = new List<GetAttachmentDto>()
+                    Attachments = r.Attachments
+                        .Where(att => Math.Abs((att.CreatedDate - a.CreatedDate).TotalSeconds) <= 30)
+                        .Select(f => new GetAttachmentDto
+                        {
+                            Id        = f.Id,
+                            Key       = f.Key,
+                            FileName  = f.FileName,
+                            Extension = f.Extension,
+                            FileSize  = f.FileSize,
+                            Url       = _storageService.GetPreSignedUrl(f.Key) ?? f.Url
+                        }).ToList()
                 }).ToList()
         }).ToList();
     }

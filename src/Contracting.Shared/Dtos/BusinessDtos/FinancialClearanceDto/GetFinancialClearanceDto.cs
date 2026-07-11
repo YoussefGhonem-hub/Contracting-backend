@@ -1,3 +1,4 @@
+using Contracting.Shared.BusinessDtos.EngineerRequestNotesDtos;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.DepartmentDtos;
 using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
@@ -32,5 +33,6 @@ namespace Contracting.Shared.BusinessDtos.FinancialClearanceDto
         public DateTimeOffset CreatedDate { get; set; }
         public List<GetFinancialClearanceAttachmentDto> Attachments { get; set; } = new();
         public List<GetFinancialClearanceActivityDto> Activities { get; set; } = new();
+        public List<GetEngineerRequestNotesDto> EngineerRequestNotes { get; set; } = new();
     }
 }

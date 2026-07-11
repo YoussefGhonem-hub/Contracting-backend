@@ -3,6 +3,7 @@ using Contracting.Domain.Entities.master;
 using Contracting.Infrustructure.Extensions.Helpers;
 using Contracting.Infrustructure.Inteface.business;
 using Contracting.Infrustructure.Persistence;
+using Contracting.Shared.BusinessDtos.EngineerRequestNotesDtos;
 using Contracting.Shared.BusinessDtos.FinancialClearanceDto;
 using Contracting.Shared.Common;
 using Contracting.Shared.CurrentUser;
@@ -448,7 +449,7 @@ namespace Contracting.Infrustructure.Features.business
                     if (lastActionType?.Equals("close", StringComparison.OrdinalIgnoreCase) == true)
                         return Error.Validation("FinancialClearance.AlreadyClosed", "This clearance has already been closed.");
 
-                    if (!clearance.Attachments.Any() && dto.Attachment == null)
+                    if (!clearance.Attachments.Any() && dto.Attachments == null)
                         return Error.Validation("FinancialClearance.MissingAttachments", "At least one attachment is required before closing. Upload a file with this action or attach one beforehand.");
 
                     toStatusId = s.Completed;
@@ -495,9 +496,9 @@ namespace Contracting.Infrustructure.Features.business
             activity.MarkAsCreated(userId ?? Guid.Empty);
             _db.FinancialClearanceActivities.Add(activity);
 
-            if (dto.Attachment != null)
+            if (dto.Attachments != null)
             {
-                var uploaded = await _storageService.UploadFiles(new List<Microsoft.AspNetCore.Http.IFormFile> { dto.Attachment });
+                var uploaded = await _storageService.UploadFiles(new List<Microsoft.AspNetCore.Http.IFormFile> { dto.Attachments });
                 if (uploaded != null && uploaded.Count > 0)
                 {
                     var f = uploaded[0];
@@ -795,7 +796,30 @@ namespace Contracting.Infrustructure.Features.business
                 Comments = a.Comments,
                 Engineer = a.Engineer is null ? null : new GetEngineerDto { Id = a.Engineer.Id, nameEn = a.Engineer.nameEn, nameAr = a.Engineer.nameAr },
                 CreatedDate = a.CreatedDate
-            }).ToList()
+            }).ToList(),
+            EngineerRequestNotes = c.Activities == null ? new() : c.Activities
+                .Where(a => !string.IsNullOrWhiteSpace(a.Comments)
+                         || c.Attachments.Any(att => Math.Abs((att.CreatedDate - a.CreatedDate).TotalSeconds) <= 30))
+                .OrderBy(a => a.CreatedDate)
+                .Select(a => new GetEngineerRequestNotesDto
+                {
+                    Id          = a.Id,
+                    note        = a.Comments,
+                    EngineerId  = a.EngineerId,
+                    Engineer    = a.Engineer is null ? null : new GetEngineerDto { Id = a.Engineer.Id, nameEn = a.Engineer.nameEn, nameAr = a.Engineer.nameAr },
+                    CreatedDate = a.CreatedDate,
+                    Attachments = c.Attachments
+                        .Where(att => Math.Abs((att.CreatedDate - a.CreatedDate).TotalSeconds) <= 30)
+                        .Select(f => new GetAttachmentDto
+                        {
+                            Id        = f.Id,
+                            Key       = f.Key,
+                            FileName  = f.FileName,
+                            Extension = f.Extension,
+                            FileSize  = f.FileSize,
+                            Url       = _storageService.GetPreSignedUrl(f.Key) ?? f.Url
+                        }).ToList()
+                }).ToList()
         };
     }
 }
