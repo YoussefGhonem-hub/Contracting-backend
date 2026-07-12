@@ -229,7 +229,7 @@ namespace Contracting.Infrustructure.Features.business
                         .SetProperty(r => r.SiteName,       finalSiteName)
                         .SetProperty(r => r.AttendanceDate, finalDate)
                         .SetProperty(r => r.Notes,          finalNotes)
-                        .SetProperty(r => r.StatusId,       wasInMissingInfo ? s.InProgress : request.StatusId));
+                        .SetProperty(r => r.StatusId,       wasInMissingInfo ? s.New : request.StatusId));
             }
 
             if (dto.Records != null)
@@ -300,7 +300,7 @@ namespace Contracting.Infrustructure.Features.business
                     LaborAttendanceRequestId = dto.Id,
                     EngineerId               = engineer?.Id,
                     FromStatusId             = s.MissingInformation,
-                    ToStatusId               = s.InProgress,
+                    ToStatusId               = s.New,
                     ActionType               = "Resubmit"
                 });
             }
@@ -310,7 +310,52 @@ namespace Contracting.Infrustructure.Features.business
             if (dto.Records != null || (dto.Attachments != null && dto.Attachments.Any()) || wasInMissingInfo)
                 await _db.SaveChangesAsync();
 
+            // Notify the team lead that the site engineer answered the missing-information
+            // request, so it doesn't sit unnoticed back in the New/Pending queue.
+            if (wasInMissingInfo)
+                await NotifyTeamLeadOfResubmitAsync(dto.Id, request.RequestNumber, finalDepartmentId);
+
             return await GetByIdAsync(dto.Id);
+        }
+
+        private async Task NotifyTeamLeadOfResubmitAsync(Guid requestId, string? requestNumber, Guid? departmentId)
+        {
+            try
+            {
+                if (!departmentId.HasValue) return;
+
+                var teamLeadUserId = await _db.EngineerDepartments
+                    .Where(ed => ed.DepartmentId == departmentId.Value
+                              && ed.Role != null
+                              && ed.Role.Name == Contracting.Shared.Constants.RoleNames.Teamleadengineer)
+                    .Select(ed => ed.Engineer!.ApplicationUserId)
+                    .FirstOrDefaultAsync();
+
+                if (teamLeadUserId == Guid.Empty)
+                {
+                    teamLeadUserId = await (from eng in _db.Engineers
+                                            join userRole in _db.UserRoles on eng.ApplicationUserId equals userRole.UserId
+                                            join role in _db.Roles on userRole.RoleId equals role.Id
+                                            where eng.DepartmentId == departmentId.Value
+                                                  && role.Name == Contracting.Shared.Constants.RoleNames.Teamleadengineer
+                                            select eng.ApplicationUserId)
+                                       .FirstOrDefaultAsync();
+                }
+
+                if (teamLeadUserId != Guid.Empty)
+                {
+                    await _notificationService.SendNotificationToUserAsync(
+                        teamLeadUserId,
+                        "Labor Attendance Request Updated",
+                        $"Request {requestNumber} was updated with the missing information you requested and is ready for review.",
+                        requestId,
+                        departmentId);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "LaborAttendance {RequestId}: failed to send resubmit notification to team lead.", requestId);
+            }
         }
 
         public async Task<ErrorOr<GenericResponse>> DeleteAsync(Guid id)
