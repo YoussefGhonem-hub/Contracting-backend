@@ -17,7 +17,7 @@ namespace Contracting.Application.Features.Master.Engineer.Query.GetEngineerList
 
         public async Task<ErrorOr<PaginatedList<GetEngineerDto>>> Handle(GetEngineerListQuery request, CancellationToken cancellationToken)
         {
-            var result = await _service.GetEngineerListAsync(request.DepartmentId, request.Filter);
+            var result = await _service.GetEngineerListAsync(request.DepartmentId, request.Filter, request.Name, request.Email);
             return result;
         }
     }

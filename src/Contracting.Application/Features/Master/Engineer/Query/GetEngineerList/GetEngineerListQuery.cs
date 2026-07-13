@@ -6,5 +6,5 @@ using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
 
 namespace Contracting.Application.Features.Master.Engineer.Query.GetEngineerList
 {
-    public record GetEngineerListQuery(Guid DepartmentId, BaseFilterDto Filter) : IRequest<ErrorOr<PaginatedList<GetEngineerDto>>>;
+    public record GetEngineerListQuery(Guid DepartmentId, BaseFilterDto Filter, string? Name = null, string? Email = null) : IRequest<ErrorOr<PaginatedList<GetEngineerDto>>>;
 }

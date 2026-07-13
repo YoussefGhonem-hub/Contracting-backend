@@ -19,7 +19,7 @@ namespace Contracting.Infrustructure.Inteface
         Task<GenericResponse> DeleteEngineerAsync(Guid engineerId);
 
         // Get a list of engineers (optionally paginated)
-        Task<PaginatedList<GetEngineerDto>> GetEngineerListAsync(Guid DepartmentId, BaseFilterDto filter);
+        Task<PaginatedList<GetEngineerDto>> GetEngineerListAsync(Guid DepartmentId, BaseFilterDto filter, string? name = null, string? email = null);
 
         // Get all engineers (optionally paginated)
         Task<PaginatedList<GetEngineerDto>> GetAllEngineersAsync(BaseFilterDto filter);

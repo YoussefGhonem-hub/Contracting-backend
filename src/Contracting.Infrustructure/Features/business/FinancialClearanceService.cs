@@ -310,7 +310,7 @@ namespace Contracting.Infrustructure.Features.business
 
         public async Task<ErrorOr<GetFinancialClearanceDto>> GetByIdAsync(Guid id)
         {
-            var clearance = await _db.FinancialClearances
+            var query = _db.FinancialClearances
                 .Include(c => c.Items)
                 .Include(c => c.Department)
                 .Include(c => c.Project)
@@ -321,11 +321,151 @@ namespace Contracting.Infrustructure.Features.business
                 .Include(c => c.Activities).ThenInclude(a => a.Engineer)
                 .Include(c => c.Activities).ThenInclude(a => a.FromStatus)
                 .Include(c => c.Activities).ThenInclude(a => a.ToStatus)
-                .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
+                .Where(c => c.Id == id && !c.IsDeleted)
+                .AsNoTracking();
+
+            query = await ApplyFinancialClearanceVisibilityAsync(query);
+            var clearance = await query.FirstOrDefaultAsync();
 
             if (clearance is null) return Error.NotFound("FinancialClearance.NotFound", "Financial clearance not found.");
             return MapToDto(clearance);
+        }
+
+        private async Task<bool> DepartmentHasTeamLeadAsync(Guid departmentId)
+        {
+            var teamleadRoleName = Contracting.Shared.Constants.RoleNames.Teamleadengineer;
+
+            var hasViaDepRole = await _db.EngineerDepartments
+                .AnyAsync(ed => ed.DepartmentId == departmentId
+                             && ed.Role != null && ed.Role.Name == teamleadRoleName);
+            if (hasViaDepRole) return true;
+
+            return await (from eng in _db.Engineers
+                          join userRole in _db.UserRoles on eng.ApplicationUserId equals userRole.UserId
+                          join role in _db.Roles on userRole.RoleId equals role.Id
+                          where eng.DepartmentId == departmentId && role.Name == teamleadRoleName
+                          select eng.Id).AnyAsync();
+        }
+
+        private async Task<bool> IsEngineerTeamLeadOfDepartmentAsync(Guid engineerId, Guid departmentId)
+        {
+            var teamleadRoleName = Contracting.Shared.Constants.RoleNames.Teamleadengineer;
+
+            var isTeamLeadViaDeptRole = await _db.EngineerDepartments
+                .AnyAsync(ed => ed.EngineerId == engineerId
+                             && ed.DepartmentId == departmentId
+                             && ed.Role != null && ed.Role.Name == teamleadRoleName);
+            if (isTeamLeadViaDeptRole) return true;
+
+            return await (from eng in _db.Engineers
+                          join userRole in _db.UserRoles on eng.ApplicationUserId equals userRole.UserId
+                          join role in _db.Roles on userRole.RoleId equals role.Id
+                          where eng.Id == engineerId && eng.DepartmentId == departmentId && role.Name == teamleadRoleName
+                          select eng.Id).AnyAsync();
+        }
+
+        // When a department has no team lead, there is nobody to run the "assign"/"submit" steps, so a
+        // clearance can sit in New/MissingInformation forever. Lets any engineer belonging to that
+        // department claim + approve it directly in one step. Mirrors LaborAttendanceService's
+        // CanAutoClaimNoTeamLeadRequestAsync.
+        private async Task<bool> CanAutoClaimNoTeamLeadRequestAsync(Guid? departmentId, Guid engineerId)
+        {
+            if (!departmentId.HasValue) return false;
+
+            if (await DepartmentHasTeamLeadAsync(departmentId.Value)) return false;
+
+            return await _db.EngineerDepartments
+                .AnyAsync(ed => ed.EngineerId == engineerId && ed.DepartmentId == departmentId.Value)
+                || await _db.Engineers.AnyAsync(e => e.Id == engineerId && e.DepartmentId == departmentId.Value);
+        }
+
+        // Applies the "department without a team lead → visible to the whole department until claimed"
+        // rule to a financial-clearance query. Admins and department team leads see everything in their
+        // scope; other engineers only see unassigned clearances in team-lead-less departments they belong
+        // to, plus anything already assigned to or requested by them. Mirrors
+        // LaborAttendanceService.ApplyLaborAttendanceVisibilityAsync.
+        private async Task<IQueryable<FinancialClearance>> ApplyFinancialClearanceVisibilityAsync(
+            IQueryable<FinancialClearance> query)
+        {
+            var roles = CurrentUser.Roles;
+            var isAdmin = roles.Any(r => r.Equals(Contracting.Shared.Constants.RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase)
+                                      || r.Equals(Contracting.Shared.Constants.RoleNames.Admin, StringComparison.OrdinalIgnoreCase));
+            if (isAdmin) return query;
+
+            if (string.IsNullOrEmpty(CurrentUser.UserId) || !Guid.TryParse(CurrentUser.UserId, out var currentUserId))
+                return query.Where(r => false);
+
+            var engineer = await _db.Engineers.AsNoTracking()
+                .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
+
+            if (engineer == null)
+                return query.Where(r => false);
+
+            var teamLeadDeptIds = await (from ed in _db.EngineerDepartments
+                                         join role in _db.Roles on ed.RoleId equals role.Id
+                                         where ed.EngineerId == engineer.Id && role.Name == Contracting.Shared.Constants.RoleNames.Teamleadengineer
+                                         select ed.DepartmentId)
+                                        .ToListAsync();
+
+            if (!teamLeadDeptIds.Any() && engineer.DepartmentId.HasValue)
+            {
+                var isTeamLeadViaRoles = await (from userRole in _db.UserRoles
+                                                join role in _db.Roles on userRole.RoleId equals role.Id
+                                                where userRole.UserId == engineer.ApplicationUserId
+                                                      && role.Name == Contracting.Shared.Constants.RoleNames.Teamleadengineer
+                                                select role.Id).AnyAsync();
+                if (isTeamLeadViaRoles)
+                    teamLeadDeptIds.Add(engineer.DepartmentId.Value);
+            }
+
+            if (teamLeadDeptIds.Any())
+            {
+                return query.Where(r =>
+                    (r.DepartmentId.HasValue && teamLeadDeptIds.Contains(r.DepartmentId.Value))
+                    || r.AssignedToId == engineer.Id
+                    || r.RequestedById == engineer.Id);
+            }
+
+            var allEngineerDeptIds = await _db.EngineerDepartments
+                .Where(ed => ed.EngineerId == engineer.Id)
+                .Select(ed => ed.DepartmentId)
+                .ToListAsync();
+
+            if (engineer.DepartmentId.HasValue && !allEngineerDeptIds.Contains(engineer.DepartmentId.Value))
+                allEngineerDeptIds.Add(engineer.DepartmentId.Value);
+
+            if (!allEngineerDeptIds.Any())
+                return query.Where(r => r.RequestedById == engineer.Id || r.AssignedToId == engineer.Id);
+
+            var deptIdsWithTeamLead = await (from ed in _db.EngineerDepartments
+                                             join role in _db.Roles on ed.RoleId equals role.Id
+                                             where allEngineerDeptIds.Contains(ed.DepartmentId)
+                                                   && role.Name == Contracting.Shared.Constants.RoleNames.Teamleadengineer
+                                             select ed.DepartmentId)
+                                            .Distinct()
+                                            .ToListAsync();
+
+            var legacyTeamLeadDeptIds = await (from eng in _db.Engineers
+                                               join userRole in _db.UserRoles on eng.ApplicationUserId equals userRole.UserId
+                                               join role in _db.Roles on userRole.RoleId equals role.Id
+                                               where allEngineerDeptIds.Contains(eng.DepartmentId ?? Guid.Empty)
+                                                     && role.Name == Contracting.Shared.Constants.RoleNames.Teamleadengineer
+                                               select eng.DepartmentId!.Value)
+                                              .Distinct()
+                                              .ToListAsync();
+
+            foreach (var id2 in legacyTeamLeadDeptIds.Where(id2 => !deptIdsWithTeamLead.Contains(id2)))
+                deptIdsWithTeamLead.Add(id2);
+
+            var deptsWithoutTeamLead = allEngineerDeptIds.Where(d => !deptIdsWithTeamLead.Contains(d)).ToList();
+            var deptsWithTeamLead = deptIdsWithTeamLead.Where(d => allEngineerDeptIds.Contains(d)).ToList();
+
+            return query.Where(r =>
+                (r.DepartmentId.HasValue && deptsWithoutTeamLead.Contains(r.DepartmentId.Value)
+                    && (r.AssignedToId == null || r.AssignedToId == Guid.Empty || r.AssignedToId == engineer.Id))
+                || (r.DepartmentId.HasValue && deptsWithTeamLead.Contains(r.DepartmentId.Value) && r.AssignedToId == engineer.Id)
+                || r.AssignedToId == engineer.Id
+                || r.RequestedById == engineer.Id);
         }
 
         public async Task<PaginatedList<GetFinancialClearanceDto>> GetAllAsync(FinancialClearanceFilterDto filter)
@@ -343,6 +483,8 @@ namespace Contracting.Infrustructure.Features.business
                 .Include(c => c.Activities).ThenInclude(a => a.ToStatus)
                 .Where(c => !c.IsDeleted)
                 .AsNoTracking();
+
+            query = await ApplyFinancialClearanceVisibilityAsync(query);
 
             if (filter.StatusId.HasValue)
                 query = query.Where(c => c.StatusId == filter.StatusId);
@@ -408,6 +550,30 @@ namespace Contracting.Infrustructure.Features.business
                         return Error.Validation("FinancialClearance.InvalidAction", "Cannot assign a completed or rejected clearance.");
                     if (!dto.AssignedToId.HasValue || dto.AssignedToId == Guid.Empty)
                         return Error.Validation("FinancialClearance.AssignedToRequired", "AssignedToId is required for assign action.");
+
+                    if (clearance.DepartmentId.HasValue && engineer != null)
+                    {
+                        var departmentId = clearance.DepartmentId.Value;
+                        var isManager = await IsEngineerTeamLeadOfDepartmentAsync(engineer.Id, departmentId);
+
+                        if (!isManager)
+                        {
+                            var departmentHasTeamLead = await DepartmentHasTeamLeadAsync(departmentId);
+                            if (departmentHasTeamLead)
+                                return Error.Unauthorized("FinancialClearance.Unauthorized", "Only the department team lead can assign this clearance.");
+
+                            var isEngineerInDepartment = await _db.EngineerDepartments
+                                .AnyAsync(ed => ed.EngineerId == engineer.Id && ed.DepartmentId == departmentId)
+                                || engineer.DepartmentId == departmentId;
+                            if (!isEngineerInDepartment)
+                                return Error.Unauthorized("FinancialClearance.Unauthorized", "You are not authorized to assign this clearance.");
+
+                            // No team lead in this department: a normal engineer may only claim the clearance for themselves.
+                            if (dto.AssignedToId.Value != engineer.Id)
+                                return Error.Unauthorized("FinancialClearance.Unauthorized", "This department has no team lead — you can only assign this clearance to yourself.");
+                        }
+                    }
+
                     var assignedEngineer = await _db.Engineers.AsNoTracking()
                         .FirstOrDefaultAsync(e => e.Id == dto.AssignedToId);
                     if (assignedEngineer is null)
@@ -434,7 +600,22 @@ namespace Contracting.Infrustructure.Features.business
                 case "approve":
                     // InProgress → Completed
                     if (clearance.StatusId != s.InProgress)
-                        return Error.Validation("FinancialClearance.InvalidAction", "Only submitted clearances can be approved.");
+                    {
+                        // No team lead in the department: the clearance may still be sitting in
+                        // New/MissingInformation because there was never anyone to run the
+                        // "assign"/"submit" steps. Let a department engineer claim + approve it directly.
+                        if ((clearance.StatusId == s.New || clearance.StatusId == s.MissingInformation)
+                            && engineer != null
+                            && await CanAutoClaimNoTeamLeadRequestAsync(clearance.DepartmentId, engineer.Id))
+                        {
+                            clearance.AssignedToId = engineer.Id;
+                            newlyAssignedEngineer = engineer;
+                        }
+                        else
+                        {
+                            return Error.Validation("FinancialClearance.InvalidAction", "Only submitted clearances can be approved.");
+                        }
+                    }
                     toStatusId = s.Completed;
                     break;
 
@@ -688,6 +869,19 @@ namespace Contracting.Infrustructure.Features.business
 
             var actingEngineer = await _db.Engineers.AsNoTracking()
                 .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
+
+            if (clearance.AssignedToId is null || clearance.AssignedToId == Guid.Empty)
+                return Error.Validation("FinancialClearance.NotAssigned", "Only an already-assigned clearance can be reassigned.");
+
+            if (clearance.DepartmentId.HasValue && actingEngineer != null)
+            {
+                var departmentId = clearance.DepartmentId.Value;
+                var isManager = await IsEngineerTeamLeadOfDepartmentAsync(actingEngineer.Id, departmentId);
+                var isCurrentAssignee = clearance.AssignedToId == actingEngineer.Id;
+
+                if (!isManager && !isCurrentAssignee)
+                    return Error.Unauthorized("FinancialClearance.Unauthorized", "Only the department team lead or the current assignee can reassign this clearance.");
+            }
 
             var userId = CurrentUser.Id;
             var now = DateTimeHelper.Now;

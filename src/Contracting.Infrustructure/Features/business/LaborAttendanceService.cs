@@ -374,7 +374,7 @@ namespace Contracting.Infrustructure.Features.business
 
         public async Task<ErrorOr<GetLaborAttendanceRequestDto>> GetByIdAsync(Guid id)
         {
-            var request = await _db.LaborAttendanceRequests
+            var query = _db.LaborAttendanceRequests
                 .Include(r => r.Project)
                 .Include(r => r.Department)
                 .Include(r => r.Supervisor)
@@ -385,21 +385,156 @@ namespace Contracting.Infrustructure.Features.business
                 .Include(r => r.Activities).ThenInclude(a => a.Engineer)
                 .Include(r => r.Activities).ThenInclude(a => a.FromStatus)
                 .Include(r => r.Activities).ThenInclude(a => a.ToStatus)
-                .AsNoTracking()
-                .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
+                .Where(r => r.Id == id && !r.IsDeleted)
+                .AsNoTracking();
+
+            query = await ApplyLaborAttendanceVisibilityAsync(query);
+            var request = await query.FirstOrDefaultAsync();
 
             if (request is null) return Error.NotFound("LaborAttendance.NotFound", "Labor attendance request not found.");
             return MapToDto(request);
+        }
+
+        private async Task<bool> DepartmentHasTeamLeadAsync(Guid departmentId)
+        {
+            var teamleadRoleName = Contracting.Shared.Constants.RoleNames.Teamleadengineer;
+
+            var hasViaDepRole = await _db.EngineerDepartments
+                .AnyAsync(ed => ed.DepartmentId == departmentId
+                             && ed.Role != null && ed.Role.Name == teamleadRoleName);
+            if (hasViaDepRole) return true;
+
+            return await (from eng in _db.Engineers
+                          join userRole in _db.UserRoles on eng.ApplicationUserId equals userRole.UserId
+                          join role in _db.Roles on userRole.RoleId equals role.Id
+                          where eng.DepartmentId == departmentId && role.Name == teamleadRoleName
+                          select eng.Id).AnyAsync();
+        }
+
+        private async Task<bool> IsEngineerTeamLeadOfDepartmentAsync(Guid engineerId, Guid departmentId)
+        {
+            var teamleadRoleName = Contracting.Shared.Constants.RoleNames.Teamleadengineer;
+
+            var isTeamLeadViaDeptRole = await _db.EngineerDepartments
+                .AnyAsync(ed => ed.EngineerId == engineerId
+                             && ed.DepartmentId == departmentId
+                             && ed.Role != null && ed.Role.Name == teamleadRoleName);
+            if (isTeamLeadViaDeptRole) return true;
+
+            return await (from eng in _db.Engineers
+                          join userRole in _db.UserRoles on eng.ApplicationUserId equals userRole.UserId
+                          join role in _db.Roles on userRole.RoleId equals role.Id
+                          where eng.Id == engineerId && eng.DepartmentId == departmentId && role.Name == teamleadRoleName
+                          select eng.Id).AnyAsync();
+        }
+
+        // When a department has no team lead, there is nobody to run the "assign" step, so a request can
+        // sit in New/Pending forever. Lets any engineer belonging to that department claim + act on it
+        // directly (validate/reject) in one step, instead of requiring assign first.
+        private async Task<bool> CanAutoClaimNoTeamLeadRequestAsync(Guid? departmentId, Guid engineerId)
+        {
+            if (!departmentId.HasValue) return false;
+
+            if (await DepartmentHasTeamLeadAsync(departmentId.Value)) return false;
+
+            return await _db.EngineerDepartments
+                .AnyAsync(ed => ed.EngineerId == engineerId && ed.DepartmentId == departmentId.Value)
+                || await _db.Engineers.AnyAsync(e => e.Id == engineerId && e.DepartmentId == departmentId.Value);
+        }
+
+        // Applies the "department without a team lead → visible to the whole department until claimed"
+        // rule to a labor-attendance query. Admins and department team leads see everything in their
+        // scope; other engineers only see unassigned requests in team-lead-less departments they belong
+        // to, plus anything already assigned to or supervised by them. Mirrors
+        // EngineerRequestService.ApplyEngineerRequestVisibilityAsync.
+        private async Task<IQueryable<LaborAttendanceRequest>> ApplyLaborAttendanceVisibilityAsync(
+            IQueryable<LaborAttendanceRequest> query)
+        {
+            var roles = CurrentUser.Roles;
+            var isAdmin = roles.Any(r => r.Equals(Contracting.Shared.Constants.RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase)
+                                      || r.Equals(Contracting.Shared.Constants.RoleNames.Admin, StringComparison.OrdinalIgnoreCase));
+            if (isAdmin) return query;
+
+            if (!Guid.TryParse(CurrentUser.UserId, out var currentUserId))
+                return query.Where(r => false);
+
+            var engineer = await _db.Engineers.AsNoTracking()
+                .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
+
+            if (engineer == null)
+                return query.Where(r => false);
+
+            var teamLeadDeptIds = await (from ed in _db.EngineerDepartments
+                                         join role in _db.Roles on ed.RoleId equals role.Id
+                                         where ed.EngineerId == engineer.Id && role.Name == Contracting.Shared.Constants.RoleNames.Teamleadengineer
+                                         select ed.DepartmentId)
+                                        .ToListAsync();
+
+            if (!teamLeadDeptIds.Any() && engineer.DepartmentId.HasValue)
+            {
+                var isTeamLeadViaRoles = await (from userRole in _db.UserRoles
+                                                join role in _db.Roles on userRole.RoleId equals role.Id
+                                                where userRole.UserId == engineer.ApplicationUserId
+                                                      && role.Name == Contracting.Shared.Constants.RoleNames.Teamleadengineer
+                                                select role.Id).AnyAsync();
+                if (isTeamLeadViaRoles)
+                    teamLeadDeptIds.Add(engineer.DepartmentId.Value);
+            }
+
+            if (teamLeadDeptIds.Any())
+            {
+                return query.Where(r =>
+                    (r.DepartmentId.HasValue && teamLeadDeptIds.Contains(r.DepartmentId.Value))
+                    || r.AssignedToId == engineer.Id
+                    || r.SupervisorId == engineer.Id);
+            }
+
+            var allEngineerDeptIds = await _db.EngineerDepartments
+                .Where(ed => ed.EngineerId == engineer.Id)
+                .Select(ed => ed.DepartmentId)
+                .ToListAsync();
+
+            if (engineer.DepartmentId.HasValue && !allEngineerDeptIds.Contains(engineer.DepartmentId.Value))
+                allEngineerDeptIds.Add(engineer.DepartmentId.Value);
+
+            if (!allEngineerDeptIds.Any())
+                return query.Where(r => r.SupervisorId == engineer.Id || r.AssignedToId == engineer.Id);
+
+            var deptIdsWithTeamLead = await (from ed in _db.EngineerDepartments
+                                             join role in _db.Roles on ed.RoleId equals role.Id
+                                             where allEngineerDeptIds.Contains(ed.DepartmentId)
+                                                   && role.Name == Contracting.Shared.Constants.RoleNames.Teamleadengineer
+                                             select ed.DepartmentId)
+                                            .Distinct()
+                                            .ToListAsync();
+
+            var legacyTeamLeadDeptIds = await (from eng in _db.Engineers
+                                               join userRole in _db.UserRoles on eng.ApplicationUserId equals userRole.UserId
+                                               join role in _db.Roles on userRole.RoleId equals role.Id
+                                               where allEngineerDeptIds.Contains(eng.DepartmentId ?? Guid.Empty)
+                                                     && role.Name == Contracting.Shared.Constants.RoleNames.Teamleadengineer
+                                               select eng.DepartmentId!.Value)
+                                              .Distinct()
+                                              .ToListAsync();
+
+            foreach (var id2 in legacyTeamLeadDeptIds.Where(id2 => !deptIdsWithTeamLead.Contains(id2)))
+                deptIdsWithTeamLead.Add(id2);
+
+            var deptsWithoutTeamLead = allEngineerDeptIds.Where(d => !deptIdsWithTeamLead.Contains(d)).ToList();
+            var deptsWithTeamLead = deptIdsWithTeamLead.Where(d => allEngineerDeptIds.Contains(d)).ToList();
+
+            return query.Where(r =>
+                (r.DepartmentId.HasValue && deptsWithoutTeamLead.Contains(r.DepartmentId.Value)
+                    && (r.AssignedToId == null || r.AssignedToId == Guid.Empty || r.AssignedToId == engineer.Id))
+                || (r.DepartmentId.HasValue && deptsWithTeamLead.Contains(r.DepartmentId.Value) && r.AssignedToId == engineer.Id)
+                || r.AssignedToId == engineer.Id
+                || r.SupervisorId == engineer.Id);
         }
 
         public async Task<PaginatedList<GetLaborAttendanceRequestDto>> GetAllAsync(LaborAttendanceFilterDto filter)
         {
             try
             {
-                var roles = CurrentUser.Roles;
-                var isAdmin = roles.Any(r => r.Equals(Contracting.Shared.Constants.RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase)
-                                          || r.Equals(Contracting.Shared.Constants.RoleNames.Admin, StringComparison.OrdinalIgnoreCase));
-
                 var query = _db.LaborAttendanceRequests
                     .Include(r => r.Project)
                     .Include(r => r.Department)
@@ -414,43 +549,7 @@ namespace Contracting.Infrustructure.Features.business
                     .Where(r => !r.IsDeleted)
                     .AsNoTracking();
 
-                if (!isAdmin && Guid.TryParse(CurrentUser.UserId, out var currentUserId))
-                {
-                    var engineer = await _db.Engineers.AsNoTracking()
-                        .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
-
-                    if (engineer != null)
-                    {
-                        var teamLeadDeptIds = await (from ed in _db.EngineerDepartments
-                                                     join role in _db.Roles on ed.RoleId equals role.Id
-                                                     where ed.EngineerId == engineer.Id && role.Name == Contracting.Shared.Constants.RoleNames.Teamleadengineer
-                                                     select ed.DepartmentId)
-                                                    .ToListAsync();
-
-                        if (!teamLeadDeptIds.Any() && engineer.DepartmentId.HasValue)
-                        {
-                            var isTeamLeadViaRoles = await (from userRole in _db.UserRoles
-                                                            join role in _db.Roles on userRole.RoleId equals role.Id
-                                                            where userRole.UserId == engineer.ApplicationUserId
-                                                                  && role.Name == Contracting.Shared.Constants.RoleNames.Teamleadengineer
-                                                            select role.Id).AnyAsync();
-                            if (isTeamLeadViaRoles)
-                                teamLeadDeptIds.Add(engineer.DepartmentId.Value);
-                        }
-
-                        if (teamLeadDeptIds.Any())
-                        {
-                            query = query.Where(r =>
-                                (r.DepartmentId.HasValue && teamLeadDeptIds.Contains(r.DepartmentId.Value))
-                                || r.AssignedToId == engineer.Id
-                                || r.SupervisorId == engineer.Id);
-                        }
-                        else
-                        {
-                            query = query.Where(r => r.SupervisorId == engineer.Id || r.AssignedToId == engineer.Id);
-                        }
-                    }
-                }
+                query = await ApplyLaborAttendanceVisibilityAsync(query);
 
                 // Resolve the status filter. Callers may pass either an explicit
                 // StatusId (Guid) or a status name/code via ?status=... (e.g. "Rejected").
@@ -533,6 +632,29 @@ namespace Contracting.Infrustructure.Features.business
                     if (!dto.AssignedToId.HasValue || dto.AssignedToId == Guid.Empty)
                         return Error.Validation("LaborAttendance.AssignedToRequired", "AssignedToId is required for assign action.");
 
+                    if (request.DepartmentId.HasValue && engineer != null)
+                    {
+                        var departmentId = request.DepartmentId.Value;
+                        var isManager = await IsEngineerTeamLeadOfDepartmentAsync(engineer.Id, departmentId);
+
+                        if (!isManager)
+                        {
+                            var departmentHasTeamLead = await DepartmentHasTeamLeadAsync(departmentId);
+                            if (departmentHasTeamLead)
+                                return Error.Unauthorized("LaborAttendance.Unauthorized", "Only the department team lead can assign this request.");
+
+                            var isEngineerInDepartment = await _db.EngineerDepartments
+                                .AnyAsync(ed => ed.EngineerId == engineer.Id && ed.DepartmentId == departmentId)
+                                || engineer.DepartmentId == departmentId;
+                            if (!isEngineerInDepartment)
+                                return Error.Unauthorized("LaborAttendance.Unauthorized", "You are not authorized to assign this request.");
+
+                            // No team lead in this department: a normal engineer may only claim the request for themselves.
+                            if (dto.AssignedToId.Value != engineer.Id)
+                                return Error.Unauthorized("LaborAttendance.Unauthorized", "This department has no team lead — you can only assign this request to yourself.");
+                        }
+                    }
+
                     assignedEngineer = await _db.Engineers.AsNoTracking()
                         .FirstOrDefaultAsync(e => e.Id == dto.AssignedToId.Value);
                     if (assignedEngineer is null)
@@ -543,13 +665,29 @@ namespace Contracting.Infrustructure.Features.business
                 case "validate":
                     // Assigned (InProgress) → Validated (Completed)
                     if (request.StatusId != s.InProgress)
-                        return Error.Validation("LaborAttendance.InvalidAction", "Only Assigned requests can be validated.");
+                    {
+                        // No team lead in the department: the request may still be sitting in
+                        // New/Pending because there was never anyone to run the "assign" step.
+                        // Let a department engineer claim + validate it in one action.
+                        if (request.StatusId == s.New && engineer != null
+                            && await CanAutoClaimNoTeamLeadRequestAsync(request.DepartmentId, engineer.Id))
+                            assignedEngineer = engineer;
+                        else
+                            return Error.Validation("LaborAttendance.InvalidAction", "Only Assigned requests can be validated.");
+                    }
                     toStatusId = s.Completed;
                     break;
                 case "reject":
                     // Assigned (InProgress) → Rejected
                     if (request.StatusId != s.InProgress)
-                        return Error.Validation("LaborAttendance.InvalidAction", "Only Assigned requests can be rejected.");
+                    {
+                        // Same no-team-lead direct-action allowance as "validate" above.
+                        if (request.StatusId == s.New && engineer != null
+                            && await CanAutoClaimNoTeamLeadRequestAsync(request.DepartmentId, engineer.Id))
+                            assignedEngineer = engineer;
+                        else
+                            return Error.Validation("LaborAttendance.InvalidAction", "Only Assigned requests can be rejected.");
+                    }
                     toStatusId = s.Rejected;
                     break;
                 case "missing_info":
@@ -712,6 +850,19 @@ namespace Contracting.Infrustructure.Features.business
 
             var actingEngineer = await _db.Engineers.AsNoTracking()
                 .FirstOrDefaultAsync(e => e.ApplicationUserId == currentUserId);
+
+            if (request.AssignedToId is null || request.AssignedToId == Guid.Empty)
+                return Error.Validation("LaborAttendance.NotAssigned", "Only an already-assigned request can be reassigned.");
+
+            if (request.DepartmentId.HasValue && actingEngineer != null)
+            {
+                var departmentId = request.DepartmentId.Value;
+                var isManager = await IsEngineerTeamLeadOfDepartmentAsync(actingEngineer.Id, departmentId);
+                var isCurrentAssignee = request.AssignedToId == actingEngineer.Id;
+
+                if (!isManager && !isCurrentAssignee)
+                    return Error.Unauthorized("LaborAttendance.Unauthorized", "Only the department team lead or the current assignee can reassign this request.");
+            }
 
             // Reassign only changes the assignee; the status is kept as-is.
             await _db.LaborAttendanceRequests

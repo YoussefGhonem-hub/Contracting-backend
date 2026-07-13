@@ -139,7 +139,7 @@ namespace Contracting.Infrustructure.Features
             return GenericResponse.SuccessResult(_localizer[SharedResourcesKeys.EngineerDeleteSuccess]);
         }
 
-        public async Task<PaginatedList<GetEngineerDto>> GetEngineerListAsync(Guid departmentId, BaseFilterDto filter)
+        public async Task<PaginatedList<GetEngineerDto>> GetEngineerListAsync(Guid departmentId, BaseFilterDto filter, string? name = null, string? email = null)
         {
             try
             {
@@ -154,6 +154,13 @@ namespace Contracting.Infrustructure.Features
                         .ThenInclude(ep => ep.Features)
                     .Where(e => e.DepartmentId == departmentId)
                     .AsNoTracking();
+
+                if (!string.IsNullOrWhiteSpace(name))
+                    query = query.Where(e => (e.nameEn != null && e.nameEn.Contains(name))
+                                           || (e.nameAr != null && e.nameAr.Contains(name)));
+
+                if (!string.IsNullOrWhiteSpace(email))
+                    query = query.Where(e => e.Email != null && e.Email.Contains(email));
 
                 if (string.IsNullOrWhiteSpace(filter.Sort))
                 {

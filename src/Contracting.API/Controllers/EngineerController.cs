@@ -72,9 +72,9 @@ namespace Contracting.API.Controllers
 
         // Get Engineer List (with filter)
         [HttpGet]
-        public async Task<IActionResult> GetList([FromQuery] Guid departmentId, [FromQuery] BaseFilterDto filter)
+        public async Task<IActionResult> GetList([FromQuery] Guid departmentId, [FromQuery] BaseFilterDto filter, [FromQuery] string? name = null, [FromQuery] string? email = null)
         {
-            var query = new GetEngineerListQuery(departmentId, filter);
+            var query = new GetEngineerListQuery(departmentId, filter, name, email);
             var result = await _mediator.Send(query);
 
             return result.Match(
