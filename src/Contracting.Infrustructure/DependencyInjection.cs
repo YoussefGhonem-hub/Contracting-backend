@@ -11,6 +11,7 @@ using Contracting.Infrustructure.Inteface.business;
 using Contracting.Infrustructure.Inteface.client;
 using Contracting.Infrustructure.Inteface.Helper;
 using Contracting.Infrustructure.Persistence;
+using Contracting.Shared.Security;
 using Contracting.Shared.Storage;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -23,9 +24,20 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
+        // Connection string may be "ENC:..." (encrypted for production) or plaintext (local dev) —
+        // Decrypt() returns non-encrypted values unchanged, so both work with the same code path.
+        var encryptionKey = configuration["Encryption:Key"];
+        var connectionString = configuration.GetConnectionString("DefaultConnection");
+        if (!string.IsNullOrEmpty(connectionString) && AppSettingsProtector.IsEncrypted(connectionString))
+        {
+            if (string.IsNullOrWhiteSpace(encryptionKey))
+                throw new InvalidOperationException("ConnectionStrings:DefaultConnection is encrypted but 'Encryption:Key' is missing from configuration.");
+            connectionString = AppSettingsProtector.Decrypt(connectionString, encryptionKey);
+        }
+
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseSqlServer(
-                configuration.GetConnectionString("DefaultConnection"),
+                connectionString,
                 sql =>
                 {
                     sql.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName);
