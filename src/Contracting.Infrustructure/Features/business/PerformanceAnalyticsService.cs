@@ -73,12 +73,26 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
         {
             var query = _db.Engineers.Where(e => !e.IsDeleted);
 
+            // Engineers can belong to multiple departments via EngineerDepartments, in addition to
+            // (or instead of) the legacy single Engineer.DepartmentId — both must be checked, or an
+            // engineer whose relevant membership is only in EngineerDepartments gets silently dropped.
+            if (filter.BranchId.HasValue)
+            {
+                var branchId = filter.BranchId.Value;
+                query = query.Where(e =>
+                    (e.Department != null && e.Department.BranchId == branchId)
+                    || e.EngineerDepartments.Any(ed => ed.Department != null && ed.Department.BranchId == branchId));
+            }
+
             string? deptName = null;
             if (filter.DepartmentId.HasValue)
             {
-                query    = query.Where(e => e.DepartmentId == filter.DepartmentId.Value);
+                var deptId = filter.DepartmentId.Value;
+                query    = query.Where(e =>
+                    e.DepartmentId == deptId
+                    || e.EngineerDepartments.Any(ed => ed.DepartmentId == deptId));
                 deptName = await _db.Departmentes
-                    .Where(d => d.Id == filter.DepartmentId.Value)
+                    .Where(d => d.Id == deptId)
                     .Select(d => d.nameEn)
                     .FirstOrDefaultAsync(ct);
             }
@@ -96,23 +110,39 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
             if (!Guid.TryParse(CurrentUser.UserId, out var userId))
                 return (null, null);
 
-            // Find caller's primary department
             var leadEngineer = await _db.Engineers
                 .FirstOrDefaultAsync(e => e.ApplicationUserId == userId && !e.IsDeleted, ct);
             if (leadEngineer is null) return (null, null);
 
-            var deptId = leadEngineer.DepartmentId;
-            if (deptId is null) return (new List<Guid>(), null);
+            // A team lead can lead more than one department via EngineerDepartments — the legacy
+            // single Engineer.DepartmentId is only a fallback for engineers never migrated to it.
+            var leadDeptIds = await _db.EngineerDepartments
+                .Where(ed => ed.EngineerId == leadEngineer.Id && ed.Role != null && ed.Role.Name == RoleNames.Teamleadengineer)
+                .Select(ed => ed.DepartmentId)
+                .ToListAsync(ct);
 
-            var deptName = await _db.Departmentes
-                .Where(d => d.Id == deptId)
-                .Select(d => d.nameEn)
-                .FirstOrDefaultAsync(ct);
+            if (!leadDeptIds.Any() && leadEngineer.DepartmentId.HasValue)
+                leadDeptIds.Add(leadEngineer.DepartmentId.Value);
+
+            if (!leadDeptIds.Any()) return (new List<Guid>(), null);
+
+            // Narrow to one of the lead's own departments if requested
+            if (filter.DepartmentId.HasValue)
+                leadDeptIds = leadDeptIds.Where(d => d == filter.DepartmentId.Value).ToList();
+
+            var deptName = leadDeptIds.Count == 1
+                ? await _db.Departmentes
+                    .Where(d => d.Id == leadDeptIds[0])
+                    .Select(d => d.nameEn)
+                    .FirstOrDefaultAsync(ct)
+                : null;
 
             var query = _db.Engineers
-                .Where(e => e.DepartmentId == deptId && !e.IsDeleted);
+                .Where(e => !e.IsDeleted
+                    && (leadDeptIds.Contains(e.DepartmentId ?? Guid.Empty)
+                        || e.EngineerDepartments.Any(ed => leadDeptIds.Contains(ed.DepartmentId))));
 
-            // Team lead can further scope to a specific engineer in their dept
+            // Team lead can further scope to a specific engineer in their dept(s)
             if (filter.EngineerId.HasValue)
                 query = query.Where(e => e.Id == filter.EngineerId.Value);
 

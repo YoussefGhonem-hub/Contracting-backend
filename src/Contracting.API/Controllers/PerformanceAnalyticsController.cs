@@ -22,6 +22,7 @@ public class PerformanceAnalyticsController : APIBaseController
     /// GET /api/performance/site-analytics
     ///
     /// Query params:
+    ///   branchId      — filter by branch (super/admin only)
     ///   departmentId  — filter by dept (super/admin/team-lead)
     ///   engineerId    — scope to one engineer (super/admin/team-lead in same dept)
     ///   fromDate      — start of period (yyyy-MM-dd), default: last 30 days

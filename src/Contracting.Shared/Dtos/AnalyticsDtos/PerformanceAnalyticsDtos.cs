@@ -2,6 +2,7 @@ namespace Contracting.Shared.Dtos.AnalyticsDtos;
 
 public class PerformanceAnalyticsFilterDto
 {
+    public Guid?     BranchId     { get; set; }  // admin/super only — scope to one branch
     public Guid?     DepartmentId { get; set; }
     public Guid?     EngineerId   { get; set; }  // admin/super only — scope to one engineer
     public DateTime? FromDate     { get; set; }
