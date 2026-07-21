@@ -1922,6 +1922,9 @@ public class EngineerRequestService : IEngineerRequestService
         if (filter.DepartmentId.HasValue && filter.DepartmentId.Value != Guid.Empty)
             query = query.Where(r => r.DepartmentId == filter.DepartmentId.Value);
 
+        if (filter.BranchId.HasValue && filter.BranchId.Value != Guid.Empty)
+            query = query.Where(r => r.Department != null && r.Department.BranchId == filter.BranchId.Value);
+
         // Return all without pagination at this stage - pagination happens after combining with other request types
         var requests = await query.ToListAsync(cancellationToken);
 
@@ -2158,6 +2161,12 @@ public class EngineerRequestService : IEngineerRequestService
         // AssignToId for transfers: TransferRequest has no AssignedToId, so filter by RequestedById.
         if (filter.AssignToId.HasValue && filter.AssignToId.Value != Guid.Empty)
             query = query.Where(r => r.RequestedById == filter.AssignToId.Value);
+
+        // BranchId for transfers: TransferRequest has no DepartmentId, so filter via source/destination project's branch.
+        if (filter.BranchId.HasValue && filter.BranchId.Value != Guid.Empty)
+            query = query.Where(r =>
+                (r.SourceProject != null && r.SourceProject.BranchId == filter.BranchId.Value)
+                || (r.DestinationProject != null && r.DestinationProject.BranchId == filter.BranchId.Value));
 
         // Plain status filter — no NeedsAcknowledgment bypass needed because visibility is now
         // gated on StatusId==Completed (not on the transient NeedsAcknowledgment flag).
@@ -2398,6 +2407,9 @@ public class EngineerRequestService : IEngineerRequestService
         if (filter.AssignToId.HasValue && filter.AssignToId.Value != Guid.Empty)
             query = query.Where(r => r.AssignedToId == filter.AssignToId.Value);
 
+        if (filter.BranchId.HasValue && filter.BranchId.Value != Guid.Empty)
+            query = query.Where(r => r.Department != null && r.Department.BranchId == filter.BranchId.Value);
+
         var requests = await query.ToListAsync(cancellationToken);
 
         return requests.Select(r => new GetUnifiedRequestDto
@@ -2614,6 +2626,9 @@ public class EngineerRequestService : IEngineerRequestService
 
         if (filter.AssignToId.HasValue && filter.AssignToId.Value != Guid.Empty)
             query = query.Where(r => r.AssignedToId == filter.AssignToId.Value);
+
+        if (filter.BranchId.HasValue && filter.BranchId.Value != Guid.Empty)
+            query = query.Where(r => r.Department != null && r.Department.BranchId == filter.BranchId.Value);
 
         var requests = await query.ToListAsync(cancellationToken);
 

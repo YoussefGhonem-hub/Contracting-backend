@@ -21,7 +21,6 @@ namespace Contracting.Application.Features.Business.EngineerRequest.Command.Crea
                 .WithMessage(localizer[SharedResourcesKeys.InvalidGuid]);
             
             RuleFor(x => x.Request.Descreption)
-                .NotEmpty().WithMessage(localizer[SharedResourcesKeys.DescriptionRequired])
                 .MaximumLength(10000).WithMessage(string.Format(localizer[SharedResourcesKeys.DescriptionMaxLength], 10000));
         }
     }
