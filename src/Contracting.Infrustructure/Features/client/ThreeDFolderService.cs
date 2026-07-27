@@ -1,6 +1,7 @@
 using Contracting.Domain.Entities.client;
 using Contracting.Infrustructure.Inteface.client;
 using Contracting.Infrustructure.Persistence;
+using Contracting.Shared.Constants;
 using Contracting.Shared.CurrentUser;
 using Contracting.Shared.Dtos.ClientDtos.ThreeDDtos;
 using ErrorOr;
@@ -25,6 +26,11 @@ public class ThreeDFolderService : IThreeDFolderService
 
     private async Task<bool> IsProjectManagerAsync(Guid projectId, CancellationToken ct)
     {
+        var roles = CurrentUser.Roles;
+        var isSuperOrAdmin = roles.Any(r => r.Equals(RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase)
+                                          || r.Equals(RoleNames.Admin, StringComparison.OrdinalIgnoreCase));
+        if (isSuperOrAdmin) return true;
+
         if (!Guid.TryParse(CurrentUser.UserId, out var userId)) return false;
 
         return await _db.EngineerProjects
