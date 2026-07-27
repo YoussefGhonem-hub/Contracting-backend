@@ -13,6 +13,9 @@ namespace Contracting.Domain.Entities.master
         public int? yearExperience { get; set; }
         public string? phoneNumber { get; set; }
         public string? Email { get; set; }
+        // When set, performance/site-analytics calculates this engineer's metrics starting from
+        // this date instead of CreatedDate. Null falls back to CreatedDate.
+        public DateTime? EffectiveDate { get; set; }
         public Guid ApplicationUserId { get; set; }
         public ApplicationUser ApplicationUser { get; set; }
         public Guid? DepartmentId { get; set; }

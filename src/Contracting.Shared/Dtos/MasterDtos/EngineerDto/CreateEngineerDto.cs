@@ -11,6 +11,7 @@
         public int? yearExperience { get; set; }
         public string? phoneNumber { get; set; }
         public string? Email { get; set; }
+        public DateTime? EffectiveDate { get; set; }
         public string? password { get; set; }
         public Guid DepartmentId { get; set; }
         public List<Guid> Roles { get; set; } = new();

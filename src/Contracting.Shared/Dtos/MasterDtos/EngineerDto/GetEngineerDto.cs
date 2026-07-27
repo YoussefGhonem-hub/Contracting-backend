@@ -16,6 +16,7 @@ namespace Contracting.Shared.Dtos.MasterDtos.EngineerDto
         public int? yearExperience { get; set; }
         public string? phoneNumber { get; set; }
         public string? Email { get; set; }
+        public DateTime? EffectiveDate { get; set; }
         public Guid ApplicationUserId { get; set; }
         public List<RoleDropDownDto>? Roles { get; set; }
         public Guid? DepartmentId { get; set; }

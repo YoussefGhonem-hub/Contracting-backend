@@ -23,30 +23,46 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
     public async Task<ErrorOr<PerformanceAnalyticsResponseDto>> GetSiteAnalyticsAsync(
         PerformanceAnalyticsFilterDto filter, CancellationToken ct = default)
     {
-        var from = filter.FromDate ?? DateTime.UtcNow.AddMonths(-1).Date;
-        var to   = (filter.ToDate  ?? DateTime.UtcNow).Date.AddDays(1); // exclusive
+        var to = (filter.ToDate ?? DateTime.UtcNow).Date.AddDays(1); // exclusive
 
-        // Resolve which engineer IDs the caller is allowed to see
-        var (allowedIds, deptName) = await ResolveAllowedEngineersAsync(filter, ct);
-        if (allowedIds is null)
+        // Resolve which engineer IDs the caller is allowed to see (returnIds) vs. who to rank
+        // against for Top Performer (rankingPoolIds — always a superset of returnIds).
+        var (returnIds, rankingPoolIds, deptName) = await ResolveAllowedEngineersAsync(filter, ct);
+        if (returnIds is null)
             return Error.Forbidden("Performance.Forbidden", "You do not have access to this data.");
 
-        // Split by role
-        var siteIds   = await FilterByRoleAsync(allowedIds, RoleNames.Siteengineer,   ct);
-        var officeIds = await FilterByRoleAsync(allowedIds, RoleNames.Officeengineer, ct);
+        // Split the ranking pool by role and compute metrics for everyone in it — ranking must run
+        // against the full peer group, not just whoever the response will return.
+        var rankingSiteIds   = await FilterByRoleAsync(rankingPoolIds, RoleNames.Siteengineer,   ct);
+        var rankingOfficeIds = await FilterByRoleAsync(rankingPoolIds, RoleNames.Officeengineer, ct);
 
-        var siteMetrics   = await BuildSiteMetricsAsync(siteIds,   from, to, ct);
-        var officeMetrics = await BuildOfficeMetricsAsync(officeIds, from, to, ct);
+        // Each engineer's own analysis start date is resolved inside these builders: an explicit
+        // FromDate filter wins for everyone, otherwise it falls back per-engineer to EffectiveDate,
+        // then CreatedDate — see BuildSiteMetricsAsync/BuildOfficeMetricsAsync.
+        var allSiteMetrics   = await BuildSiteMetricsAsync(rankingSiteIds,   filter.FromDate, to, ct);
+        var allOfficeMetrics = await BuildOfficeMetricsAsync(rankingOfficeIds, filter.FromDate, to, ct);
 
-        // Mark top performer (highest composite score)
-        MarkTopPerformer(siteMetrics);
+        // Mark top performer (highest composite score) across the FULL ranking pool, then narrow
+        // down to just what should actually be returned — this way a single-engineer lookup still
+        // shows an honest IsTopPerformer flag instead of trivially always being true.
+        MarkTopPerformer(allSiteMetrics);
 
-        var deptIndex = BuildDeptIndex(siteMetrics, officeMetrics);
+        var deptIndex = BuildDeptIndex(allSiteMetrics, allOfficeMetrics);
+
+        var siteMetrics   = allSiteMetrics.Where(m => returnIds.Contains(m.EngineerId)).ToList();
+        var officeMetrics = allOfficeMetrics.Where(m => returnIds.Contains(m.EngineerId)).ToList();
+
+        // Top-level FromDate is informational only (each engineer's real window is AnalysisFromDate
+        // on their own entry) — show the explicit filter if given, else the earliest one in use.
+        var allFromDates = siteMetrics.Select(m => m.AnalysisFromDate)
+            .Concat(officeMetrics.Select(m => m.AnalysisFromDate))
+            .ToList();
+        var displayFrom = filter.FromDate ?? (allFromDates.Count > 0 ? allFromDates.Min() : DateTime.UtcNow.AddMonths(-1).Date);
 
         return new PerformanceAnalyticsResponseDto
         {
             DepartmentNameEn = deptName,
-            FromDate         = from,
+            FromDate         = displayFrom,
             ToDate           = to.AddDays(-1),
             SiteEngineers    = siteMetrics,
             OfficeEngineers  = officeMetrics,
@@ -55,8 +71,17 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
     }
 
     // ── Authorization: resolve which engineers the caller can see ─────────────
-
-    private async Task<(List<Guid>? ids, string? deptName)> ResolveAllowedEngineersAsync(
+    //
+    // Returns THREE things because "who the caller is allowed to see data for" and "who to compare
+    // against for ranking (Top Performer)" are different scopes: filtering to one engineerId must
+    // narrow what's RETURNED, but ranking still needs to run against the full peer group — otherwise
+    // a single-engineer query trivially "wins" MaxBy over a list of one, making Top Performer always
+    // true for whoever you look up individually.
+    //   - returnIds: engineers whose data should actually be included in the response (privacy/access
+    //     scope, narrowed by filter.EngineerId when provided).
+    //   - rankingPoolIds: the full peer group to rank against (same access scope, WITHOUT the
+    //     engineerId narrowing) — always a superset of returnIds.
+    private async Task<(List<Guid>? returnIds, List<Guid> rankingPoolIds, string? deptName)> ResolveAllowedEngineersAsync(
         PerformanceAnalyticsFilterDto filter, CancellationToken ct)
     {
         var roles = CurrentUser.Roles;
@@ -97,22 +122,26 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
                     .FirstOrDefaultAsync(ct);
             }
 
-            if (filter.EngineerId.HasValue)
-                query = query.Where(e => e.Id == filter.EngineerId.Value);
+            // Ranking pool: everyone in the branch/department scope above, BEFORE the engineerId
+            // narrowing, so a single-engineer lookup still ranks against their real peers.
+            var rankingPoolIds = await query.Select(e => e.Id).ToListAsync(ct);
 
-            var ids = await query.Select(e => e.Id).ToListAsync(ct);
-            return (ids, deptName);
+            var returnIds = rankingPoolIds;
+            if (filter.EngineerId.HasValue)
+                returnIds = rankingPoolIds.Where(id => id == filter.EngineerId.Value).ToList();
+
+            return (returnIds, rankingPoolIds, deptName);
         }
 
         // ── Team Lead ──────────────────────────────────────────────────────
         if (isTeamLead)
         {
             if (!Guid.TryParse(CurrentUser.UserId, out var userId))
-                return (null, null);
+                return (null, new List<Guid>(), null);
 
             var leadEngineer = await _db.Engineers
                 .FirstOrDefaultAsync(e => e.ApplicationUserId == userId && !e.IsDeleted, ct);
-            if (leadEngineer is null) return (null, null);
+            if (leadEngineer is null) return (null, new List<Guid>(), null);
 
             // A team lead can lead more than one department via EngineerDepartments — the legacy
             // single Engineer.DepartmentId is only a fallback for engineers never migrated to it.
@@ -124,7 +153,7 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
             if (!leadDeptIds.Any() && leadEngineer.DepartmentId.HasValue)
                 leadDeptIds.Add(leadEngineer.DepartmentId.Value);
 
-            if (!leadDeptIds.Any()) return (new List<Guid>(), null);
+            if (!leadDeptIds.Any()) return (new List<Guid>(), new List<Guid>(), null);
 
             // Narrow to one of the lead's own departments if requested
             if (filter.DepartmentId.HasValue)
@@ -142,29 +171,50 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
                     && (leadDeptIds.Contains(e.DepartmentId ?? Guid.Empty)
                         || e.EngineerDepartments.Any(ed => leadDeptIds.Contains(ed.DepartmentId))));
 
-            // Team lead can further scope to a specific engineer in their dept(s)
-            if (filter.EngineerId.HasValue)
-                query = query.Where(e => e.Id == filter.EngineerId.Value);
+            // Ranking pool: everyone in the lead's department(s), BEFORE the engineerId narrowing.
+            var rankingPoolIds = await query.Select(e => e.Id).ToListAsync(ct);
 
-            var ids = await query.Select(e => e.Id).ToListAsync(ct);
-            return (ids, deptName);
+            var returnIds = rankingPoolIds;
+            if (filter.EngineerId.HasValue)
+                returnIds = rankingPoolIds.Where(id => id == filter.EngineerId.Value).ToList();
+
+            return (returnIds, rankingPoolIds, deptName);
         }
 
-        // ── Site/Office Engineer — see only self ───────────────────────────
+        // ── Site/Office Engineer — see only self, but rank against their department peers ──
         if (isSelf)
         {
             if (!Guid.TryParse(CurrentUser.UserId, out var userId))
-                return (null, null);
+                return (null, new List<Guid>(), null);
 
             var engineer = await _db.Engineers
                 .Include(e => e.Department)
                 .FirstOrDefaultAsync(e => e.ApplicationUserId == userId && !e.IsDeleted, ct);
-            if (engineer is null) return (null, null);
+            if (engineer is null) return (null, new List<Guid>(), null);
 
-            return (new List<Guid> { engineer.Id }, engineer.Department?.nameEn);
+            var deptIds = await _db.EngineerDepartments
+                .Where(ed => ed.EngineerId == engineer.Id)
+                .Select(ed => ed.DepartmentId)
+                .ToListAsync(ct);
+            if (engineer.DepartmentId.HasValue && !deptIds.Contains(engineer.DepartmentId.Value))
+                deptIds.Add(engineer.DepartmentId.Value);
+
+            // Rank against every engineer sharing at least one department with this engineer — a
+            // "Top Performer" badge on a self-view is only meaningful compared to real peers, not
+            // computed over a list containing just this one engineer.
+            var rankingPoolIds = deptIds.Any()
+                ? await _db.Engineers
+                    .Where(e => !e.IsDeleted
+                        && (deptIds.Contains(e.DepartmentId ?? Guid.Empty)
+                            || e.EngineerDepartments.Any(ed => deptIds.Contains(ed.DepartmentId))))
+                    .Select(e => e.Id)
+                    .ToListAsync(ct)
+                : new List<Guid> { engineer.Id };
+
+            return (new List<Guid> { engineer.Id }, rankingPoolIds, engineer.Department?.nameEn);
         }
 
-        return (null, null);
+        return (null, new List<Guid>(), null);
     }
 
     // ── Filter engineer IDs by ASP.NET Core role ──────────────────────────────
@@ -200,11 +250,9 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
     // ── Site Engineer Metrics ─────────────────────────────────────────────────
 
     private async Task<List<SiteEngineerPerformanceDto>> BuildSiteMetricsAsync(
-        List<Guid> engineerIds, DateTime from, DateTime to, CancellationToken ct)
+        List<Guid> engineerIds, DateTime? explicitFrom, DateTime to, CancellationToken ct)
     {
         if (engineerIds.Count == 0) return new List<SiteEngineerPerformanceDto>();
-
-        var workingDays = CountWorkingDays(from, to.AddDays(-1));
 
         // Bulk-load engineers
         var engineers = await _db.Engineers
@@ -220,15 +268,18 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
             .ToListAsync(ct);
         var projectCountDict = projectCountsRaw.ToDictionary(x => x.EngineerId, x => x.Count);
 
-        // Bulk-load site reports in period
+        // Bulk-load site reports up to the period end — each engineer's own lower bound
+        // (explicit FromDate filter, else EffectiveDate, else CreatedDate) is applied below,
+        // since it can differ per engineer.
         var reports = await _db.EngineerSiteReports
             .Where(r => engineerIds.Contains(r.EngineerId)
-                     && r.ReportDate >= from && r.ReportDate < to
+                     && r.ReportDate < to
                      && !r.IsDeleted)
             .Select(r => new { r.EngineerId, r.ReportDate })
             .ToListAsync(ct);
 
-        // Bulk-load requests created by these engineers in period
+        // Bulk-load requests created by these engineers up to the period end — same per-engineer
+        // lower-bound reasoning as reports above.
         var requests = await _db.EngineerRequests
             .Include(r => r.Priority)
             .Include(r => r.Status)
@@ -236,7 +287,7 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
                 .ThenInclude(a => a.Status)
             .Where(r => r.EngineerId != null
                      && engineerIds.Contains(r.EngineerId!.Value)
-                     && r.CreatedDate >= from && r.CreatedDate < to
+                     && r.CreatedDate < to
                      && !r.IsDeleted)
             .ToListAsync(ct);
 
@@ -244,8 +295,12 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
 
         foreach (var eng in engineers)
         {
-            var myReports  = reports.Where(r => r.EngineerId == eng.Id).ToList();
-            var myRequests = requests.Where(r => r.EngineerId == eng.Id).ToList();
+            // Per-engineer analysis start: explicit filter wins, else EffectiveDate, else CreatedDate.
+            var myFrom = explicitFrom ?? eng.EffectiveDate ?? eng.CreatedDate.Date;
+            var workingDays = CountWorkingDays(myFrom, to.AddDays(-1));
+
+            var myReports  = reports.Where(r => r.EngineerId == eng.Id && r.ReportDate >= myFrom).ToList();
+            var myRequests = requests.Where(r => r.EngineerId == eng.Id && r.CreatedDate >= myFrom).ToList();
 
             // Report Completion — engineer must submit one report per project per working day
             int projectCount    = projectCountDict.TryGetValue(eng.Id, out var pc) ? Math.Max(pc, 1) : 1;
@@ -303,6 +358,7 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
                 NameAr                 = eng.nameAr,
                 Position               = eng.position,
                 DepartmentNameEn       = eng.Department?.nameEn,
+                AnalysisFromDate       = myFrom,
                 ReportCompletionRate   = completionRate,
                 ReportsSubmitted       = submitted,
                 WorkingDaysInPeriod    = workingDays,
@@ -327,7 +383,7 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
     // ── Office Engineer Metrics ───────────────────────────────────────────────
 
     private async Task<List<OfficeEngineerPerformanceDto>> BuildOfficeMetricsAsync(
-        List<Guid> engineerIds, DateTime from, DateTime to, CancellationToken ct)
+        List<Guid> engineerIds, DateTime? explicitFrom, DateTime to, CancellationToken ct)
     {
         if (engineerIds.Count == 0) return new List<OfficeEngineerPerformanceDto>();
 
@@ -336,7 +392,9 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
             .Where(e => engineerIds.Contains(e.Id) && !e.IsDeleted)
             .ToListAsync(ct);
 
-        // Requests assigned TO these office engineers in period
+        // Requests assigned TO these office engineers up to the period end — each engineer's own
+        // lower bound (explicit FromDate filter, else EffectiveDate, else CreatedDate) is applied
+        // below, since it can differ per engineer.
         var requests = await _db.EngineerRequests
             .Include(r => r.Priority)
             .Include(r => r.Status)
@@ -345,7 +403,7 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
                 .ThenInclude(a => a.Status)
             .Where(r => r.assignToId != null
                      && engineerIds.Contains(r.assignToId!.Value)
-                     && r.CreatedDate >= from && r.CreatedDate < to
+                     && r.CreatedDate < to
                      && !r.IsDeleted)
             .ToListAsync(ct);
 
@@ -353,7 +411,9 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
 
         foreach (var eng in engineers)
         {
-            var myRequests = requests.Where(r => r.assignToId == eng.Id).ToList();
+            // Per-engineer analysis start: explicit filter wins, else EffectiveDate, else CreatedDate.
+            var myFrom = explicitFrom ?? eng.EffectiveDate ?? eng.CreatedDate.Date;
+            var myRequests = requests.Where(r => r.assignToId == eng.Id && r.CreatedDate >= myFrom).ToList();
 
             // Avg Response Time — from request creation to first activity by this engineer
             var responseTimes = new List<double>();
@@ -429,6 +489,7 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
                 NameAr                 = eng.nameAr,
                 Position               = eng.position,
                 DepartmentNameEn       = eng.Department?.nameEn,
+                AnalysisFromDate       = myFrom,
                 AvgResponseTimeHours   = avgResponse,
                 TotalRequests          = myRequests.Count,
                 OnTimeDeliveryRate     = onTimeRate,
@@ -538,22 +599,28 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
     public async Task<ErrorOr<FullPerformanceReportDto>> GetFullReportAsync(
         PerformanceAnalyticsFilterDto filter, CancellationToken ct = default)
     {
-        var from = filter.FromDate ?? DateTime.UtcNow.AddMonths(-1).Date;
-        var to   = (filter.ToDate  ?? DateTime.UtcNow).Date.AddDays(1);
+        var to = (filter.ToDate ?? DateTime.UtcNow).Date.AddDays(1);
 
-        var (allowedIds, deptName) = await ResolveAllowedEngineersAsync(filter, ct);
-        if (allowedIds is null)
+        // returnIds: who the response should actually include. rankingPoolIds: the full peer group
+        // to rank against (superset of returnIds) — see ResolveAllowedEngineersAsync for why these
+        // must be different when an engineerId filter is given.
+        var (returnIds, rankingPoolIds, deptName) = await ResolveAllowedEngineersAsync(filter, ct);
+        if (returnIds is null)
             return Error.Forbidden("Performance.Forbidden", "You do not have access to this data.");
 
-        var siteIds   = await FilterByRoleAsync(allowedIds, RoleNames.Siteengineer,   ct);
-        var officeIds = await FilterByRoleAsync(allowedIds, RoleNames.Officeengineer, ct);
+        var siteIds   = await FilterByRoleAsync(rankingPoolIds, RoleNames.Siteengineer,   ct);
+        var officeIds = await FilterByRoleAsync(rankingPoolIds, RoleNames.Officeengineer, ct);
 
-        // Reuse base metrics
-        var siteBase   = await BuildSiteMetricsAsync(siteIds,   from, to, ct);
-        var officeBase = await BuildOfficeMetricsAsync(officeIds, from, to, ct);
+        // Reuse base metrics — each engineer's own analysis start date (explicit FromDate filter,
+        // else EffectiveDate, else CreatedDate) is resolved inside these builders. Computed over the
+        // full ranking pool so MarkTopPerformer below ranks against real peers.
+        var siteBase   = await BuildSiteMetricsAsync(siteIds,   filter.FromDate, to, ct);
+        var officeBase = await BuildOfficeMetricsAsync(officeIds, filter.FromDate, to, ct);
         MarkTopPerformer(siteBase);
 
         // ── Site engineers: enrich with priority breakdown ────────────────────
+        // Bounded only by period end here — each engineer's own AnalysisFromDate (computed above)
+        // is applied per-engineer below, since it can differ per engineer.
         var siteRequests = await _db.EngineerRequests
             .Include(r => r.Priority)
             .Include(r => r.Status)
@@ -561,13 +628,13 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
                 .ThenInclude(a => a.Status)
             .Where(r => r.EngineerId != null
                      && siteIds.Contains(r.EngineerId!.Value)
-                     && r.CreatedDate >= from && r.CreatedDate < to
+                     && r.CreatedDate < to
                      && !r.IsDeleted)
             .ToListAsync(ct);
 
-        var siteFullList = siteBase.Select(dto =>
+        var siteFullListAll = siteBase.Select(dto =>
         {
-            var mine = siteRequests.Where(r => r.EngineerId == dto.EngineerId).ToList();
+            var mine = siteRequests.Where(r => r.EngineerId == dto.EngineerId && r.CreatedDate >= dto.AnalysisFromDate).ToList();
             int high   = mine.Count(r => r.Priority?.nameEn?.Contains("high",   StringComparison.OrdinalIgnoreCase) == true || r.Priority?.code?.Contains("high", StringComparison.OrdinalIgnoreCase) == true);
             int medium = mine.Count(r => r.Priority?.nameEn?.Contains("medium", StringComparison.OrdinalIgnoreCase) == true || r.Priority?.code?.Contains("medium", StringComparison.OrdinalIgnoreCase) == true);
             int low    = mine.Count(r => r.Priority?.nameEn?.Contains("low",    StringComparison.OrdinalIgnoreCase) == true || r.Priority?.code?.Contains("low", StringComparison.OrdinalIgnoreCase) == true);
@@ -580,6 +647,7 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
                 NameAr                 = dto.NameAr,
                 Position               = dto.Position,
                 DepartmentNameEn       = dto.DepartmentNameEn,
+                AnalysisFromDate       = dto.AnalysisFromDate,
                 IsTopPerformer         = dto.IsTopPerformer,
                 ReportCompletionRate   = dto.ReportCompletionRate,
                 ReportsSubmitted       = dto.ReportsSubmitted,
@@ -604,13 +672,13 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
             .Include(r => r.Status)
             .Where(r => r.assignToId != null
                      && officeIds.Contains(r.assignToId!.Value)
-                     && r.CreatedDate >= from && r.CreatedDate < to
+                     && r.CreatedDate < to
                      && !r.IsDeleted)
             .ToListAsync(ct);
 
-        var officeFullList = officeBase.Select(dto =>
+        var officeFullListAll = officeBase.Select(dto =>
         {
-            var mine = officeRequests.Where(r => r.assignToId == dto.EngineerId).ToList();
+            var mine = officeRequests.Where(r => r.assignToId == dto.EngineerId && r.CreatedDate >= dto.AnalysisFromDate).ToList();
             int inProg  = mine.Count(r => r.Status?.Code != MasterStatusCodes.Completed && r.Status?.Code != MasterStatusCodes.Rejected);
             int pending = mine.Count(r => r.Status?.Code == null);
             double composite = Math.Round(
@@ -625,6 +693,7 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
                 NameAr                 = dto.NameAr,
                 Position               = dto.Position,
                 DepartmentNameEn       = dto.DepartmentNameEn,
+                AnalysisFromDate       = dto.AnalysisFromDate,
                 AvgResponseTimeHours   = dto.AvgResponseTimeHours,
                 OnTimeDeliveryRate     = dto.OnTimeDeliveryRate,
                 OnTimeDeliveries       = dto.OnTimeDeliveries,
@@ -637,21 +706,28 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
             };
         }).OrderByDescending(e => e.CompositeScore).ToList();
 
-        // ── Summary ───────────────────────────────────────────────────────────
-        int totalReq  = siteFullList.Sum(e => e.TotalRequests);
-        int totalComp = siteFullList.Sum(e => e.TotalCompletedRequests);
-        int totalHigh = siteFullList.Sum(e => e.HighPriorityRequests);
-        int totalReps = siteFullList.Sum(e => e.ReportsSubmitted);
-        var topPerf   = siteFullList.FirstOrDefault(e => e.IsTopPerformer);
+        // Aggregate stats (Summary/ScoreBreakdown/DeptIndex below) are computed over the FULL ranking
+        // pool — they represent department-wide standing and must not shrink just because the caller
+        // filtered the returned list down to one engineer. The SiteEngineers/OfficeEngineers arrays
+        // actually returned are narrowed to returnIds further below.
+        var siteFullList   = siteFullListAll.Where(e => returnIds.Contains(e.EngineerId)).ToList();
+        var officeFullList = officeFullListAll.Where(e => returnIds.Contains(e.EngineerId)).ToList();
 
-        double avgCompletion = siteFullList.Count > 0 ? siteFullList.Average(e => e.ReportCompletionRate) : 0;
-        double avgQuality    = siteFullList.Count > 0 ? siteFullList.Average(e => e.RequestQualityScore)  : 0;
-        double avgOnTime     = officeFullList.Count > 0 ? officeFullList.Average(e => e.OnTimeDeliveryRate) : 0;
+        // ── Summary ───────────────────────────────────────────────────────────
+        int totalReq  = siteFullListAll.Sum(e => e.TotalRequests);
+        int totalComp = siteFullListAll.Sum(e => e.TotalCompletedRequests);
+        int totalHigh = siteFullListAll.Sum(e => e.HighPriorityRequests);
+        int totalReps = siteFullListAll.Sum(e => e.ReportsSubmitted);
+        var topPerf   = siteFullListAll.FirstOrDefault(e => e.IsTopPerformer);
+
+        double avgCompletion = siteFullListAll.Count > 0 ? siteFullListAll.Average(e => e.ReportCompletionRate) : 0;
+        double avgQuality    = siteFullListAll.Count > 0 ? siteFullListAll.Average(e => e.RequestQualityScore)  : 0;
+        double avgOnTime     = officeFullListAll.Count > 0 ? officeFullListAll.Average(e => e.OnTimeDeliveryRate) : 0;
 
         var summary = new FullReportSummaryDto
         {
-            TotalSiteEngineers    = siteFullList.Count,
-            TotalOfficeEngineers  = officeFullList.Count,
+            TotalSiteEngineers    = siteFullListAll.Count,
+            TotalOfficeEngineers  = officeFullListAll.Count,
             TotalRequests         = totalReq,
             TotalCompleted        = totalComp,
             TotalHighPriority     = totalHigh,
@@ -664,9 +740,9 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
         };
 
         // ── Score Breakdown ───────────────────────────────────────────────────
-        double highPrioAvg  = siteFullList.Count > 0 ? siteFullList.Average(e => e.UrgentRequestsRatio) : 0;
-        double responseAvg  = officeFullList.Count > 0 ? officeFullList.Average(e => e.AvgResponseTimeHours) : 0;
-        double violAvg      = officeFullList.Count > 0 ? officeFullList.Average(e => e.DeliveryDateViolations) : 0;
+        double highPrioAvg  = siteFullListAll.Count > 0 ? siteFullListAll.Average(e => e.UrgentRequestsRatio) : 0;
+        double responseAvg  = officeFullListAll.Count > 0 ? officeFullListAll.Average(e => e.AvgResponseTimeHours) : 0;
+        double violAvg      = officeFullListAll.Count > 0 ? officeFullListAll.Average(e => e.DeliveryDateViolations) : 0;
 
         var scoreBreakdown = new ScoreBreakdownDto
         {
@@ -694,12 +770,12 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
         if (highPrioAvg > 40)
             insights.Add(new ReportInsightDto { Type = "warning", Message = $"{highPrioAvg:F0}% of requests are high-priority — team may be under pressure. Consider workload balancing." });
 
-        if (avgOnTime < 70 && officeFullList.Count > 0)
+        if (avgOnTime < 70 && officeFullListAll.Count > 0)
             insights.Add(new ReportInsightDto { Type = "warning", Message = $"On-time delivery rate is {avgOnTime:F0}% — below target. Office engineers should review deadline management." });
-        else if (avgOnTime >= 90 && officeFullList.Count > 0)
+        else if (avgOnTime >= 90 && officeFullListAll.Count > 0)
             insights.Add(new ReportInsightDto { Type = "success", Message = $"On-time delivery rate of {avgOnTime:F0}% — excellent delivery performance." });
 
-        if (responseAvg > 8 && officeFullList.Count > 0)
+        if (responseAvg > 8 && officeFullListAll.Count > 0)
             insights.Add(new ReportInsightDto { Type = "warning", Message = $"Average response time is {responseAvg:F1}h — exceeds the 8-hour target. Prioritize faster initial responses." });
 
         if (insights.Count == 0)
@@ -707,11 +783,22 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
 
         var deptIndex = BuildDeptIndex(siteBase, officeBase);
 
+        // Top-level FromDate is informational only (each engineer's real window is AnalysisFromDate
+        // on their own entry) — show the explicit filter if given, else the earliest one in use.
+        var allFromDates = siteFullList.Select(m => m.AnalysisFromDate)
+            .Concat(officeFullList.Select(m => m.AnalysisFromDate))
+            .ToList();
+        if (allFromDates.Count == 0)
+            allFromDates = siteFullListAll.Select(m => m.AnalysisFromDate)
+                .Concat(officeFullListAll.Select(m => m.AnalysisFromDate))
+                .ToList();
+        var displayFrom = filter.FromDate ?? (allFromDates.Count > 0 ? allFromDates.Min() : DateTime.UtcNow.AddMonths(-1).Date);
+
         return new FullPerformanceReportDto
         {
             DepartmentNameEn = deptName,
             GeneratedAt      = DateTime.UtcNow,
-            FromDate         = from,
+            FromDate         = displayFrom,
             ToDate           = to.AddDays(-1),
             DeptIndex        = deptIndex,
             ScoreBreakdown   = scoreBreakdown,

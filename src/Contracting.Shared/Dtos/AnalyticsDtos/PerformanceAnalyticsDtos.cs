@@ -20,6 +20,10 @@ public class SiteEngineerPerformanceDto
     public string? DepartmentNameEn { get; set; }
     public bool    IsTopPerformer   { get; set; }
 
+    // The actual start date used to calculate this engineer's metrics: an explicit FromDate filter
+    // if one was given, otherwise this engineer's EffectiveDate, otherwise their CreatedDate.
+    public DateTime AnalysisFromDate { get; set; }
+
     // Report Completion
     public double ReportCompletionRate  { get; set; }   // 0–100
     public int    ReportsSubmitted      { get; set; }
@@ -57,6 +61,10 @@ public class OfficeEngineerPerformanceDto
     public string? NameAr           { get; set; }
     public string? Position         { get; set; }
     public string? DepartmentNameEn { get; set; }
+
+    // The actual start date used to calculate this engineer's metrics: an explicit FromDate filter
+    // if one was given, otherwise this engineer's EffectiveDate, otherwise their CreatedDate.
+    public DateTime AnalysisFromDate { get; set; }
 
     // Response Time
     public double AvgResponseTimeHours { get; set; }   // hours, target < 8

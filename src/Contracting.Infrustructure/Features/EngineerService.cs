@@ -71,6 +71,7 @@ namespace Contracting.Infrustructure.Features
             engineer.phoneNumber = dto.phoneNumber;
             engineer.yearExperience = dto.yearExperience;
             engineer.Email = dto.Email;
+            engineer.EffectiveDate = dto.EffectiveDate;
 
             // Change department if provided
             if (dto.ChangeDepartmentId.HasValue)
