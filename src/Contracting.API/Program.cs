@@ -21,8 +21,35 @@ using Hangfire;
 using Hangfire.MemoryStorage;
 using Storage.AWS3;
 using Emails.Mailersend;
+using Microsoft.AspNetCore.Http.Features;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Large file uploads (100MB+) were timing out — three separate defaults were too small for them:
+//   1. Kestrel's MaxRequestBodySize defaults to ~28.6MB.
+//   2. Kestrel kills a request whose upload speed drops below MinRequestBodyDataRate (240 B/s by
+//      default) for more than a few seconds — very easy to hit on a slow/mobile connection uploading
+//      a large file, and this looks exactly like a "timeout" to the client.
+//   3. FormOptions.MultipartBodyLengthLimit defaults to 128MB.
+// Raised generously (500MB) and the data-rate check disabled so slow connections aren't punished;
+// applies to every endpoint, not just file-upload ones, so no per-controller attributes needed.
+const long MaxUploadBytes = 500L * 1024 * 1024; // 500 MB
+
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.Limits.MaxRequestBodySize = MaxUploadBytes;
+    serverOptions.Limits.MinRequestBodyDataRate = null;
+    serverOptions.Limits.MinResponseDataRate = null;
+    serverOptions.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(15);
+    serverOptions.Limits.RequestHeadersTimeout = TimeSpan.FromMinutes(2);
+});
+
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = MaxUploadBytes;
+    options.ValueLengthLimit = int.MaxValue;
+    options.MultipartHeadersLengthLimit = int.MaxValue;
+});
 
 builder.Services.AddPresentation(builder.Configuration);
 builder.Services.AddApplicationServices();

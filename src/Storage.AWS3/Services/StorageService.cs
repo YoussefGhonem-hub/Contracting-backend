@@ -1,4 +1,5 @@
 ﻿using Amazon;
+using Amazon.Runtime;
 using Amazon.S3;
 using Amazon.S3.Model;
 using Amazon.S3.Transfer;
@@ -54,7 +55,7 @@ namespace Storage.AWS3.Services
 
                 uploadRequest.Metadata.Add("Content-Type", uploadRequest.ContentType);
 
-                var client = new AmazonS3Client(credential, region);
+                var client = CreateS3Client(credential, region);
                 await EnsureBucketExistsAsync(client, bucketName, region, cancellationToken);
 
                 // Upload to S3
@@ -96,7 +97,7 @@ namespace Storage.AWS3.Services
             if (credential == null)
                 throw new ArgumentException("AWS credentials not found.");
 
-            var client = new AmazonS3Client(credential, region);
+            var client = CreateS3Client(credential, region);
 
             var fileTransferUtility = new TransferUtility(client);
             var key = Guid.NewGuid();
@@ -139,7 +140,7 @@ namespace Storage.AWS3.Services
             };
             uploadRequest.Metadata.Add("Content-Type", uploadRequest.ContentType);
 
-            var client = new AmazonS3Client(credential, region);
+            var client = CreateS3Client(credential, region);
             await EnsureBucketExistsAsync(client, bucketName, region, cancellationToken);
             await client.PutObjectAsync(uploadRequest, cancellationToken);
 
@@ -177,7 +178,7 @@ namespace Storage.AWS3.Services
             var credential = AWS3ConfigurationExtension.GetBasicAWSCredentials(_configuration);
             var bucketName = options.DefaultBucket;
 
-            var client = new AmazonS3Client(credential, region);
+            var client = CreateS3Client(credential, region);
             await EnsureBucketExistsAsync(client, bucketName, region, cancellationToken);
 
             var deleteRequest = new DeleteObjectRequest
@@ -209,7 +210,7 @@ namespace Storage.AWS3.Services
                 var credential = AWS3ConfigurationExtension.GetBasicAWSCredentials(_configuration);
                 var bucketName = options.DefaultBucket;
 
-                var client = new AmazonS3Client(credential, region);
+                var client = CreateS3Client(credential, region);
                 await EnsureBucketExistsAsync(client, bucketName, region, cancellationToken);
 
                 // Generate a pre-signed URL for the object with a specific key
@@ -242,7 +243,7 @@ namespace Storage.AWS3.Services
             var bucketName = options.DefaultBucket;
             var region = RegionEndpoint.EUNorth1;
             var credential = AWS3ConfigurationExtension.GetBasicAWSCredentials(_configuration);
-            using (var s3Client = new AmazonS3Client(credential, region))
+            using (var s3Client = CreateS3Client(credential, region))
             {
                 using (var transferUtility = new TransferUtility(s3Client))
                 {
@@ -319,7 +320,7 @@ namespace Storage.AWS3.Services
                 var credential = AWS3ConfigurationExtension.GetBasicAWSCredentials(_configuration);
                 if (credential == null) return null;
 
-                using var client = new AmazonS3Client(credential, region);
+                using var client = CreateS3Client(credential, region);
                 var request = new GetPreSignedUrlRequest
                 {
                     BucketName = _bucketName,
@@ -347,6 +348,20 @@ namespace Storage.AWS3.Services
             return $"https://{bucketName}.s3.{region}.amazonaws.com/{key}";
         }
         #region Helpers
+
+        // Centralizes AmazonS3Client creation so every call site gets a generous timeout — the AWS
+        // SDK's default HTTP timeout (~100s) was aborting PutObject/GetObject calls for large
+        // (100MB+) files before the transfer to S3 even finished.
+        private static AmazonS3Client CreateS3Client(BasicAWSCredentials credential, RegionEndpoint region)
+        {
+            var config = new AmazonS3Config
+            {
+                RegionEndpoint = region,
+                Timeout = TimeSpan.FromMinutes(15)
+            };
+            return new AmazonS3Client(credential, config);
+        }
+
         private static string GetFileName(Guid blobId, string contentType)
         {
             var fileSplit = contentType.Split('.');
