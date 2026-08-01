@@ -55,8 +55,11 @@ public class ChatService : IChatService
 
         if (group is not null)
         {
+            var existingMemberIds = group.Members.Select(m => m.ApplicationUserId).ToHashSet();
+            var membersChanged = false;
+
             // Auto-add caller as a member if they are not already in the group
-            if (callerId.HasValue && !group.Members.Any(m => m.ApplicationUserId == callerId.Value))
+            if (callerId.HasValue && !existingMemberIds.Contains(callerId.Value))
             {
                 _db.ChatGroupMembers.Add(new ChatGroupMember
                 {
@@ -64,6 +67,34 @@ public class ChatService : IChatService
                     ApplicationUserId = callerId.Value,
                     MemberType = "TeamMember"
                 });
+                existingMemberIds.Add(callerId.Value);
+                membersChanged = true;
+            }
+
+            // Sync in any project clients that were attached after the group was created —
+            // otherwise a client added later never gets retro-added and is silently left out of the chat.
+            var projectClientUserIds = await _db.ClientProjects
+                .Where(cp => cp.ProjectId == projectId)
+                .Select(cp => cp.Client.ApplicationUserId)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            foreach (var clientUserId in projectClientUserIds)
+            {
+                if (existingMemberIds.Contains(clientUserId)) continue;
+
+                _db.ChatGroupMembers.Add(new ChatGroupMember
+                {
+                    ChatGroupId = group.Id,
+                    ApplicationUserId = clientUserId,
+                    MemberType = "Client"
+                });
+                existingMemberIds.Add(clientUserId);
+                membersChanged = true;
+            }
+
+            if (membersChanged)
+            {
                 await _db.SaveChangesAsync(cancellationToken);
 
                 // Reload so returned members list is up to date
@@ -101,18 +132,21 @@ public class ChatService : IChatService
             });
         }
 
-        // Auto-add the client of this project as a member
-        var clientUser = await _db.ClientProjects
+        // Auto-add every client attached to this project as a member (a project can have multiple clients)
+        var clientUserIds = await _db.ClientProjects
             .Where(cp => cp.ProjectId == projectId)
-            .Select(cp => new { cp.Client.ApplicationUserId })
-            .FirstOrDefaultAsync(cancellationToken);
+            .Select(cp => cp.Client.ApplicationUserId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
 
-        if (clientUser is not null && clientUser.ApplicationUserId != callerId)
+        foreach (var clientUserId in clientUserIds)
         {
+            if (clientUserId == callerId) continue;
+
             _db.ChatGroupMembers.Add(new ChatGroupMember
             {
                 ChatGroupId = group.Id,
-                ApplicationUserId = clientUser.ApplicationUserId,
+                ApplicationUserId = clientUserId,
                 MemberType = "Client"
             });
         }
