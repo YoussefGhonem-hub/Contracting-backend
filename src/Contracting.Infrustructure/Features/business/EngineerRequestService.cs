@@ -3163,9 +3163,16 @@ public class EngineerRequestService : IEngineerRequestService
         // If user changes status after delay, it won't be changed back to Delayed
         if (delayedStatusId.HasValue && inProgressStatusId.HasValue)
         {
+            // A request only becomes Delayed once its end-date DAY has fully ended — i.e. we are now
+            // on a later calendar day than endDate. Because endDate is stored at the start of its day
+            // (midnight), comparing against the start of today keeps the request InProgress for the
+            // whole of its end-date day and flips it to Delayed at midnight the following day, rather
+            // than at the start of the end-date day.
+            var startOfToday = now.Date;
+
             var delayCandidates = await _db.EngineerRequests
                 .Where(r => r.endDate.HasValue
-                            && r.endDate.Value <= now
+                            && r.endDate.Value < startOfToday
                             && r.StatusId == inProgressStatusId.Value
                             && !completedStatusIds.Contains(r.StatusId))
                 .ToListAsync(cancellationToken);
