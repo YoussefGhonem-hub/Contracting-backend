@@ -308,7 +308,16 @@ namespace Contracting.Infrustructure.Features.business
             return GenericResponse.SuccessResult("Deleted successfully.");
         }
 
-        public async Task<ErrorOr<GetFinancialClearanceDto>> GetByIdAsync(Guid id)
+        public Task<ErrorOr<GetFinancialClearanceDto>> GetByIdAsync(Guid id)
+            => GetByIdCoreAsync(id, applyVisibility: true);
+
+        // Used by the anonymous printable-report endpoint: the visibility filter
+        // reads CurrentUser and would return an empty set for anonymous callers.
+        // Access control for this path is the unguessable request GUID.
+        public Task<ErrorOr<GetFinancialClearanceDto>> GetByIdForPublicReportAsync(Guid id)
+            => GetByIdCoreAsync(id, applyVisibility: false);
+
+        private async Task<ErrorOr<GetFinancialClearanceDto>> GetByIdCoreAsync(Guid id, bool applyVisibility)
         {
             var query = _db.FinancialClearances
                 .Include(c => c.Items)
@@ -324,7 +333,8 @@ namespace Contracting.Infrustructure.Features.business
                 .Where(c => c.Id == id && !c.IsDeleted)
                 .AsNoTracking();
 
-            query = await ApplyFinancialClearanceVisibilityAsync(query);
+            if (applyVisibility)
+                query = await ApplyFinancialClearanceVisibilityAsync(query);
             var clearance = await query.FirstOrDefaultAsync();
 
             if (clearance is null) return Error.NotFound("FinancialClearance.NotFound", "Financial clearance not found.");

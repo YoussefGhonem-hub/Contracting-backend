@@ -11,6 +11,8 @@ namespace Contracting.Infrustructure.Inteface.business
         Task<ErrorOr<GetFinancialClearanceDto>> UpdateAsync(UpdateFinancialClearanceDto dto);
         Task<ErrorOr<GenericResponse>> DeleteAsync(Guid id);
         Task<ErrorOr<GetFinancialClearanceDto>> GetByIdAsync(Guid id);
+        /// <summary>Anonymous printable-report read — skips the CurrentUser visibility filter.</summary>
+        Task<ErrorOr<GetFinancialClearanceDto>> GetByIdForPublicReportAsync(Guid id);
         Task<PaginatedList<GetFinancialClearanceDto>> GetAllAsync(FinancialClearanceFilterDto filter);
         Task<ErrorOr<GetFinancialClearanceDto>> TakeActionAsync(Guid id, FinancialClearanceActionDto dto);
         Task<ErrorOr<GetFinancialClearanceDto>> ReassignAsync(Guid id, ReassignFinancialClearanceDto dto);

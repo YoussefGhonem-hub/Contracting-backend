@@ -9,6 +9,7 @@ using Contracting.Application.Features.Business.EngineerRequest.Command.UpdateEn
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetAllRequestsByDepartment;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetAllInternalRequests;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetEngineerRequestsByFilter;
+using Contracting.Application.Features.Business.EngineerRequest.Query.GetPublicRequestReport;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequestActivities;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequestById;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetRequestCreatedOrApplyToEngineer;
@@ -142,6 +143,21 @@ namespace Contracting.API.Controllers
 
             return result.Match(
                 request => Ok(request),
+                errors => Problem(errors)
+            );
+        }
+
+        // Public printable report — anonymous access by unguessable GUID (same pattern as
+        // EngineerSiteReport public endpoints). Returns request details + creator/approver
+        // signatories with freshly pre-signed signature URLs.
+        [HttpGet("public/{requestId:guid}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetPublicReport(Guid requestId)
+        {
+            var result = await _mediator.Send(new GetPublicRequestReportQuery(requestId));
+
+            return result.Match(
+                report => Ok(report),
                 errors => Problem(errors)
             );
         }

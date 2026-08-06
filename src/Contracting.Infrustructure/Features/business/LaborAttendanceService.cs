@@ -372,7 +372,16 @@ namespace Contracting.Infrustructure.Features.business
             return GenericResponse.SuccessResult("Deleted successfully.");
         }
 
-        public async Task<ErrorOr<GetLaborAttendanceRequestDto>> GetByIdAsync(Guid id)
+        public Task<ErrorOr<GetLaborAttendanceRequestDto>> GetByIdAsync(Guid id)
+            => GetByIdCoreAsync(id, applyVisibility: true);
+
+        // Used by the anonymous printable-report endpoint: the visibility filter
+        // reads CurrentUser and would return an empty set for anonymous callers.
+        // Access control for this path is the unguessable request GUID.
+        public Task<ErrorOr<GetLaborAttendanceRequestDto>> GetByIdForPublicReportAsync(Guid id)
+            => GetByIdCoreAsync(id, applyVisibility: false);
+
+        private async Task<ErrorOr<GetLaborAttendanceRequestDto>> GetByIdCoreAsync(Guid id, bool applyVisibility)
         {
             var query = _db.LaborAttendanceRequests
                 .Include(r => r.Project)
@@ -388,7 +397,8 @@ namespace Contracting.Infrustructure.Features.business
                 .Where(r => r.Id == id && !r.IsDeleted)
                 .AsNoTracking();
 
-            query = await ApplyLaborAttendanceVisibilityAsync(query);
+            if (applyVisibility)
+                query = await ApplyLaborAttendanceVisibilityAsync(query);
             var request = await query.FirstOrDefaultAsync();
 
             if (request is null) return Error.NotFound("LaborAttendance.NotFound", "Labor attendance request not found.");

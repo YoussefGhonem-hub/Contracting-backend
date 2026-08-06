@@ -6,6 +6,7 @@ using Contracting.Application.Features.Business.FinancialClearance.Command.TakeA
 using Contracting.Application.Features.Business.FinancialClearance.Command.UpdateFinancialClearance;
 using Contracting.Application.Features.Business.FinancialClearance.Query.GetAllFinancialClearances;
 using Contracting.Application.Features.Business.FinancialClearance.Query.GetFinancialClearanceById;
+using Contracting.Application.Features.Business.FinancialClearance.Query.GetPublicFinancialClearanceReport;
 using Contracting.Shared.BusinessDtos.FinancialClearanceDto;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -46,6 +47,16 @@ namespace Contracting.API.Controllers
         public async Task<IActionResult> GetById(Guid id)
         {
             var result = await _mediator.Send(new GetFinancialClearanceByIdQuery(id));
+            return result.Match(r => Ok(r), errors => Problem(errors));
+        }
+
+        // Public printable report — anonymous access by unguessable GUID.
+        // Returns the clearance + creator/approver signatories with signature URLs.
+        [HttpGet("public/{id:guid}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetPublicReport(Guid id)
+        {
+            var result = await _mediator.Send(new GetPublicFinancialClearanceReportQuery(id));
             return result.Match(r => Ok(r), errors => Problem(errors));
         }
 

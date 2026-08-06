@@ -11,6 +11,8 @@ namespace Contracting.Infrustructure.Inteface.business
         Task<ErrorOr<GetLaborAttendanceRequestDto>> UpdateAsync(UpdateLaborAttendanceRequestDto dto);
         Task<ErrorOr<GenericResponse>> DeleteAsync(Guid id);
         Task<ErrorOr<GetLaborAttendanceRequestDto>> GetByIdAsync(Guid id);
+        /// <summary>Anonymous printable-report read — skips the CurrentUser visibility filter.</summary>
+        Task<ErrorOr<GetLaborAttendanceRequestDto>> GetByIdForPublicReportAsync(Guid id);
         Task<PaginatedList<GetLaborAttendanceRequestDto>> GetAllAsync(LaborAttendanceFilterDto filter);
         Task<ErrorOr<GetLaborAttendanceRequestDto>> TakeActionAsync(Guid id, LaborAttendanceActionDto dto);
         Task<ErrorOr<GetLaborAttendanceRequestDto>> ReassignAsync(Guid id, ReassignLaborAttendanceDto dto);

@@ -6,6 +6,7 @@ using Contracting.Application.Features.Business.LaborAttendance.Command.TakeActi
 using Contracting.Application.Features.Business.LaborAttendance.Command.UpdateLaborAttendance;
 using Contracting.Application.Features.Business.LaborAttendance.Query.GetAllLaborAttendances;
 using Contracting.Application.Features.Business.LaborAttendance.Query.GetLaborAttendanceById;
+using Contracting.Application.Features.Business.LaborAttendance.Query.GetPublicLaborAttendanceReport;
 using Contracting.Shared.BusinessDtos.LaborAttendanceDto;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -46,6 +47,16 @@ namespace Contracting.API.Controllers
         public async Task<IActionResult> GetById(Guid id)
         {
             var result = await _mediator.Send(new GetLaborAttendanceByIdQuery(id));
+            return result.Match(r => Ok(r), errors => Problem(errors));
+        }
+
+        // Public printable report — anonymous access by unguessable GUID.
+        // Returns the request + creator/approver signatories with signature URLs.
+        [HttpGet("public/{id:guid}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetPublicReport(Guid id)
+        {
+            var result = await _mediator.Send(new GetPublicLaborAttendanceReportQuery(id));
             return result.Match(r => Ok(r), errors => Problem(errors));
         }
 

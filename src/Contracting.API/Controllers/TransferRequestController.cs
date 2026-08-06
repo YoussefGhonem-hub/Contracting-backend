@@ -4,6 +4,7 @@ using Contracting.Application.Features.Business.TransferRequest.Command.DeleteTr
 using Contracting.Application.Features.Business.TransferRequest.Command.TakeActionTransferRequest;
 using Contracting.Application.Features.Business.TransferRequest.Command.UpdateTransferRequest;
 using Contracting.Application.Features.Business.TransferRequest.Query.GetAllTransferRequests;
+using Contracting.Application.Features.Business.TransferRequest.Query.GetPublicTransferRequestReport;
 using Contracting.Application.Features.Business.TransferRequest.Query.GetTransferRequestById;
 using Contracting.Shared.BusinessDtos.TransferRequestDto;
 using MediatR;
@@ -45,6 +46,16 @@ namespace Contracting.API.Controllers
         public async Task<IActionResult> GetById(Guid id)
         {
             var result = await _mediator.Send(new GetTransferRequestByIdQuery(id));
+            return result.Match(r => Ok(r), errors => Problem(errors));
+        }
+
+        // Public printable report — anonymous access by unguessable GUID.
+        // Returns the transfer + creator/receiver signatories with signature URLs.
+        [HttpGet("public/{id:guid}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetPublicReport(Guid id)
+        {
+            var result = await _mediator.Send(new GetPublicTransferRequestReportQuery(id));
             return result.Match(r => Ok(r), errors => Problem(errors));
         }
 
