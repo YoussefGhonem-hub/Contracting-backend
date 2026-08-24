@@ -66,6 +66,7 @@ public static class DependencyInjection
         services.AddScoped<IEngineerService, EngineerService>();
         services.AddScoped<IProjectService, ProjectService>();
         services.AddScoped<IPriorityService, PriorityService>();
+        services.AddScoped<IRequestTypeDefaultDepartmentService, RequestTypeDefaultDepartmentService>();
         services.AddScoped<IStatueService, StatueService>();
         services.AddScoped<IEngineerRequestService, EngineerRequestService>();
         services.AddScoped<IEngineerRequestAnalysisService, EngineerRequestAnalysisService>();
