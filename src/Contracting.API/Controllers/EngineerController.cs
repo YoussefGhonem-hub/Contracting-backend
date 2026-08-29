@@ -10,6 +10,7 @@ using Contracting.Application.Features.Master.Engineer.Query.GetEngineerListByBr
 using Contracting.Application.Features.Master.Engineer.Query.GetEngineerProjects;
 using Contracting.Application.Features.Business.EngineerRequest.Query.GetEngineerRequestCountByStatus;
 using Contracting.Application.Features.Master.Engineer.Query.GetEngineerDepartments;
+using Contracting.Application.Features.Master.Engineer.Query.GetEngineerSignature;
 using Contracting.Application.Features.Master.Engineer.Command.UpdateEngineerProjectFeatures;
 using Contracting.Shared.Dtos;
 using Contracting.Shared.Dtos.MasterDtos.EngineerDto;
@@ -131,6 +132,19 @@ namespace Contracting.API.Controllers
 
             return result.Match(
                 counts => Ok(counts),
+                errors => Problem(errors)
+            );
+        }
+
+        // Get Engineer Signature (employeeId = Engineer.Id)
+        [HttpGet("{engineerId:guid}/signature")]
+        public async Task<IActionResult> GetSignature(Guid engineerId)
+        {
+            var query = new GetEngineerSignatureQuery(engineerId);
+            var result = await _mediator.Send(query);
+
+            return result.Match(
+                signature => Ok(signature),
                 errors => Problem(errors)
             );
         }

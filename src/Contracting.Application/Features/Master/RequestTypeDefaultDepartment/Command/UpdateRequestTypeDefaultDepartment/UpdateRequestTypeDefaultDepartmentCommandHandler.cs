@@ -18,9 +18,17 @@ namespace Contracting.Application.Features.Master.RequestTypeDefaultDepartment.C
         {
             var result = await _service.UpdateAsync(request.Dto);
 
-            return result is null
-                ? Error.NotFound("RequestTypeDefaultDepartment.NotFound", "Config not found, or the department does not belong to this branch.")
-                : result;
+            if (result.Success)
+                return result.Data!;
+
+            return result.FailureReason switch
+            {
+                RequestTypeDefaultDepartmentFailureReason.NotFound =>
+                    Error.NotFound("RequestTypeDefaultDepartment.NotFound", "Config not found."),
+                RequestTypeDefaultDepartmentFailureReason.InvalidDepartment =>
+                    Error.Validation("RequestTypeDefaultDepartment.InvalidDepartment", "The department does not exist or does not belong to this branch."),
+                _ => Error.Failure("RequestTypeDefaultDepartment.UpdateFailed", "Could not update the default department.")
+            };
         }
     }
 }

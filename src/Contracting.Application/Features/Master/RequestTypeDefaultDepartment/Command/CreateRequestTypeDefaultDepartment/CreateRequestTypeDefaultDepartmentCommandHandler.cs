@@ -18,9 +18,20 @@ namespace Contracting.Application.Features.Master.RequestTypeDefaultDepartment.C
         {
             var result = await _service.CreateAsync(request.Dto);
 
-            return result is null
-                ? Error.Failure("RequestTypeDefaultDepartment.CreateFailed", "Could not create the default department — the department may not exist in this branch, or a default is already configured for this branch/request type.")
-                : result;
+            if (result.Success)
+                return result.Data!;
+
+            return result.FailureReason switch
+            {
+                RequestTypeDefaultDepartmentFailureReason.AlreadyExists =>
+                    Error.Conflict("RequestTypeDefaultDepartment.AlreadyExists",
+                        $"A default department is already configured for '{request.Dto.RequestType}' on this branch: " +
+                        $"'{result.ExistingConfig!.DepartmentNameEn}' (departmentId: {result.ExistingConfig.DepartmentId}, configId: {result.ExistingConfig.Id}). " +
+                        "Use PUT /api/RequestTypeDefaultDepartment with that configId to change it instead of creating a new one."),
+                RequestTypeDefaultDepartmentFailureReason.InvalidDepartment =>
+                    Error.Validation("RequestTypeDefaultDepartment.InvalidDepartment", "The department does not exist or does not belong to this branch."),
+                _ => Error.Failure("RequestTypeDefaultDepartment.CreateFailed", "Could not create the default department.")
+            };
         }
     }
 }

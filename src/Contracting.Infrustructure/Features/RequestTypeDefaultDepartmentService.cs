@@ -20,16 +20,28 @@ namespace Contracting.Infrustructure.Features
             _localizer = localizer;
         }
 
-        public async Task<GetRequestTypeDefaultDepartmentDto?> CreateAsync(CreateRequestTypeDefaultDepartmentDto dto)
+        public async Task<RequestTypeDefaultDepartmentResult> CreateAsync(CreateRequestTypeDefaultDepartmentDto dto)
         {
             var department = await _db.Departmentes.FirstOrDefaultAsync(d => d.Id == dto.DepartmentId);
             if (department is null || department.BranchId != dto.BranchId)
-                return null;
+                return RequestTypeDefaultDepartmentResult.Fail(RequestTypeDefaultDepartmentFailureReason.InvalidDepartment);
 
-            var alreadyConfigured = await _db.RequestTypeDefaultDepartments
-                .AnyAsync(x => x.BranchId == dto.BranchId && x.RequestType == dto.RequestType);
-            if (alreadyConfigured)
-                return null;
+            var existing = await _db.RequestTypeDefaultDepartments
+                .Where(x => x.BranchId == dto.BranchId && x.RequestType == dto.RequestType)
+                .Include(x => x.Department)
+                .AsNoTracking()
+                .Select(x => new GetRequestTypeDefaultDepartmentDto
+                {
+                    Id = x.Id,
+                    BranchId = x.BranchId,
+                    RequestType = x.RequestType,
+                    DepartmentId = x.DepartmentId,
+                    DepartmentNameEn = x.Department.nameEn,
+                    DepartmentNameAr = x.Department.nameAr
+                })
+                .FirstOrDefaultAsync();
+            if (existing is not null)
+                return RequestTypeDefaultDepartmentResult.Conflict(existing);
 
             var entity = new RequestTypeDefaultDepartment
             {
@@ -41,23 +53,25 @@ namespace Contracting.Infrustructure.Features
             await _db.RequestTypeDefaultDepartments.AddAsync(entity);
             await _db.SaveChangesAsync();
 
-            return await GetByIdAsync(entity.Id);
+            var created = await GetByIdAsync(entity.Id);
+            return RequestTypeDefaultDepartmentResult.Ok(created!);
         }
 
-        public async Task<GetRequestTypeDefaultDepartmentDto?> UpdateAsync(UpdateRequestTypeDefaultDepartmentDto dto)
+        public async Task<RequestTypeDefaultDepartmentResult> UpdateAsync(UpdateRequestTypeDefaultDepartmentDto dto)
         {
             var entity = await _db.RequestTypeDefaultDepartments.FirstOrDefaultAsync(x => x.Id == dto.Id);
             if (entity is null)
-                return null;
+                return RequestTypeDefaultDepartmentResult.Fail(RequestTypeDefaultDepartmentFailureReason.NotFound);
 
             var department = await _db.Departmentes.FirstOrDefaultAsync(d => d.Id == dto.DepartmentId);
             if (department is null || department.BranchId != entity.BranchId)
-                return null;
+                return RequestTypeDefaultDepartmentResult.Fail(RequestTypeDefaultDepartmentFailureReason.InvalidDepartment);
 
             entity.DepartmentId = dto.DepartmentId;
             await _db.SaveChangesAsync();
 
-            return await GetByIdAsync(entity.Id);
+            var updated = await GetByIdAsync(entity.Id);
+            return RequestTypeDefaultDepartmentResult.Ok(updated!);
         }
 
         public async Task<GenericResponse> DeleteAsync(Guid id)
