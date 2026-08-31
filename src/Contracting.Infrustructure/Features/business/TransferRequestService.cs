@@ -321,6 +321,21 @@ namespace Contracting.Infrustructure.Features.business
                         return Error.Validation("TransferRequest.InvalidAction", "Closed requests cannot be cancelled.");
                     toStatusId = s.Rejected;
                     break;
+                case "hold":
+                case "on_hold":
+                    if (!s.Hold.HasValue)
+                        return Error.Validation("TransferRequest.HoldNotConfigured", "The 'On Hold' status is not configured.");
+                    if (request.StatusId == s.Completed || request.StatusId == s.Rejected)
+                        return Error.Validation("TransferRequest.InvalidAction", "Cannot put a completed or cancelled request on hold.");
+                    if (request.StatusId == s.Hold.Value)
+                        return Error.Validation("TransferRequest.AlreadyOnHold", "This request is already on hold.");
+                    toStatusId = s.Hold.Value;
+                    break;
+                case "resume":
+                    if (!s.Hold.HasValue || request.StatusId != s.Hold.Value)
+                        return Error.Validation("TransferRequest.InvalidAction", "Only on-hold requests can be resumed.");
+                    toStatusId = s.InProgress;
+                    break;
                 default:
                     return Error.Validation("TransferRequest.UnknownAction", $"Unknown action: {dto.ActionType}");
             }
