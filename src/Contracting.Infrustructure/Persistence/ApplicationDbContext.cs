@@ -74,6 +74,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<ProjectDrawing> ProjectDrawings => Set<ProjectDrawing>();
     public DbSet<ThreeDFolder>   ThreeDFolders   => Set<ThreeDFolder>();
     public DbSet<ThreeDImage>    ThreeDImages    => Set<ThreeDImage>();
+    public DbSet<TwoDFolder>     TwoDFolders     => Set<TwoDFolder>();
+    public DbSet<TwoDImage>      TwoDImages      => Set<TwoDImage>();
 
     // Transfer Request
     public DbSet<TransferRequest> TransferRequests => Set<TransferRequest>();

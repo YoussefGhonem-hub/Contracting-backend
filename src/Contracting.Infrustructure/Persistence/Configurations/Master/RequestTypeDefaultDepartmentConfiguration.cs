@@ -12,8 +12,12 @@ namespace Contracting.Infrustructure.Persistence.Configurations.Master
 
             builder.Property(x => x.RequestType).HasMaxLength(50).IsRequired();
 
-            // One default department per (branch, request type)
-            builder.HasIndex(x => new { x.BranchId, x.RequestType }).IsUnique();
+            // One default department per (branch, request type) — filtered to active rows only,
+            // so a soft-deleted config (IsDeleted = true) doesn't permanently block recreating one
+            // for the same branch/request type.
+            builder.HasIndex(x => new { x.BranchId, x.RequestType })
+                .IsUnique()
+                .HasFilter("[IsDeleted] = 0");
 
             builder.HasOne(x => x.Branch).WithMany().HasForeignKey(x => x.BranchId).OnDelete(DeleteBehavior.Restrict);
             builder.HasOne(x => x.Department).WithMany().HasForeignKey(x => x.DepartmentId).OnDelete(DeleteBehavior.Restrict);
