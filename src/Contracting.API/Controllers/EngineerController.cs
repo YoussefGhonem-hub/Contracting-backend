@@ -138,6 +138,7 @@ namespace Contracting.API.Controllers
 
         // Get Engineer Signature (employeeId = Engineer.Id)
         [HttpGet("{engineerId:guid}/signature")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetSignature(Guid engineerId)
         {
             var query = new GetEngineerSignatureQuery(engineerId);

@@ -85,6 +85,7 @@ public static class DependencyInjection
         services.AddScoped<IClientScheduleService, ClientScheduleService>();
         services.AddScoped<IClientDrawingService, ClientDrawingService>();
         services.AddScoped<IThreeDFolderService, ThreeDFolderService>();
+        services.AddScoped<ITwoDFolderService, TwoDFolderService>();
         services.AddScoped<IPerformanceAnalyticsService, PerformanceAnalyticsService>();
         services.AddScoped<IChatService, ChatService>();
         services.AddScoped<IFirebaseService, FirebaseService>();

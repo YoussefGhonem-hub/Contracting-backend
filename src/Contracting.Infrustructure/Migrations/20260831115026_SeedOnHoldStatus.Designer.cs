@@ -4,6 +4,7 @@ using Contracting.Infrustructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Contracting.Infrustructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260831115026_SeedOnHoldStatus")]
+    partial class SeedOnHoldStatus
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2897,126 +2900,6 @@ namespace Contracting.Infrustructure.Migrations
                     b.ToTable("ThreeDImages", "client");
                 });
 
-            modelBuilder.Entity("Contracting.Domain.Entities.client.TwoDFolder", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("CoverKey")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<string>("CoverUrl")
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
-
-                    b.Property<Guid>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset>("CreatedDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset?>("DeletedDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<Guid?>("ModifiedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset?>("ModifiedDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<Guid>("ProjectId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<Guid>("UploadedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("IsDeleted");
-
-                    b.HasIndex("ProjectId");
-
-                    b.HasIndex("UploadedBy");
-
-                    b.ToTable("TwoDFolders", "client");
-                });
-
-            modelBuilder.Entity("Contracting.Domain.Entities.client.TwoDImage", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset>("CreatedDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset?>("DeletedDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("Extension")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("FileName")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<long?>("FileSize")
-                        .HasColumnType("bigint");
-
-                    b.Property<Guid>("FolderId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Key")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<Guid?>("ModifiedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTimeOffset?>("ModifiedDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<Guid>("UploadedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Url")
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("FolderId");
-
-                    b.HasIndex("IsDeleted");
-
-                    b.HasIndex("UploadedBy");
-
-                    b.ToTable("TwoDImages", "client");
-                });
-
             modelBuilder.Entity("Contracting.Domain.Entities.client.VariationOrder", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4154,8 +4037,7 @@ namespace Contracting.Infrustructure.Migrations
                     b.HasIndex("IsDeleted");
 
                     b.HasIndex("BranchId", "RequestType")
-                        .IsUnique()
-                        .HasFilter("[IsDeleted] = 0");
+                        .IsUnique();
 
                     b.ToTable("RequestTypeDefaultDepartments", "master");
                 });
@@ -5182,44 +5064,6 @@ namespace Contracting.Infrustructure.Migrations
                     b.Navigation("UploadedByUser");
                 });
 
-            modelBuilder.Entity("Contracting.Domain.Entities.client.TwoDFolder", b =>
-                {
-                    b.HasOne("Contracting.Domain.Entities.master.Project", "Project")
-                        .WithMany()
-                        .HasForeignKey("ProjectId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Contracting.Domain.Entities.ApplicationUser", "UploadedByUser")
-                        .WithMany()
-                        .HasForeignKey("UploadedBy")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Project");
-
-                    b.Navigation("UploadedByUser");
-                });
-
-            modelBuilder.Entity("Contracting.Domain.Entities.client.TwoDImage", b =>
-                {
-                    b.HasOne("Contracting.Domain.Entities.client.TwoDFolder", "Folder")
-                        .WithMany("Images")
-                        .HasForeignKey("FolderId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Contracting.Domain.Entities.ApplicationUser", "UploadedByUser")
-                        .WithMany()
-                        .HasForeignKey("UploadedBy")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Folder");
-
-                    b.Navigation("UploadedByUser");
-                });
-
             modelBuilder.Entity("Contracting.Domain.Entities.client.VariationOrder", b =>
                 {
                     b.HasOne("Contracting.Domain.Entities.master.Engineer", "CreatedByEngineer")
@@ -5570,11 +5414,6 @@ namespace Contracting.Infrustructure.Migrations
                 });
 
             modelBuilder.Entity("Contracting.Domain.Entities.client.ThreeDFolder", b =>
-                {
-                    b.Navigation("Images");
-                });
-
-            modelBuilder.Entity("Contracting.Domain.Entities.client.TwoDFolder", b =>
                 {
                     b.Navigation("Images");
                 });
