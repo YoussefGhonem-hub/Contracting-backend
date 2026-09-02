@@ -10,11 +10,13 @@ namespace Contracting.Infrustructure.Extensions.Helpers
     /// </summary>
     public static class StatusResolver
     {
-        public record RequestStatusIds(Guid New, Guid InProgress, Guid Completed, Guid Rejected, Guid MissingInformation);
+        // Hold is optional (null when the ON_HOLD status has not been seeded yet) so that resolving
+        // statuses never throws on a database that predates the On Hold seed migration.
+        public record RequestStatusIds(Guid New, Guid InProgress, Guid Completed, Guid Rejected, Guid MissingInformation, Guid? Hold = null);
 
         public static async Task<RequestStatusIds> LoadRequestStatusIdsAsync(ApplicationDbContext db)
         {
-            var needed = new[] { MasterStatusCodes.New, MasterStatusCodes.InProgress, MasterStatusCodes.Completed, MasterStatusCodes.Rejected, MasterStatusCodes.MissingInformation };
+            var needed = new[] { MasterStatusCodes.New, MasterStatusCodes.InProgress, MasterStatusCodes.Completed, MasterStatusCodes.Rejected, MasterStatusCodes.MissingInformation, MasterStatusCodes.Hold };
 
             var rows = await db.Statuses
                 .AsNoTracking()
@@ -29,12 +31,15 @@ namespace Contracting.Infrustructure.Extensions.Helpers
                 return row.Id;
             }
 
+            Guid? ResolveOptional(string code) => rows.FirstOrDefault(r => r.Code == code)?.Id;
+
             return new RequestStatusIds(
                 New:                Resolve(MasterStatusCodes.New),
                 InProgress:         Resolve(MasterStatusCodes.InProgress),
                 Completed:          Resolve(MasterStatusCodes.Completed),
                 Rejected:           Resolve(MasterStatusCodes.Rejected),
-                MissingInformation: Resolve(MasterStatusCodes.MissingInformation)
+                MissingInformation: Resolve(MasterStatusCodes.MissingInformation),
+                Hold:               ResolveOptional(MasterStatusCodes.Hold)
             );
         }
     }

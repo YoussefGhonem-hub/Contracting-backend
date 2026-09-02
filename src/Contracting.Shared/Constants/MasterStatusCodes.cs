@@ -11,5 +11,6 @@ namespace Contracting.Shared.Constants
         public const string Completed         = "COMPLETED";
         public const string Rejected          = "REJECTED";
         public const string MissingInformation = "missing_information";
+        public const string Hold              = "ON_HOLD";
     }
 }

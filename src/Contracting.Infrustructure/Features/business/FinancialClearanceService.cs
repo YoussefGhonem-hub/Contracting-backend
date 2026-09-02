@@ -659,8 +659,27 @@ namespace Contracting.Infrustructure.Features.business
                     toStatusId = s.MissingInformation;
                     break;
 
+                case "hold":
+                case "on_hold":
+                    // Any active clearance can be put On Hold; completed/rejected are final.
+                    if (!s.Hold.HasValue)
+                        return Error.Validation("FinancialClearance.HoldNotConfigured", "The 'On Hold' status is not configured.");
+                    if (clearance.StatusId == s.Completed || clearance.StatusId == s.Rejected)
+                        return Error.Validation("FinancialClearance.InvalidAction", "Cannot put a completed or rejected clearance on hold.");
+                    if (clearance.StatusId == s.Hold.Value)
+                        return Error.Validation("FinancialClearance.AlreadyOnHold", "This clearance is already on hold.");
+                    toStatusId = s.Hold.Value;
+                    break;
+
+                case "resume":
+                    // On Hold → In Progress
+                    if (!s.Hold.HasValue || clearance.StatusId != s.Hold.Value)
+                        return Error.Validation("FinancialClearance.InvalidAction", "Only on-hold clearances can be resumed.");
+                    toStatusId = s.InProgress;
+                    break;
+
                 default:
-                    return Error.Validation("FinancialClearance.UnknownAction", $"Unknown action: {dto.ActionType}. Valid values: Assign, Submit, Review, Approve, Close, Reject, MissingInfo");
+                    return Error.Validation("FinancialClearance.UnknownAction", $"Unknown action: {dto.ActionType}. Valid values: Assign, Submit, Review, Approve, Close, Reject, MissingInfo, Hold, Resume");
             }
 
             var now = Contracting.Shared.Common.DateTimeHelper.Now;
