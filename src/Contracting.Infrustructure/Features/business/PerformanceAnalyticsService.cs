@@ -394,7 +394,8 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
 
         // Requests assigned TO these office engineers up to the period end — each engineer's own
         // lower bound (explicit FromDate filter, else EffectiveDate, else CreatedDate) is applied
-        // below, since it can differ per engineer.
+        // below, since it can differ per engineer. This is the only work-item type with an endDate /
+        // IsDeliveryDateConfirmed, so on-time-delivery metrics stay scoped to it below.
         var requests = await _db.EngineerRequests
             .Include(r => r.Priority)
             .Include(r => r.Status)
@@ -407,15 +408,57 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
                      && !r.IsDeleted)
             .ToListAsync(ct);
 
+        // Office engineers also handle Financial Clearance / Labor Attendance / Transfer requests —
+        // separate tables from EngineerRequests. Without these, an engineer whose real workload is
+        // e.g. Financial Clearance approvals shows up as having 0 requests. None of these three has
+        // an endDate/delivery-confirmation concept, so they feed TotalRequests, AvgResponseTimeHours
+        // and WeeklyActivity only — not OnTimeDeliveryRate/DeliveryDateViolations.
+        var financialClearances = await _db.FinancialClearances
+            .Include(r => r.Status)
+            .Include(r => r.Project)
+            .Include(r => r.Activities.Where(a => !a.IsDeleted))
+            .Where(r => r.AssignedToId != null
+                     && engineerIds.Contains(r.AssignedToId!.Value)
+                     && r.CreatedDate < to
+                     && !r.IsDeleted)
+            .ToListAsync(ct);
+
+        var laborRequests = await _db.LaborAttendanceRequests
+            .Include(r => r.Status)
+            .Include(r => r.Project)
+            .Include(r => r.Activities.Where(a => !a.IsDeleted))
+            .Where(r => r.AssignedToId != null
+                     && engineerIds.Contains(r.AssignedToId!.Value)
+                     && r.CreatedDate < to
+                     && !r.IsDeleted)
+            .ToListAsync(ct);
+
+        // TransferRequest has no AssignedToId (and no DepartmentId) — attribute it to whichever
+        // office engineer(s) actually acted on it via its activity log.
+        var transferRequests = await _db.TransferRequests
+            .Include(r => r.Status)
+            .Include(r => r.SourceProject)
+            .Include(r => r.Activities.Where(a => !a.IsDeleted))
+            .Where(r => r.CreatedDate < to
+                     && !r.IsDeleted
+                     && r.Activities.Any(a => a.EngineerId != null && engineerIds.Contains(a.EngineerId!.Value)))
+            .ToListAsync(ct);
+
         var result = new List<OfficeEngineerPerformanceDto>();
 
         foreach (var eng in engineers)
         {
             // Per-engineer analysis start: explicit filter wins, else EffectiveDate, else CreatedDate.
             var myFrom = explicitFrom ?? eng.EffectiveDate ?? eng.CreatedDate.Date;
-            var myRequests = requests.Where(r => r.assignToId == eng.Id && r.CreatedDate >= myFrom).ToList();
+            var myRequests    = requests.Where(r => r.assignToId == eng.Id && r.CreatedDate >= myFrom).ToList();
+            var myClearances  = financialClearances.Where(r => r.AssignedToId == eng.Id && r.CreatedDate >= myFrom).ToList();
+            var myLabor       = laborRequests.Where(r => r.AssignedToId == eng.Id && r.CreatedDate >= myFrom).ToList();
+            var myTransfers   = transferRequests
+                .Where(r => r.CreatedDate >= myFrom && r.Activities.Any(a => a.EngineerId == eng.Id))
+                .ToList();
 
-            // Avg Response Time — from request creation to first activity by this engineer
+            // Avg Response Time — from request creation to first activity by this engineer, across
+            // every work-item type this engineer handles.
             var responseTimes = new List<double>();
             foreach (var req in myRequests)
             {
@@ -432,9 +475,15 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
                     if (hours >= 0) responseTimes.Add(hours);
                 }
             }
+            AddFirstResponseHours(myClearances, r => r.CreatedDate, r => r.Activities, a => a.EngineerId, a => a.CreatedDate, eng.Id, responseTimes);
+            AddFirstResponseHours(myLabor,      r => r.CreatedDate, r => r.Activities, a => a.EngineerId, a => a.CreatedDate, eng.Id, responseTimes);
+            AddFirstResponseHours(myTransfers,  r => r.CreatedDate, r => r.Activities, a => a.EngineerId, a => a.CreatedDate, eng.Id, responseTimes);
+
             double avgResponse = responseTimes.Count > 0
                 ? Math.Round(responseTimes.Average(), 1)
                 : 0;
+
+            int totalRequestsAllTypes = myRequests.Count + myClearances.Count + myLabor.Count + myTransfers.Count;
 
             // On-Time Delivery — use the date of the Completed status activity,
             // falling back to ModifiedDate only if no such activity exists.
@@ -466,20 +515,42 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
                     a.ActionType == nameof(EngineerRequestActionType.Reassigned) ||
                     a.ActionType == nameof(EngineerRequestActionType.StatusChangedAuto)));
 
-            // Weekly Activity Log — last 7 days of the period
+            // Weekly Activity Log — last 7 days of the period, merged across every work-item type
             var weekStart = to.AddDays(-7);
             var weekActivity = myRequests
                 .Where(r => r.CreatedDate >= weekStart)
-                .OrderByDescending(r => r.CreatedDate)
-                .Take(20)
-                .Select(r => new WeeklyActivityDto
+                .Select(r => (r.CreatedDate, Dto: new WeeklyActivityDto
                 {
                     ProjectRef = r.Project?.nameEn,
                     Task       = r.RequestTitle,
                     Complexity = r.Priority?.nameEn,
                     Status     = r.Status?.nameEn,
                     StatusCode = r.Status?.Code
-                })
+                }))
+                .Concat(myClearances.Where(r => r.CreatedDate >= weekStart).Select(r => (r.CreatedDate, Dto: new WeeklyActivityDto
+                {
+                    ProjectRef = r.Project?.nameEn,
+                    Task       = r.ClearanceNumber,
+                    Status     = r.Status?.nameEn,
+                    StatusCode = r.Status?.Code
+                })))
+                .Concat(myLabor.Where(r => r.CreatedDate >= weekStart).Select(r => (r.CreatedDate, Dto: new WeeklyActivityDto
+                {
+                    ProjectRef = r.Project?.nameEn,
+                    Task       = r.RequestNumber,
+                    Status     = r.Status?.nameEn,
+                    StatusCode = r.Status?.Code
+                })))
+                .Concat(myTransfers.Where(r => r.CreatedDate >= weekStart).Select(r => (r.CreatedDate, Dto: new WeeklyActivityDto
+                {
+                    ProjectRef = r.SourceProject?.nameEn,
+                    Task       = r.RequestNumber,
+                    Status     = r.Status?.nameEn,
+                    StatusCode = r.Status?.Code
+                })))
+                .OrderByDescending(a => a.CreatedDate)
+                .Take(20)
+                .Select(a => a.Dto)
                 .ToList();
 
             result.Add(new OfficeEngineerPerformanceDto
@@ -491,7 +562,7 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
                 DepartmentNameEn       = eng.Department?.nameEn,
                 AnalysisFromDate       = myFrom,
                 AvgResponseTimeHours   = avgResponse,
-                TotalRequests          = myRequests.Count,
+                TotalRequests          = totalRequestsAllTypes,
                 OnTimeDeliveryRate     = onTimeRate,
                 OnTimeDeliveries       = onTime,
                 TotalDeliveries        = completed.Count,
@@ -583,6 +654,35 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
             e.RequestQualityScore  * 0.4 +
             (100 - e.UrgentRequestsRatio) * 0.2);
         if (best != null) best.IsTopPerformer = true;
+    }
+
+    // Adds one response-time sample (hours from item creation to this engineer's first activity on
+    // it) per item, for any of the Financial Clearance / Labor Attendance / Transfer request types —
+    // their activity logs are structurally identical (EngineerId + CreatedDate) but don't share a
+    // common interface, so the accessors are passed in rather than duplicating this loop per type.
+    private static void AddFirstResponseHours<TItem, TActivity>(
+        IEnumerable<TItem> items,
+        Func<TItem, DateTimeOffset> createdDateOf,
+        Func<TItem, IEnumerable<TActivity>> activitiesOf,
+        Func<TActivity, Guid?> activityEngineerId,
+        Func<TActivity, DateTimeOffset> activityCreatedDate,
+        Guid engineerId,
+        List<double> responseTimes)
+    {
+        foreach (var item in items)
+        {
+            var createdDate = createdDateOf(item);
+            var firstResponse = activitiesOf(item)
+                .Where(a => activityEngineerId(a) == engineerId)
+                .OrderBy(activityCreatedDate)
+                .Select(a => (DateTimeOffset?)activityCreatedDate(a))
+                .FirstOrDefault();
+
+            if (firstResponse is null) continue;
+
+            var hours = (firstResponse.Value - createdDate).TotalHours;
+            if (hours >= 0) responseTimes.Add(hours);
+        }
     }
 
     private static int CountWorkingDays(DateTime from, DateTime to)
