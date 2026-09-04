@@ -471,7 +471,7 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
 
                 if (firstResponse != null)
                 {
-                    var hours = (firstResponse.CreatedDate - req.CreatedDate).TotalHours;
+                    var hours = BusinessHoursBetween(req.CreatedDate, firstResponse.CreatedDate);
                     if (hours >= 0) responseTimes.Add(hours);
                 }
             }
@@ -501,7 +501,14 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
                     .FirstOrDefault()
                     ?? r.ModifiedDate
                     ?? r.CreatedDate;
-                return completedAt.UtcDateTime <= r.endDate.Value.ToUniversalTime();
+                // Date-only comparison: completing something on its due date (any time that day)
+                // counts as on time — comparing the exact timestamp against midnight of the due date
+                // would make same-day completion "late" for anyone who finishes after 00:00:00.
+                // endDate is a naive DateTime (no offset) representing the intended calendar due
+                // date, so it's compared directly against completedAt's own local date — NOT UTC —
+                // since converting a naive DateTime "to UTC" uses the OS's local timezone rather than
+                // the app's actual business timezone and can silently shift the due date by a day.
+                return completedAt.Date <= r.endDate.Value.Date;
             });
 
             double onTimeRate = completed.Count > 0
@@ -680,16 +687,42 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
 
             if (firstResponse is null) continue;
 
-            var hours = (firstResponse.Value - createdDate).TotalHours;
+            var hours = BusinessHoursBetween(createdDate, firstResponse.Value);
             if (hours >= 0) responseTimes.Add(hours);
         }
     }
+
+    // Elapsed working hours between two timestamps: Friday/Saturday don't count at all, and every
+    // working day in between is capped at an 8-hour workday — so a request that sits untouched
+    // overnight or over the weekend doesn't inflate response-time metrics the way raw wall-clock
+    // hours would. A same-day response still measures the real hours between the two timestamps.
+    private static double BusinessHoursBetween(DateTimeOffset start, DateTimeOffset end)
+    {
+        const double HoursPerWorkday = 8.0;
+        if (end <= start) return 0;
+
+        double hours = 0;
+        for (var day = start.Date; day <= end.Date; day = day.AddDays(1))
+        {
+            if (!IsWorkingDay(day)) continue;
+
+            var dayStart = day == start.Date ? start : new DateTimeOffset(day, start.Offset);
+            var dayEnd   = day == end.Date   ? end   : new DateTimeOffset(day.AddDays(1), start.Offset);
+            var span = (dayEnd - dayStart).TotalHours;
+            hours += Math.Clamp(span, 0, HoursPerWorkday);
+        }
+
+        return hours;
+    }
+
+    private static bool IsWorkingDay(DateTime date) =>
+        date.DayOfWeek != DayOfWeek.Friday && date.DayOfWeek != DayOfWeek.Saturday;
 
     private static int CountWorkingDays(DateTime from, DateTime to)
     {
         int days = 0;
         for (var d = from.Date; d <= to.Date; d = d.AddDays(1))
-            if (d.DayOfWeek != DayOfWeek.Friday && d.DayOfWeek != DayOfWeek.Saturday)
+            if (IsWorkingDay(d))
                 days++;
         return days;
     }
